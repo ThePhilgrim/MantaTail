@@ -1,4 +1,5 @@
 import socket
+import threading
 
 
 class Server:
@@ -14,7 +15,10 @@ class Server:
         while True:
             client, client_address = socket_instance.accept()
             print("Connection", client_address)
-            self.server_echo(client)
+            socket_thread = threading.Thread(
+                target=self.server_echo, args=(client,), daemon=True
+            )
+            socket_thread.start()
 
     def server_echo(self, client) -> None:
         while True:
