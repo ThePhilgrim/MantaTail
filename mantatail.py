@@ -16,7 +16,7 @@ class Server:
             client, client_address = socket_instance.accept()
             print("Connection", client_address)
             socket_thread = threading.Thread(
-                target=self.server_echo, args=(client,), daemon=True
+                target=self.server_echo, args=[client], daemon=True
             )
             socket_thread.start()
 
