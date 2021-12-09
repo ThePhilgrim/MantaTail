@@ -16,17 +16,22 @@ class Server:
             client, client_address = socket_instance.accept()
             print("Connection", client_address)
             socket_thread = threading.Thread(
-                target=self.server_echo, args=[client], daemon=True
+                target=self.message_handler, args=[client], daemon=True
             )
             socket_thread.start()
 
-    def server_echo(self, client) -> None:
+    def message_handler(self, client) -> None:
         while True:
             request = client.recv(1000)
+            decoded_request = request.decode("utf-8")
+            print(decoded_request)
             if not request:
                 break
-            client.send("Received".encode("utf-8") + b"\n")
+            client.send(request)
         print("Connection Closed")
+        # TODO: Handle:
+        #   * Message going to channel -> Send to all connected clients
+        #   * Message to user (privmsg) -> Send only to specified client
 
 
 if __name__ == "__main__":
