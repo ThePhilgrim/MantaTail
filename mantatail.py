@@ -32,14 +32,14 @@ class Server:
     def __init__(self, port: int) -> None:
         self.host = "127.0.0.1"
         self.port = port
+        self.socket_ = socket.socket()
+        self.socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket_.bind((self.host, self.port))
+        self.socket_.listen(5)
 
     def run_server_forever(self) -> None:
-        server_socket = socket.socket()
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.host, self.port))
-        server_socket.listen(5)
         while True:
-            client_socket, client_address = server_socket.accept()
+            client_socket, client_address = self.socket_.accept()
             print("Connection", client_address)
             client_thread = threading.Thread(
                 target=self.recv_loop, args=[client_socket], daemon=True
@@ -52,6 +52,7 @@ class Server:
             # IRC messages always end with b"\r\n"
             while not request.endswith(b"\r\n"):
                 request += client_socket.recv(10)
+
             decoded_message = request.decode("utf-8")
             for line in decoded_message.split("\r\n")[:-1]:
                 if " " in line:
@@ -59,6 +60,7 @@ class Server:
                 else:
                     verb = line
                     message = verb
+
                 handler_function_to_call = "handle_" + verb.lower()
                 command_handler = IrcCommandHandler()
                 call_handler_function = getattr(
