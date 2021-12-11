@@ -1,11 +1,29 @@
+from io import open_code
 import socket
 import threading
+import re
+import json
+import sys
+
+
+try:
+    with open("./resources/irc_response_nums.json", "r") as file:
+        irc_response_nums = json.load(file)
+except FileNotFoundError:
+    sys.exit("FileNotFoundError: Missing resources/irc_response_nums.json")
+
+
+class Channel:
+    def __init__(self):
+        pass
 
 
 class IrcCommandHandler:
     def __init__(self, client_socket):
         self.client_socket = client_socket
         self.encoding = "utf-8"
+        self.send_to_client_prefix = ":mantatail"
+        self.send_to_client_suffix = "\r\n"
 
     def handle_motd(self, user_nick):
         # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
@@ -13,12 +31,9 @@ class IrcCommandHandler:
         motd_num = "375"
         end_num = "376"
 
-        motd_prefix = ":mantatail"
-        motd_suffix = "\r\n"
-
         motd_start_and_end = {
-            "start_msg": f"{motd_prefix} {start_num} {user_nick} :- mantatail Message of the Day - {motd_suffix}",
-            "end_msg": f"{motd_prefix} {end_num} {user_nick} :End of /MOTD command.{motd_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {user_nick} :- mantatail Message of the Day - {self.send_to_client_suffix}",
+            "end_msg": f"{self.send_to_client_prefix} {end_num} {user_nick} :End of /MOTD command.{self.send_to_client_suffix}",
         }
 
         motd = [
@@ -38,7 +53,7 @@ class IrcCommandHandler:
 
         for motd_line in motd:
             motd_msg = bytes(
-                f"{motd_prefix} {motd_num} {user_nick} :{motd_line}{motd_suffix}",
+                f"{self.send_to_client_prefix} {motd_num} {user_nick} :{motd_line}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
             self.client_socket.sendall(motd_msg)
@@ -46,7 +61,17 @@ class IrcCommandHandler:
         self.client_socket.sendall(end_msg)
 
     def handle_join(self, message):
-        pass
+        channel_regex = r"[&#+!][^ \x07,]{1,49}"  # Covers max 200 characters?
+        if not re.match(channel_regex, message):
+            self.client_socket.sendall(
+                bytes(f"{self.send_to_client_prefix} ", encoding=self.encoding)
+            )
+        # TODO: Check for:
+        #   * User invited to channel
+        #   * Nick/user not matching bans
+        #   * Eventual password matches
+        #   * Not joined too many channels
+        print(message[1:])
 
     def handle_part(self, message):
         pass
@@ -98,6 +123,7 @@ class Server:
 
             decoded_message = request.decode("utf-8")
             for line in decoded_message.split("\r\n")[:-1]:
+                print(line)
                 if " " in line:
                     verb, message = line.split(" ", 1)
                 else:
