@@ -3,8 +3,31 @@ import threading
 
 
 class IrcCommandHandler:
-    def __init__(self):
-        pass
+    def __init__(self, client_socket):
+        self.client_socket = client_socket
+
+    def handle_motd(self, user_nick):
+        motd = [
+            f"- Hello {user_nick}, welcome to Mantatail!",
+            "-",
+            "- Mantatail is a free, open-source IRC server released under MIT License",
+            "-",
+            "-",
+            "-",
+            "- For help, please visit https://github.com/ThePhilgrim/MantaTail",
+        ]
+
+        reply_num = "375"  # Should be 375
+        motd_suffix = "\r\n"
+        # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
+
+        for motd_line in motd:
+            motd_prefix = f":mantatail {reply_num} {user_nick} :"
+            message_to_send = bytes(
+                motd_prefix + motd_line + motd_suffix, encoding="utf-8"
+            )
+            self.client_socket.sendall(message_to_send)
+        self.client_socket.sendall(b"Last line with 376\r\n")
 
     def handle_join(self, message):
         print("JOIN MSG:", message)
@@ -22,7 +45,7 @@ class IrcCommandHandler:
         print("NICK MSG:", message)
 
     def handle_user(self, message):
-        print("USER MSG:", message)
+        pass
 
     def handle_privmsg(self, message):
         pass
@@ -32,18 +55,23 @@ class Server:
     def __init__(self, port: int) -> None:
         self.host = "127.0.0.1"
         self.port = port
-        self.socket_ = socket.socket()
-        self.socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket_.bind((self.host, self.port))
-        self.socket_.listen(5)
+        self.listener_socket = socket.socket()
+        self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.listener_socket.bind((self.host, self.port))
+        self.listener_socket.listen(5)
+
+        self.user_nick = None
 
     def run_server_forever(self) -> None:
         while True:
-            client_socket, client_address = self.socket_.accept()
+            client_socket, client_address = self.listener_socket.accept()
+            print(client_socket)
             print("Connection", client_address)
             client_thread = threading.Thread(
                 target=self.recv_loop, args=[client_socket], daemon=True
             )
+            self.irc_command_handler = IrcCommandHandler(client_socket)
+
             client_thread.start()
 
     def recv_loop(self, client_socket) -> None:
@@ -60,11 +88,18 @@ class Server:
                 else:
                     verb = line
                     message = verb
+                print(verb)
+                print(verb.lower())
+                print("VERB:", verb)
+                if verb.lower() == "nick":
+                    print("INSIDE")
+                    self.user_nick = message
+                    self.irc_command_handler.handle_motd(self.user_nick)
 
                 handler_function_to_call = "handle_" + verb.lower()
-                command_handler = IrcCommandHandler()
+
                 call_handler_function = getattr(
-                    command_handler, handler_function_to_call
+                    self.irc_command_handler, handler_function_to_call
                 )
                 call_handler_function(message)
 
