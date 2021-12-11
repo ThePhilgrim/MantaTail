@@ -13,7 +13,7 @@ class IrcCommandHandler:
         pass
 
     def handle_quit(self, message):
-        pass
+        print("Connection closed:", message)
 
     def handle_kick(self, message):
         pass
@@ -54,7 +54,11 @@ class Server:
                 request += client_socket.recv(10)
             decoded_message = request.decode("utf-8")
             for line in decoded_message.split("\r\n")[:-1]:
-                verb, message = line.split(" ", 1)
+                if " " in line:
+                    verb, message = line.split(" ", 1)
+                else:
+                    verb = line
+                    message = verb
                 handler_function_to_call = "handle_" + verb.lower()
                 command_handler = IrcCommandHandler()
                 call_handler_function = getattr(
