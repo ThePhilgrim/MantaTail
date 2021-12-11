@@ -27,13 +27,21 @@ class IrcCommandHandler:
 
     def handle_motd(self, user_nick):
         # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
-        start_num = "372"
-        motd_num = "375"
-        end_num = "376"
+        start_num, start_info = (
+            irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
+            irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
+                "<server>", "mantatail"
+            ),
+        )
+        motd_num = irc_response_nums["command_responses"]["RPL_MOTD"][0]
+        end_num, end_info = (
+            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][0],
+            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][1],
+        )
 
         motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {user_nick} :- mantatail Message of the Day - {self.send_to_client_suffix}",
-            "end_msg": f"{self.send_to_client_prefix} {end_num} {user_nick} :End of /MOTD command.{self.send_to_client_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {user_nick} {start_info}{self.send_to_client_suffix}",
+            "end_msg": f"{self.send_to_client_prefix} {end_num} {user_nick} {end_info}{self.send_to_client_suffix}",
         }
 
         motd = [
