@@ -19,11 +19,9 @@ class User:
         self.host = host
         self.nick = None
         self.user_name = None
-        self.user_mask = None
 
     def create_user_mask(self):
-        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
-        print(self.user_mask)
+        return f"{self.nick}!{self.user_name}@{self.host}"
 
 
 class Channel:
