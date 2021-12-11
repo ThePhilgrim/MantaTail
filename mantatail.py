@@ -7,6 +7,7 @@ import sys
 
 
 try:
+    # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
     with open("./resources/irc_response_nums.json", "r") as file:
         irc_response_nums = json.load(file)
 except FileNotFoundError:
@@ -24,9 +25,10 @@ class IrcCommandHandler:
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
+        self.user_nick = None
 
     def handle_motd(self, user_nick):
-        # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
+        self.user_nick = user_nick
         start_num, start_info = (
             irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
             irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
@@ -40,12 +42,12 @@ class IrcCommandHandler:
         )
 
         motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {user_nick} {start_info}{self.send_to_client_suffix}",
-            "end_msg": f"{self.send_to_client_prefix} {end_num} {user_nick} {end_info}{self.send_to_client_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user_nick} {start_info}{self.send_to_client_suffix}",
+            "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user_nick} {end_info}{self.send_to_client_suffix}",
         }
 
         motd = [
-            f"- Hello {user_nick}, welcome to Mantatail!",
+            f"- Hello {self.user_nick}, welcome to Mantatail!",
             "-",
             "- Mantatail is a free, open-source IRC server released under MIT License",
             "-",
@@ -61,7 +63,7 @@ class IrcCommandHandler:
 
         for motd_line in motd:
             motd_msg = bytes(
-                f"{self.send_to_client_prefix} {motd_num} {user_nick} :{motd_line}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {motd_num} {self.user_nick} :{motd_line}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
             self.client_socket.sendall(motd_msg)
@@ -71,15 +73,23 @@ class IrcCommandHandler:
     def handle_join(self, message):
         channel_regex = r"[&#+!][^ \x07,]{1,49}"  # Covers max 200 characters?
         if not re.match(channel_regex, message):
+            no_channel_num, no_channel_info = (
+                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
+                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][1].replace(
+                    "<channel name>", message
+                ),
+            )
             self.client_socket.sendall(
-                bytes(f"{self.send_to_client_prefix} ", encoding=self.encoding)
+                bytes(
+                    f"{self.send_to_client_prefix} {no_channel_num} {self.user_nick} {no_channel_info}{self.send_to_client_suffix}",
+                    encoding=self.encoding,
+                )
             )
         # TODO: Check for:
         #   * User invited to channel
         #   * Nick/user not matching bans
         #   * Eventual password matches
         #   * Not joined too many channels
-        print(message[1:])
 
     def handle_part(self, message):
         pass
@@ -131,7 +141,7 @@ class Server:
 
             decoded_message = request.decode("utf-8")
             for line in decoded_message.split("\r\n")[:-1]:
-                print(line)
+                # print(line)
                 if " " in line:
                     verb, message = line.split(" ", 1)
                 else:
