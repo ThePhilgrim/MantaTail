@@ -13,7 +13,7 @@ class IrcCommandHandler:
         motd_num = "375"
         end_num = "376"
 
-        motd_prefix = ":mantatail "
+        motd_prefix = ":mantatail"
         motd_suffix = "\r\n"
 
         motd_start_and_end = {
