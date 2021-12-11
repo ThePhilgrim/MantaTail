@@ -5,8 +5,22 @@ import threading
 class IrcCommandHandler:
     def __init__(self, client_socket):
         self.client_socket = client_socket
+        self.encoding = "utf-8"
 
     def handle_motd(self, user_nick):
+        # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
+        start_num = "372"
+        motd_num = "375"
+        end_num = "376"
+
+        motd_prefix = ":mantatail "
+        motd_suffix = "\r\n"
+
+        motd_start_and_end = {
+            "start_msg": f"{motd_prefix} {start_num} {user_nick} :- mantatail Message of the Day - {motd_suffix}",
+            "end_msg": f"{motd_prefix} {end_num} {user_nick} :End of /MOTD command.{motd_suffix}",
+        }
+
         motd = [
             f"- Hello {user_nick}, welcome to Mantatail!",
             "-",
@@ -14,23 +28,33 @@ class IrcCommandHandler:
             "-",
             "-",
             "-",
-            "- For help, please visit https://github.com/ThePhilgrim/MantaTail",
+            "- For more info, please visit https://github.com/ThePhilgrim/MantaTail",
         ]
 
-        reply_num = "375"  # Should be 375
-        motd_suffix = "\r\n"
-        # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
+        start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
+        end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
+
+        self.client_socket.sendall(start_msg)
 
         for motd_line in motd:
-            motd_prefix = f":mantatail {reply_num} {user_nick} :"
-            message_to_send = bytes(
-                motd_prefix + motd_line + motd_suffix, encoding="utf-8"
+            motd_msg = bytes(
+                f"{motd_prefix} {motd_num} {user_nick} :{motd_line}{motd_suffix}",
+                encoding=self.encoding,
             )
-            self.client_socket.sendall(message_to_send)
-        self.client_socket.sendall(b"Last line with 376\r\n")
+            self.client_socket.sendall(motd_msg)
+
+        self.client_socket.sendall(end_msg)
+
+        # for motd_line in motd:
+        #     motd_prefix = f":mantatail {motd_num} {user_nick} :"
+        #     message_to_send = bytes(
+        #         motd_prefix + motd_line + motd_suffix, encoding="utf-8"
+        #     )
+        #     self.client_socket.sendall(message_to_send)
+        # self.client_socket.sendall(b"Last line with 376\r\n")
 
     def handle_join(self, message):
-        print("JOIN MSG:", message)
+        pass
 
     def handle_part(self, message):
         pass
@@ -42,7 +66,7 @@ class IrcCommandHandler:
         pass
 
     def handle_nick(self, message):
-        print("NICK MSG:", message)
+        pass
 
     def handle_user(self, message):
         pass
@@ -65,7 +89,6 @@ class Server:
     def run_server_forever(self) -> None:
         while True:
             client_socket, client_address = self.listener_socket.accept()
-            print(client_socket)
             print("Connection", client_address)
             client_thread = threading.Thread(
                 target=self.recv_loop, args=[client_socket], daemon=True
@@ -88,11 +111,7 @@ class Server:
                 else:
                     verb = line
                     message = verb
-                print(verb)
-                print(verb.lower())
-                print("VERB:", verb)
                 if verb.lower() == "nick":
-                    print("INSIDE")
                     self.user_nick = message
                     self.irc_command_handler.handle_motd(self.user_nick)
 
