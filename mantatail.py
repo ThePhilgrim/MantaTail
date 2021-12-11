@@ -2,38 +2,72 @@ import socket
 import threading
 
 
+class IrcCommandHandler:
+    def __init__(self):
+        pass
+
+    def handle_join(self, message):
+        print("JOIN MSG:", message)
+
+    def handle_part(self, message):
+        pass
+
+    def handle_quit(self, message):
+        pass
+
+    def handle_kick(self, message):
+        pass
+
+    def handle_nick(self, message):
+        print("NICK MSG:", message)
+
+    def handle_user(self, message):
+        print("USER MSG:", message)
+
+    def handle_privmsg(self, message):
+        pass
+
+
 class Server:
     def __init__(self, port: int) -> None:
         self.host = "127.0.0.1"
         self.port = port
 
-    def open_socket(self) -> None:
-        socket_instance = socket.socket()
-        socket_instance.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        socket_instance.bind((self.host, self.port))
-        socket_instance.listen(5)
+    def run_server_forever(self) -> None:
+        server_socket = socket.socket()
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((self.host, self.port))
+        server_socket.listen(5)
         while True:
-            client, client_address = socket_instance.accept()
+            client_socket, client_address = server_socket.accept()
             print("Connection", client_address)
-            socket_thread = threading.Thread(
-                target=self.message_handler, args=[client], daemon=True
+            client_thread = threading.Thread(
+                target=self.recv_loop, args=[client_socket], daemon=True
             )
-            socket_thread.start()
+            client_thread.start()
 
-    def message_handler(self, client) -> None:
+    def recv_loop(self, client_socket) -> None:
         while True:
-            request = client.recv(1000)
-            decoded_request = request.decode("utf-8")
-            print(decoded_request)
+            request = b""
+            # IRC messages always end with b"\r\n"
+            while not request.endswith(b"\r\n"):
+                request += client_socket.recv(10)
+            decoded_message = request.decode("utf-8")
+            for line in decoded_message.split("\r\n")[:-1]:
+                verb, message = line.split(" ", 1)
+                handler_function_to_call = "handle_" + verb.lower()
+                command_handler = IrcCommandHandler()
+                call_handler_function = getattr(
+                    command_handler, handler_function_to_call
+                )
+                call_handler_function(message)
+
             if not request:
                 break
-            client.send(request)
+
         print("Connection Closed")
-        # TODO: Handle:
-        #   * Message going to channel -> Send to all connected clients
-        #   * Message to user (privmsg) -> Send only to specified client
 
 
 if __name__ == "__main__":
-    start_server = Server(25000)
-    start_server.open_socket()
+    server = Server(6667)
+    server.run_server_forever()
