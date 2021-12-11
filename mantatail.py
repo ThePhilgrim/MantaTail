@@ -13,6 +13,18 @@ except FileNotFoundError:
     sys.exit("FileNotFoundError: Missing resources/irc_response_nums.json")
 
 
+class User:
+    def __init__(self, host):
+        self.host = host
+        self.nick = None
+        self.user_name = None
+        self.user_mask = None
+
+    def create_user_mask(self):
+        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
+        print(self.user_mask)
+
+
 class Channel:
     def __init__(self):
         pass
@@ -74,6 +86,10 @@ class IrcCommandHandler:
             self.client_socket.sendall(
                 bytes(f"{self.send_to_client_prefix} ", encoding=self.encoding)
             )
+        else:
+            server.channels[message] = Channel()
+            # print("CHANNELS", server.channels)
+
         # TODO: Check for:
         #   * User invited to channel
         #   * Nick/user not matching bans
@@ -91,10 +107,11 @@ class IrcCommandHandler:
         pass
 
     def handle_nick(self, message):
-        pass
+        server.user.nick = message
 
     def handle_user(self, message):
-        pass
+        server.user.user_name = message.split(" ", 1)[0]
+        server.user.create_user_mask()
 
     def handle_privmsg(self, message):
         pass
@@ -110,11 +127,13 @@ class Server:
         self.listener_socket.listen(5)
 
         self.user_nick = None
+        self.channels = {}
+        # print("CHANNELS", self.channels)
 
     def run_server_forever(self) -> None:
         while True:
             client_socket, client_address = self.listener_socket.accept()
-            print("Connection", client_address)
+            self.user = User(client_address[0])
             client_thread = threading.Thread(
                 target=self.recv_loop, args=[client_socket], daemon=True
             )
