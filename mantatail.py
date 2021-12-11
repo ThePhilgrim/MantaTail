@@ -45,14 +45,6 @@ class IrcCommandHandler:
 
         self.client_socket.sendall(end_msg)
 
-        # for motd_line in motd:
-        #     motd_prefix = f":mantatail {motd_num} {user_nick} :"
-        #     message_to_send = bytes(
-        #         motd_prefix + motd_line + motd_suffix, encoding="utf-8"
-        #     )
-        #     self.client_socket.sendall(message_to_send)
-        # self.client_socket.sendall(b"Last line with 376\r\n")
-
     def handle_join(self, message):
         pass
 
