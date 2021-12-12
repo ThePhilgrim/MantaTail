@@ -15,7 +15,8 @@ except FileNotFoundError:
 
 
 class User:
-    def __init__(self, host):
+    def __init__(self, host, socket):
+        self.socket = socket
         self.host = host
         self.nick = None
         self.user_name = None
@@ -30,15 +31,13 @@ class Channel:
 
 
 class IrcCommandHandler:
-    def __init__(self, client_socket):
-        self.client_socket = client_socket
+    def __init__(self, user):
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
-        self.user_nick = None
+        self.user = user
 
-    def handle_motd(self, user_nick):
-        self.user_nick = user_nick
+    def handle_motd(self):
         start_num, start_info = (
             irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
             irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
@@ -52,12 +51,12 @@ class IrcCommandHandler:
         )
 
         motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user_nick} {start_info}{self.send_to_client_suffix}",
-            "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user_nick} {end_info}{self.send_to_client_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} {start_info}{self.send_to_client_suffix}",
+            "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
         }
 
         motd = [
-            f"- Hello {self.user_nick}, welcome to Mantatail!",
+            f"- Hello {self.user.nick}, welcome to Mantatail!",
             "-",
             "- Mantatail is a free, open-source IRC server released under MIT License",
             "-",
@@ -69,19 +68,19 @@ class IrcCommandHandler:
         start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
 
-        self.client_socket.sendall(start_msg)
+        self.user.socket.sendall(start_msg)
 
         for motd_line in motd:
             motd_msg = bytes(
-                f"{self.send_to_client_prefix} {motd_num} {self.user_nick} :{motd_line}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
-            self.client_socket.sendall(motd_msg)
+            self.user.socket.sendall(motd_msg)
 
-        self.client_socket.sendall(end_msg)
+        self.user.socket.sendall(end_msg)
 
     def handle_join(self, message):
-        channel_regex = r"[&#+!][^ \x07,]{1,49}"  # Covers max 200 characters?
+        channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
         if not re.match(channel_regex, message):
             no_channel_num, no_channel_info = (
                 irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
@@ -89,9 +88,9 @@ class IrcCommandHandler:
                     "<channel name>", message
                 ),
             )
-            self.client_socket.sendall(
+            self.user.socket.sendall(
                 bytes(
-                    f"{self.send_to_client_prefix} {no_channel_num} {self.user_nick} {no_channel_info}{self.send_to_client_suffix}",
+                    f"{self.send_to_client_prefix} {no_channel_num} {self.user.nick} {no_channel_info}{self.send_to_client_suffix}",
                     encoding=self.encoding,
                 )
             )
@@ -115,11 +114,10 @@ class IrcCommandHandler:
         pass
 
     def handle_nick(self, message):
-        server.user.nick = message
+        self.user.nick = message
 
     def handle_user(self, message):
-        server.user.user_name = message.split(" ", 1)[0]
-        server.user.create_user_mask()
+        self.user.user_name = message.split(" ", 1)[0]
 
     def handle_privmsg(self, message):
         pass
@@ -134,27 +132,27 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.user_nick = None
+        # self.user_nick = None
         self.channels = {}
         # print("CHANNELS", self.channels)
 
     def run_server_forever(self) -> None:
         while True:
-            client_socket, client_address = self.listener_socket.accept()
-            self.user = User(client_address[0])
+            user_socket, user_address = self.listener_socket.accept()
+            user = User(user_address[0], user_socket)
             client_thread = threading.Thread(
-                target=self.recv_loop, args=[client_socket], daemon=True
+                target=self.recv_loop, args=[user], daemon=True
             )
-            self.irc_command_handler = IrcCommandHandler(client_socket)
+            self.irc_command_handler = IrcCommandHandler(user)
 
             client_thread.start()
 
-    def recv_loop(self, client_socket) -> None:
+    def recv_loop(self, user) -> None:
         while True:
             request = b""
             # IRC messages always end with b"\r\n"
             while not request.endswith(b"\r\n"):
-                request += client_socket.recv(10)
+                request += user.socket.recv(10)
 
             decoded_message = request.decode("utf-8")
             for line in decoded_message.split("\r\n")[:-1]:
@@ -165,8 +163,8 @@ class Server:
                     verb = line
                     message = verb
                 if verb.lower() == "nick":
-                    self.user_nick = message
-                    self.irc_command_handler.handle_motd(self.user_nick)
+                    user.nick = message
+                    self.irc_command_handler.handle_motd()
 
                 handler_function_to_call = "handle_" + verb.lower()
 
