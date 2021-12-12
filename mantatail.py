@@ -27,14 +27,15 @@ class User:
 
 class Channel:
     def __init__(self):
-        pass
+        self.user_list = {}
 
 
 class IrcCommandHandler:
-    def __init__(self, user):
+    def __init__(self, server, user):
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
+        self.server = server
         self.user = user
 
     def handle_motd(self):
@@ -81,6 +82,7 @@ class IrcCommandHandler:
 
     def handle_join(self, message):
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+
         if not re.match(channel_regex, message):
             no_channel_num, no_channel_info = (
                 irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
@@ -88,15 +90,17 @@ class IrcCommandHandler:
                     "<channel name>", message
                 ),
             )
-            self.user.socket.sendall(
-                bytes(
-                    f"{self.send_to_client_prefix} {no_channel_num} {self.user.nick} {no_channel_info}{self.send_to_client_suffix}",
-                    encoding=self.encoding,
-                )
-            )
+
+            self.generate_error_reply(no_channel_num, no_channel_info)
+
         else:
-            server.channels[message] = Channel()
-            # print("CHANNELS", server.channels)
+            if not message in self.server.channels.keys():
+                self.server.channels[message] = Channel()
+
+            if self.user.nick in self.server.channels[message].user_list.keys():
+                return
+            else:
+                self.server.channels[message].user_list[self.user.nick] = self.user
 
         # TODO: Check for:
         #   * User invited to channel
@@ -122,6 +126,14 @@ class IrcCommandHandler:
     def handle_privmsg(self, message):
         pass
 
+    def generate_error_reply(self, error_num, error_info):
+        self.user.socket.sendall(
+            bytes(
+                f"{self.send_to_client_prefix} {error_num} {self.user.nick} {error_info}{self.send_to_client_suffix}",
+                encoding=self.encoding,
+            )
+        )
+
 
 class Server:
     def __init__(self, port: int) -> None:
@@ -132,7 +144,6 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        # self.user_nick = None
         self.channels = {}
         # print("CHANNELS", self.channels)
 
@@ -140,14 +151,14 @@ class Server:
         while True:
             user_socket, user_address = self.listener_socket.accept()
             user = User(user_address[0], user_socket)
+            command_handler = IrcCommandHandler(self, user)
             client_thread = threading.Thread(
-                target=self.recv_loop, args=[user], daemon=True
+                target=self.recv_loop, args=[user, command_handler], daemon=True
             )
-            self.irc_command_handler = IrcCommandHandler(user)
 
             client_thread.start()
 
-    def recv_loop(self, user) -> None:
+    def recv_loop(self, user, command_handler) -> None:
         while True:
             request = b""
             # IRC messages always end with b"\r\n"
@@ -164,12 +175,13 @@ class Server:
                     message = verb
                 if verb.lower() == "nick":
                     user.nick = message
-                    self.irc_command_handler.handle_motd()
+                    command_handler.handle_motd()
 
+                # ex. "handle_nick" or "handle_join"
                 handler_function_to_call = "handle_" + verb.lower()
 
                 call_handler_function = getattr(
-                    self.irc_command_handler, handler_function_to_call
+                    command_handler, handler_function_to_call
                 )
                 call_handler_function(message)
 
