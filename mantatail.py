@@ -112,7 +112,7 @@ class IrcCommandHandler:
         pass
 
     def handle_quit(self, message):
-        print("Connection closed:", message)
+        pass
 
     def handle_kick(self, message):
         pass
@@ -125,6 +125,16 @@ class IrcCommandHandler:
 
     def handle_privmsg(self, message):
         pass
+
+    def handle_unknown_command(self, command):
+        unknown_cmd_num, unknown_cmd_info = (
+            irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][0],
+            irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][1].replace(
+                "<command>", command
+            ),
+        )
+
+        self.generate_error_reply(unknown_cmd_num, unknown_cmd_info)
 
     def generate_error_reply(self, error_num, error_info):
         self.user.socket.sendall(
@@ -144,6 +154,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
+        self.supported_commands = ["nick", "user", "join"]
         self.channels = {}
         # print("CHANNELS", self.channels)
 
@@ -173,12 +184,17 @@ class Server:
                 else:
                     verb = line
                     message = verb
-                if verb.lower() == "nick":
+
+                verb_lower = verb.lower()
+
+                if verb_lower == "nick":
                     user.nick = message
                     command_handler.handle_motd()
 
+                if verb_lower not in self.supported_commands:
+                    command_handler.handle_unknown_command(verb_lower)
                 # ex. "handle_nick" or "handle_join"
-                handler_function_to_call = "handle_" + verb.lower()
+                handler_function_to_call = "handle_" + verb_lower
 
                 call_handler_function = getattr(
                     command_handler, handler_function_to_call
