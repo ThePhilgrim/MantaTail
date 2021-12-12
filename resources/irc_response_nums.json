@@ -4,7 +4,8 @@
         "ERR_NOSUCHSERVER": ["402", "<server name> :No such server"],
         "ERR_NOSUCHCHANNEL": ["403", "<channel name> :No such channel"],
         "ERR_CANNOTSENDTOCHAN": ["404", "<channel name> :Cannot send to channel"],
-        "ERR_TOOMANYCHANNELS": ["404", "<channel name> :You have joined too many channels"] 
+        "ERR_TOOMANYCHANNELS": ["404", "<channel name> :You have joined too many channels"] ,
+        "ERR_UNKNOWNCOMMAND": ["421", "\"<command>\" :Unknown command"]
     },
     "command_responses": {
         "RPL_MOTDSTART": ["375", ":- <server> Message of the day - "],
