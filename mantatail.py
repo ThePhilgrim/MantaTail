@@ -5,13 +5,7 @@ import re
 import json
 import sys
 
-
-try:
-    # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
-    with open("./resources/irc_response_nums.json", "r") as file:
-        irc_response_nums = json.load(file)
-except FileNotFoundError:
-    sys.exit("FileNotFoundError: Missing resources/irc_response_nums.json")
+import get_irc_response_args
 
 
 class User:
@@ -39,41 +33,24 @@ class IrcCommandHandler:
         self.user = user
 
     def handle_motd(self):
-        start_num, start_info = (
-            irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
-            irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
-                "<server>", "mantatail"
-            ),
-        )
-        motd_num = irc_response_nums["command_responses"]["RPL_MOTD"][0]
-        end_num, end_info = (
-            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][0],
-            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][1],
-        )
+        start_num, start_info = get_irc_response_args.motd_start_message()
+        motd_num = get_irc_response_args.motd_num()
+        end_num, end_info = get_irc_response_args.motd_end_message()
 
         motd_start_and_end = {
             "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} {start_info}{self.send_to_client_suffix}",
             "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
         }
 
-        motd = [
-            f"- Hello {self.user.nick}, welcome to Mantatail!",
-            "-",
-            "- Mantatail is a free, open-source IRC server released under MIT License",
-            "-",
-            "-",
-            "-",
-            "- For more info, please visit https://github.com/ThePhilgrim/MantaTail",
-        ]
-
         start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
+        motd = get_irc_response_args.motd()
 
         self.user.socket.sendall(start_msg)
 
         for motd_line in motd:
             motd_msg = bytes(
-                f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line.format(user_nick=self.user.nick)}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
             self.user.socket.sendall(motd_msg)
@@ -84,14 +61,12 @@ class IrcCommandHandler:
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
         if not re.match(channel_regex, message):
-            no_channel_num, no_channel_info = (
-                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
-                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][1].replace(
-                    "<channel name>", message
-                ),
-            )
+            self.handle_no_such_channel(message)
+            # no_channel_num, no_channel_info = get_irc_response_args.no_such_channel(
+            #     message
+            # )
 
-            self.generate_error_reply(no_channel_num, no_channel_info)
+            # self.generate_error_reply(no_channel_num, no_channel_info)
 
         else:
             if not message in self.server.channels.keys():
@@ -109,7 +84,19 @@ class IrcCommandHandler:
         #   * Not joined too many channels
 
     def handle_part(self, message):
-        pass
+        if message not in self.server.channels.keys():
+            self.handle_no_such_channel(message)
+        elif self.user.nick not in self.server.channels[message].user_list.keys():
+            (
+                not_on_channel_num,
+                not_on_channel_info,
+            ) = get_irc_response_args.not_on_channel(message)
+
+            self.generate_error_reply(not_on_channel_num, not_on_channel_info)
+        else:
+            del self.server.channels[message].user_list[self.user.nick]
+            if len(self.server.channels[message].user_list.keys()) == 0:
+                del self.server.channels[message]
 
     def handle_quit(self, message):
         pass
@@ -127,14 +114,16 @@ class IrcCommandHandler:
         pass
 
     def handle_unknown_command(self, command):
-        unknown_cmd_num, unknown_cmd_info = (
-            irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][0],
-            irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][1].replace(
-                "<command>", command
-            ),
+        unknown_cmd_num, unknown_cmd_info = get_irc_response_args.unknown_command(
+            command
         )
 
         self.generate_error_reply(unknown_cmd_num, unknown_cmd_info)
+
+    def handle_no_such_channel(self, message):
+        no_channel_num, no_channel_info = get_irc_response_args.no_such_channel(message)
+
+        self.generate_error_reply(no_channel_num, no_channel_info)
 
     def generate_error_reply(self, error_num, error_info):
         self.user.socket.sendall(
@@ -154,7 +143,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.supported_commands = ["nick", "user", "join"]
+        self.supported_commands = ["nick", "user", "join", "part"]
         self.channels = {}
         # print("CHANNELS", self.channels)
 
@@ -193,6 +182,7 @@ class Server:
 
                 if verb_lower not in self.supported_commands:
                     command_handler.handle_unknown_command(verb_lower)
+                    return
                 # ex. "handle_nick" or "handle_join"
                 handler_function_to_call = "handle_" + verb_lower
 
