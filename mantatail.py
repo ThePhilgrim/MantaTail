@@ -157,42 +157,48 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user, command_handler) -> None:
-        while True:
-            request = b""
-            # IRC messages always end with b"\r\n"
-            while not request.endswith(b"\r\n"):
-                request += user.socket.recv(10)
+        with user.socket:
+            while True:
+                request = b""
+                # IRC messages always end with b"\r\n"
+                while not request.endswith(b"\r\n"):
+                    request_chunk = user.socket.recv(10)
+                    print(request_chunk)
+                    if request_chunk:
+                        request += request_chunk
+                    else:
+                        print(f"{user.nick} has disconnected.")
+                        # user.socket.close()
+                        break
 
-            decoded_message = request.decode("utf-8")
-            for line in decoded_message.split("\r\n")[:-1]:
-                # print(line)
-                if " " in line:
-                    verb, message = line.split(" ", 1)
-                else:
-                    verb = line
-                    message = verb
+                decoded_message = request.decode("utf-8")
+                for line in decoded_message.split("\r\n")[:-1]:
+                    # print(line)
+                    if " " in line:
+                        verb, message = line.split(" ", 1)
+                    else:
+                        verb = line
+                        message = verb
 
-                verb_lower = verb.lower()
+                    verb_lower = verb.lower()
 
-                if verb_lower == "nick":
-                    user.nick = message
-                    command_handler.handle_motd()
+                    if verb_lower == "nick":
+                        user.nick = message
+                        command_handler.handle_motd()
 
-                if verb_lower not in self.supported_commands:
-                    command_handler.handle_unknown_command(verb_lower)
-                    return
-                # ex. "handle_nick" or "handle_join"
-                handler_function_to_call = "handle_" + verb_lower
+                    if verb_lower not in self.supported_commands:
+                        command_handler.handle_unknown_command(verb_lower)
+                        return
+                    # ex. "handle_nick" or "handle_join"
+                    handler_function_to_call = "handle_" + verb_lower
 
-                call_handler_function = getattr(
-                    command_handler, handler_function_to_call
-                )
-                call_handler_function(message)
+                    call_handler_function = getattr(
+                        command_handler, handler_function_to_call
+                    )
+                    call_handler_function(message)
 
-            if not request:
-                break
-
-        print("Connection Closed")
+                if not request:
+                    break
 
 
 if __name__ == "__main__":
