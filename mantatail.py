@@ -2,8 +2,6 @@ from io import open_code
 import socket
 import threading
 import re
-import json
-import sys
 
 import get_irc_response_args
 
