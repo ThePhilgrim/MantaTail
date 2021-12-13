@@ -27,7 +27,7 @@ class User:
 
 class Channel:
     def __init__(self):
-        self.user_list = {}
+        self.user_dict = {}
 
 
 class IrcCommandHandler:
@@ -97,10 +97,10 @@ class IrcCommandHandler:
             if not message in self.server.channels.keys():
                 self.server.channels[message] = Channel()
 
-            if self.user.nick in self.server.channels[message].user_list.keys():
+            if self.user.nick in self.server.channels[message].user_dict.keys():
                 return
             else:
-                self.server.channels[message].user_list[self.user.nick] = self.user
+                self.server.channels[message].user_dict[self.user.nick] = self.user
 
         # TODO: Check for:
         #   * User invited to channel
