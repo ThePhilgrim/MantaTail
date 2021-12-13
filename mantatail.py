@@ -1,9 +1,10 @@
-from io import open_code
+# from io import open_code  # Does anybody know why I imported this?
 import socket
 import threading
 import re
 
 import get_irc_response_args
+import irc_response_nums
 
 
 class User:
@@ -31,12 +32,18 @@ class IrcCommandHandler:
         self.user = user
 
     def handle_motd(self):
-        start_num, start_info = get_irc_response_args.motd_start_message()
-        motd_num = get_irc_response_args.motd_num()
-        end_num, end_info = get_irc_response_args.motd_end_message()
+        (
+            start_num,
+            start_info,
+        ) = irc_response_nums.RPL_MOTDSTART
+        motd_num = irc_response_nums.RPL_MOTD[0]
+        (
+            end_num,
+            end_info,
+        ) = irc_response_nums.RPL_ENDOFMOTD
 
         motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} {start_info}{self.send_to_client_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
             "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
         }
 
