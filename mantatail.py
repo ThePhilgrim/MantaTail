@@ -84,7 +84,7 @@ class IrcCommandHandler:
     def handle_part(self, message):
         if message not in self.server.channels.keys():
             self.handle_no_such_channel(message)
-        elif self.user.nick not in self.server.channels[message].user_list.keys():
+        elif self.user.nick not in self.server.channels[message].user_dict.keys():
             (
                 not_on_channel_num,
                 not_on_channel_info,
@@ -92,8 +92,8 @@ class IrcCommandHandler:
 
             self.generate_error_reply(not_on_channel_num, not_on_channel_info)
         else:
-            del self.server.channels[message].user_list[self.user.nick]
-            if len(self.server.channels[message].user_list.keys()) == 0:
+            del self.server.channels[message].user_dict[self.user.nick]
+            if len(self.server.channels[message].user_dict.keys()) == 0:
                 del self.server.channels[message]
 
     def handle_quit(self, message):
