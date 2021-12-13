@@ -1,5 +1,6 @@
 import json
 import sys
+from typing import Tuple, List
 
 try:
     # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
@@ -20,7 +21,7 @@ except FileNotFoundError:
 # =====================
 
 
-def no_such_channel(message):
+def no_such_channel(message: str) -> Tuple[str, str]:
     return (
         irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
         irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][1].replace(
@@ -29,7 +30,7 @@ def no_such_channel(message):
     )
 
 
-def not_on_channel(message):
+def not_on_channel(message: str) -> Tuple[str, str]:
     return (
         irc_response_nums["error_replies"]["ERR_NOTONCHANNEL"][0],
         irc_response_nums["error_replies"]["ERR_NOTONCHANNEL"][1].replace(
@@ -38,7 +39,7 @@ def not_on_channel(message):
     )
 
 
-def unknown_command(command):
+def unknown_command(command: str) -> Tuple[str, str]:
     return (
         irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][0],
         irc_response_nums["error_replies"]["ERR_UNKNOWNCOMMAND"][1].replace(
@@ -52,7 +53,7 @@ def unknown_command(command):
 # =====================
 
 
-def motd_start_message():
+def motd_start_message() -> Tuple[str, str]:
     return (
         irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
         irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
@@ -61,15 +62,15 @@ def motd_start_message():
     )
 
 
-def motd():
+def motd() -> List[str]:
     return motd_content["motd"]
 
 
-def motd_num():
+def motd_num() -> str:
     return irc_response_nums["command_responses"]["RPL_MOTD"][0]
 
 
-def motd_end_message():
+def motd_end_message() -> Tuple[str, str]:
     return (
         irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][0],
         irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][1],
