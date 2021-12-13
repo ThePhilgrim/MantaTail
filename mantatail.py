@@ -97,9 +97,7 @@ class IrcCommandHandler:
             if message not in self.server.channels.keys():
                 self.server.channels[message] = Channel()
 
-            if self.user.nick in self.server.channels[message].user_list.keys():
-                return
-            else:
+            if self.user.nick not in self.server.channels[message].user_list.keys():
                 self.server.channels[message].user_list[self.user.nick] = self.user
 
         # TODO: Check for:
