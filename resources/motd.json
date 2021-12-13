@@ -1,0 +1,12 @@
+{
+    "motd": [
+            "- Hello {user_nick}, welcome to Mantatail!",
+            "-",
+            "- Mantatail is a free, open-source IRC server released under MIT License",
+            "-",
+            "-",
+            "-",
+            "- For more info, please visit https://github.com/ThePhilgrim/MantaTail"
+        ]
+}
+        
