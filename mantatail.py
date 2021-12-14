@@ -1,17 +1,11 @@
-from io import open_code
+# from io import open_code  # Does anybody know why I imported this?
 import socket
 import threading
 import re
-import json
 import sys
+import json
 
-
-try:
-    # https://datatracker.ietf.org/doc/html/rfc1459#section-6.2
-    with open("./resources/irc_response_nums.json", "r") as file:
-        irc_response_nums = json.load(file)
-except FileNotFoundError:
-    sys.exit("FileNotFoundError: Missing resources/irc_response_nums.json")
+import irc_responses
 
 
 class User:
@@ -39,68 +33,59 @@ class IrcCommandHandler:
         self.user = user
 
     def handle_motd(self):
-        start_num, start_info = (
-            irc_response_nums["command_responses"]["RPL_MOTDSTART"][0],
-            irc_response_nums["command_responses"]["RPL_MOTDSTART"][1].replace(
-                "<server>", "mantatail"
-            ),
-        )
-        motd_num = irc_response_nums["command_responses"]["RPL_MOTD"][0]
-        end_num, end_info = (
-            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][0],
-            irc_response_nums["command_responses"]["RPL_ENDOFMOTD"][1],
-        )
+        (
+            start_num,
+            start_info,
+        ) = irc_responses.RPL_MOTDSTART
+        motd_num = irc_responses.RPL_MOTD
+        (
+            end_num,
+            end_info,
+        ) = irc_responses.RPL_ENDOFMOTD
 
         motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} {start_info}{self.send_to_client_suffix}",
+            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
             "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
         }
 
-        motd = [
-            f"- Hello {self.user.nick}, welcome to Mantatail!",
-            "-",
-            "- Mantatail is a free, open-source IRC server released under MIT License",
-            "-",
-            "-",
-            "-",
-            "- For more info, please visit https://github.com/ThePhilgrim/MantaTail",
-        ]
+        try:
+            with open("./resources/motd.json", "r") as file:
+                motd_content = json.load(file)
+        except FileNotFoundError:
+            self.user.socket.sendall(
+                b"File /resources/motd.json cannot be found. Can't show MOTD."
+            )
+            return
 
         start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
+        motd = motd_content["motd"]
 
         self.user.socket.sendall(start_msg)
 
         for motd_line in motd:
             motd_msg = bytes(
-                f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line.format(user_nick=self.user.nick)}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
             self.user.socket.sendall(motd_msg)
 
         self.user.socket.sendall(end_msg)
 
-    def handle_join(self, message):
+    def handle_join(self, channel_name):
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
-        if not re.match(channel_regex, message):
-            no_channel_num, no_channel_info = (
-                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][0],
-                irc_response_nums["error_replies"]["ERR_NOSUCHCHANNEL"][1].replace(
-                    "<channel name>", message
-                ),
-            )
-
-            self.generate_error_reply(no_channel_num, no_channel_info)
-
+        if not re.match(channel_regex, channel_name):
+            self.handle_no_such_channel(channel_name)
         else:
-            if message not in self.server.channels.keys():
-                self.server.channels[message] = Channel()
+            if channel_name not in self.server.channels.keys():
+                self.server.channels[channel_name] = Channel()
 
-            if self.user.nick in self.server.channels[message].user_dict.keys():
-                return
-            else:
-                self.server.channels[message].user_dict[self.user.nick] = self.user
+            if (
+                self.user.nick
+                not in self.server.channels[channel_name].user_dict.keys()
+            ):
+                self.server.channels[channel_name].user_dict[self.user.nick] = self.user
 
         # TODO: Check for:
         #   * User invited to channel
@@ -108,28 +93,53 @@ class IrcCommandHandler:
         #   * Eventual password matches
         #   * Not joined too many channels
 
-    def handle_part(self, message):
+    def handle_part(self, channel_name):
+        if channel_name not in self.server.channels.keys():
+            self.handle_no_such_channel(channel_name)
+        elif self.user.nick not in self.server.channels[channel_name].user_dict.keys():
+            (
+                not_on_channel_num,
+                not_on_channel_info,
+            ) = irc_responses.ERR_NOTONCHANNEL
+
+            self.generate_error_reply(
+                not_on_channel_num, not_on_channel_info, channel_name
+            )
+        else:
+            del self.server.channels[channel_name].user_dict[self.user.nick]
+            if len(self.server.channels[channel_name].user_dict) == 0:
+                del self.server.channels[channel_name]
+
+        # TODO: Support user writing /part without specifying channel name
+
+    def _handle_quit(self, message):
         pass
 
-    def handle_quit(self, message):
-        print("Connection closed:", message)
-
-    def handle_kick(self, message):
+    def _handle_kick(self, message):
         pass
 
-    def handle_nick(self, message):
-        self.user.nick = message
+    def handle_nick(self, nick):
+        self.user.nick = nick
 
     def handle_user(self, message):
         self.user.user_name = message.split(" ", 1)[0]
 
-    def handle_privmsg(self, message):
+    def _handle_privmsg(self, message):
         pass
 
-    def generate_error_reply(self, error_num, error_info):
+    def handle_unknown_command(self, command):
+        unknown_cmd_num, unknown_cmd_info = irc_responses.ERR_UNKNOWNCOMMAND
+
+        self.generate_error_reply(unknown_cmd_num, unknown_cmd_info, command)
+
+    def handle_no_such_channel(self, channel_name):
+        no_channel_num, no_channel_info = irc_responses.ERR_NOSUCHCHANNEL
+        self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
+
+    def generate_error_reply(self, error_num, error_info, error_topic):
         self.user.socket.sendall(
             bytes(
-                f"{self.send_to_client_prefix} {error_num} {self.user.nick} {error_info}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
         )
@@ -145,7 +155,6 @@ class Server:
         self.listener_socket.listen(5)
 
         self.channels = {}
-        # print("CHANNELS", self.channels)
 
     def run_server_forever(self) -> None:
         while True:
@@ -159,36 +168,44 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user, command_handler) -> None:
-        while True:
-            request = b""
-            # IRC messages always end with b"\r\n"
-            while not request.endswith(b"\r\n"):
-                request += user.socket.recv(10)
+        with user.socket:
+            while True:
+                request = b""
+                # IRC messages always end with b"\r\n"
+                while not request.endswith(b"\r\n"):
+                    request_chunk = user.socket.recv(4096)
+                    if request_chunk:
+                        request += request_chunk
+                    else:
+                        print(f"{user.nick} has disconnected.")
+                        return
 
-            decoded_message = request.decode("utf-8")
-            for line in decoded_message.split("\r\n")[:-1]:
-                # print(line)
-                if " " in line:
-                    verb, message = line.split(" ", 1)
-                else:
-                    verb = line
-                    message = verb
-                if verb.lower() == "nick":
-                    user.nick = message
-                    command_handler.handle_motd()
+                decoded_message = request.decode("utf-8")
+                for line in decoded_message.split("\r\n")[:-1]:
+                    if " " in line:
+                        verb, message = line.split(" ", 1)
+                    else:
+                        verb = line
+                        message = verb
 
-                # ex. "handle_nick" or "handle_join"
-                handler_function_to_call = "handle_" + verb.lower()
+                    verb_lower = verb.lower()
 
-                call_handler_function = getattr(
-                    command_handler, handler_function_to_call
-                )
-                call_handler_function(message)
+                    if verb_lower == "nick":
+                        user.nick = message
+                        command_handler.handle_motd()
 
-            if not request:
-                break
+                    # ex. "handle_nick" or "handle_join"
+                    handler_function_to_call = "handle_" + verb_lower
 
-        print("Connection Closed")
+                    try:
+                        call_handler_function = getattr(
+                            command_handler, handler_function_to_call
+                        )
+                    except AttributeError:
+                        command_handler.handle_unknown_command(verb_lower)
+                        return
+
+                    call_handler_function(message)
 
 
 if __name__ == "__main__":
