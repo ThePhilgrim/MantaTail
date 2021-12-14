@@ -2,9 +2,17 @@
 import socket
 import threading
 import re
+import sys
+import json
 
-import get_irc_response_args
-import irc_response_nums
+import irc_responses
+
+
+try:
+    with open("./resources/motd.json", "r") as file:
+        motd_content = json.load(file)
+except FileNotFoundError:
+    sys.exit("FileNotFoundError: Missing resources/motd.json")
 
 
 class User:
@@ -35,12 +43,12 @@ class IrcCommandHandler:
         (
             start_num,
             start_info,
-        ) = irc_response_nums.RPL_MOTDSTART
-        motd_num = irc_response_nums.RPL_MOTD[0]
+        ) = irc_responses.RPL_MOTDSTART
+        motd_num = irc_responses.RPL_MOTD[0]
         (
             end_num,
             end_info,
-        ) = irc_response_nums.RPL_ENDOFMOTD
+        ) = irc_responses.RPL_ENDOFMOTD
 
         motd_start_and_end = {
             "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
@@ -49,7 +57,7 @@ class IrcCommandHandler:
 
         start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
-        motd = get_irc_response_args.motd()
+        motd = motd_content["motd"]
 
         self.user.socket.sendall(start_msg)
 
@@ -62,25 +70,20 @@ class IrcCommandHandler:
 
         self.user.socket.sendall(end_msg)
 
-    def handle_join(self, message):
+    def handle_join(self, channel_name):
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
-        if not re.match(channel_regex, message):
-            self.handle_no_such_channel(message)
-            # no_channel_num, no_channel_info = get_irc_response_args.no_such_channel(
-            #     message
-            # )
-
-            # self.generate_error_reply(no_channel_num, no_channel_info)
-
+        if not re.match(channel_regex, channel_name):
+            self.handle_no_such_channel(channel_name)
         else:
-            if message not in self.server.channels.keys():
-                self.server.channels[message] = Channel()
+            if channel_name not in self.server.channels.keys():
+                self.server.channels[channel_name] = Channel()
 
-            if self.user.nick in self.server.channels[message].user_dict.keys():
-                return
-            else:
-                self.server.channels[message].user_dict[self.user.nick] = self.user
+            if (
+                self.user.nick
+                not in self.server.channels[channel_name].user_dict.keys()
+            ):
+                self.server.channels[channel_name].user_dict[self.user.nick] = self.user
 
         # TODO: Check for:
         #   * User invited to channel
@@ -88,20 +91,22 @@ class IrcCommandHandler:
         #   * Eventual password matches
         #   * Not joined too many channels
 
-    def handle_part(self, message):
-        if message not in self.server.channels.keys():
-            self.handle_no_such_channel(message)
-        elif self.user.nick not in self.server.channels[message].user_dict.keys():
+    def handle_part(self, channel_name):
+        if channel_name not in self.server.channels.keys():
+            self.handle_no_such_channel(channel_name)
+        elif self.user.nick not in self.server.channels[channel_name].user_dict.keys():
             (
                 not_on_channel_num,
                 not_on_channel_info,
-            ) = get_irc_response_args.not_on_channel(message)
+            ) = irc_responses.ERR_NOTONCHANNEL
 
-            self.generate_error_reply(not_on_channel_num, not_on_channel_info)
+            self.generate_error_reply(
+                not_on_channel_num, not_on_channel_info, channel_name
+            )
         else:
-            del self.server.channels[message].user_dict[self.user.nick]
-            if len(self.server.channels[message].user_dict.keys()) == 0:
-                del self.server.channels[message]
+            del self.server.channels[channel_name].user_dict[self.user.nick]
+            if len(self.server.channels[channel_name].user_dict.keys()) == 0:
+                del self.server.channels[channel_name]
 
     def handle_quit(self, message):
         pass
@@ -109,8 +114,8 @@ class IrcCommandHandler:
     def handle_kick(self, message):
         pass
 
-    def handle_nick(self, message):
-        self.user.nick = message
+    def handle_nick(self, nick):
+        self.user.nick = nick
 
     def handle_user(self, message):
         self.user.user_name = message.split(" ", 1)[0]
@@ -119,21 +124,18 @@ class IrcCommandHandler:
         pass
 
     def handle_unknown_command(self, command):
-        unknown_cmd_num, unknown_cmd_info = get_irc_response_args.unknown_command(
-            command
-        )
+        unknown_cmd_num, unknown_cmd_info = irc_responses.ERR_UNKNOWNCOMMAND
 
-        self.generate_error_reply(unknown_cmd_num, unknown_cmd_info)
+        self.generate_error_reply(unknown_cmd_num, unknown_cmd_info, command)
 
-    def handle_no_such_channel(self, message):
-        no_channel_num, no_channel_info = get_irc_response_args.no_such_channel(message)
+    def handle_no_such_channel(self, channel_name):
+        no_channel_num, no_channel_info = irc_responses.ERR_NOSUCHCHANNEL
+        self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
 
-        self.generate_error_reply(no_channel_num, no_channel_info)
-
-    def generate_error_reply(self, error_num, error_info):
+    def generate_error_reply(self, error_num, error_info, error_topic):
         self.user.socket.sendall(
             bytes(
-                f"{self.send_to_client_prefix} {error_num} {self.user.nick} {error_info}{self.send_to_client_suffix}",
+                f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
         )
