@@ -9,7 +9,7 @@ ERR_NOTONCHANNEL = ("442", ":You're not on that channel")
 
 # Command Responses
 RPL_MOTDSTART = ("375", "Message of the day - ")
-RPL_MOTD = ("372", ":- <text>")
+RPL_MOTD = "372"
 RPL_ENDOFMOTD = ("376", ":End of /MOTD command")
 
 # Reserved Numerics

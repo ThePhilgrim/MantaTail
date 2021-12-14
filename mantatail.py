@@ -8,13 +8,6 @@ import json
 import irc_responses
 
 
-try:
-    with open("./resources/motd.json", "r") as file:
-        motd_content = json.load(file)
-except FileNotFoundError:
-    sys.exit("FileNotFoundError: Missing resources/motd.json")
-
-
 class User:
     def __init__(self, host, socket):
         self.socket = socket
@@ -54,6 +47,15 @@ class IrcCommandHandler:
             "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
             "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
         }
+
+        try:
+            with open("./resources/motd.json", "r") as file:
+                motd_content = json.load(file)
+        except FileNotFoundError:
+            self.user.socket.sendall(
+                b"File /resources/motd.json cannot be found. Can't show MOTD."
+            )
+            return
 
         start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
@@ -108,10 +110,10 @@ class IrcCommandHandler:
             if len(self.server.channels[channel_name].user_dict.keys()) == 0:
                 del self.server.channels[channel_name]
 
-    def handle_quit(self, message):
+    def _handle_quit(self, message):
         pass
 
-    def handle_kick(self, message):
+    def _handle_kick(self, message):
         pass
 
     def handle_nick(self, nick):
@@ -120,7 +122,7 @@ class IrcCommandHandler:
     def handle_user(self, message):
         self.user.user_name = message.split(" ", 1)[0]
 
-    def handle_privmsg(self, message):
+    def _handle_privmsg(self, message):
         pass
 
     def handle_unknown_command(self, command):
@@ -150,9 +152,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.supported_commands = ["nick", "user", "join", "part"]
         self.channels = {}
-        # print("CHANNELS", self.channels)
 
     def run_server_forever(self) -> None:
         while True:
@@ -177,8 +177,7 @@ class Server:
                         request += request_chunk
                     else:
                         print(f"{user.nick} has disconnected.")
-                        # user.socket.close()
-                        break
+                        return
 
                 decoded_message = request.decode("utf-8")
                 for line in decoded_message.split("\r\n")[:-1]:
@@ -195,19 +194,18 @@ class Server:
                         user.nick = message
                         command_handler.handle_motd()
 
-                    if verb_lower not in self.supported_commands:
-                        command_handler.handle_unknown_command(verb_lower)
-                        return
                     # ex. "handle_nick" or "handle_join"
                     handler_function_to_call = "handle_" + verb_lower
 
-                    call_handler_function = getattr(
-                        command_handler, handler_function_to_call
-                    )
-                    call_handler_function(message)
+                    try:
+                        call_handler_function = getattr(
+                            command_handler, handler_function_to_call
+                        )
+                    except AttributeError:
+                        command_handler.handle_unknown_command(verb_lower)
+                        return
 
-                if not request:
-                    break
+                    call_handler_function(message)
 
 
 if __name__ == "__main__":
