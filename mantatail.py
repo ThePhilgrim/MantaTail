@@ -107,7 +107,7 @@ class IrcCommandHandler:
             )
         else:
             del self.server.channels[channel_name].user_dict[self.user.nick]
-            if len(self.server.channels[channel_name].user_dict.keys()) == 0:
+            if len(self.server.channels[channel_name].user_dict) == 0:
                 del self.server.channels[channel_name]
 
     def _handle_quit(self, message):
