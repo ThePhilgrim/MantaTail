@@ -1,38 +1,40 @@
 # from io import open_code  # Does anybody know why I imported this?
+from __future__ import annotations
 import socket
 import threading
 import re
 import sys
 import json
+from typing import Dict, Optional
 
 import irc_responses
 
 
 class User:
-    def __init__(self, host, socket):
+    def __init__(self, host: str, socket: socket.socket):
         self.socket = socket
         self.host = host
-        self.nick = None
-        self.user_name = None
+        self.nick: Optional[str] = None
+        self.user_name: Optional[str] = None
 
-    def create_user_mask(self):
+    def create_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
 
 class Channel:
-    def __init__(self):
-        self.user_dict = {}
+    def __init__(self) -> None:
+        self.user_dict: Dict[Optional[str], User] = {}
 
 
 class IrcCommandHandler:
-    def __init__(self, server, user):
+    def __init__(self, server: Server, user: User) -> None:
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
         self.server = server
         self.user = user
 
-    def handle_motd(self):
+    def handle_motd(self) -> None:
         (
             start_num,
             start_info,
@@ -72,7 +74,7 @@ class IrcCommandHandler:
 
         self.user.socket.sendall(end_msg)
 
-    def handle_join(self, channel_name):
+    def handle_join(self, channel_name: str) -> None:
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
         if not re.match(channel_regex, channel_name):
@@ -93,7 +95,7 @@ class IrcCommandHandler:
         #   * Eventual password matches
         #   * Not joined too many channels
 
-    def handle_part(self, channel_name):
+    def handle_part(self, channel_name: str) -> None:
         if channel_name not in self.server.channels.keys():
             self.handle_no_such_channel(channel_name)
         elif self.user.nick not in self.server.channels[channel_name].user_dict.keys():
@@ -112,31 +114,33 @@ class IrcCommandHandler:
 
         # TODO: Support user writing /part without specifying channel name
 
-    def _handle_quit(self, message):
+    def _handle_quit(self) -> None:
         pass
 
-    def _handle_kick(self, message):
+    def _handle_kick(self, message: str) -> None:
         pass
 
-    def handle_nick(self, nick):
+    def handle_nick(self, nick: str) -> None:
         self.user.nick = nick
 
-    def handle_user(self, message):
+    def handle_user(self, message: str) -> None:
         self.user.user_name = message.split(" ", 1)[0]
 
-    def _handle_privmsg(self, message):
+    def _handle_privmsg(self, message: str) -> None:
         pass
 
-    def handle_unknown_command(self, command):
+    def handle_unknown_command(self, command: str) -> None:
         unknown_cmd_num, unknown_cmd_info = irc_responses.ERR_UNKNOWNCOMMAND
 
         self.generate_error_reply(unknown_cmd_num, unknown_cmd_info, command)
 
-    def handle_no_such_channel(self, channel_name):
+    def handle_no_such_channel(self, channel_name: str) -> None:
         no_channel_num, no_channel_info = irc_responses.ERR_NOSUCHCHANNEL
         self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
 
-    def generate_error_reply(self, error_num, error_info, error_topic):
+    def generate_error_reply(
+        self, error_num: str, error_info: str, error_topic: str
+    ) -> None:
         self.user.socket.sendall(
             bytes(
                 f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
@@ -154,20 +158,22 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.channels = {}
+        self.channels: Dict[str, Channel] = {}
 
     def run_server_forever(self) -> None:
         while True:
             user_socket, user_address = self.listener_socket.accept()
             user = User(user_address[0], user_socket)
+
             command_handler = IrcCommandHandler(self, user)
+
             client_thread = threading.Thread(
                 target=self.recv_loop, args=[user, command_handler], daemon=True
             )
 
             client_thread.start()
 
-    def recv_loop(self, user, command_handler) -> None:
+    def recv_loop(self, user: User, command_handler: IrcCommandHandler) -> None:
         with user.socket:
             while True:
                 request = b""
