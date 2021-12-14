@@ -182,7 +182,6 @@ class Server:
 
                 decoded_message = request.decode("utf-8")
                 for line in decoded_message.split("\r\n")[:-1]:
-                    # print(line)
                     if " " in line:
                         verb, message = line.split(" ", 1)
                     else:
