@@ -20,4 +20,6 @@ jobs:
         with:
           python-version: '3.9'
       - run: |
+          python3 -m pip install mypy
+      - run: |
           python3 -m mypy --strict mantatail.py
