@@ -37,7 +37,7 @@ class IrcCommandHandler:
             start_num,
             start_info,
         ) = irc_responses.RPL_MOTDSTART
-        motd_num = irc_responses.RPL_MOTD[0]
+        motd_num = irc_responses.RPL_MOTD
         (
             end_num,
             end_info,
@@ -107,8 +107,10 @@ class IrcCommandHandler:
             )
         else:
             del self.server.channels[channel_name].user_dict[self.user.nick]
-            if len(self.server.channels[channel_name].user_dict.keys()) == 0:
+            if len(self.server.channels[channel_name].user_dict) == 0:
                 del self.server.channels[channel_name]
+
+        # TODO: Support user writing /part without specifying channel name
 
     def _handle_quit(self, message):
         pass
@@ -171,8 +173,7 @@ class Server:
                 request = b""
                 # IRC messages always end with b"\r\n"
                 while not request.endswith(b"\r\n"):
-                    request_chunk = user.socket.recv(10)
-                    print(request_chunk)
+                    request_chunk = user.socket.recv(4096)
                     if request_chunk:
                         request += request_chunk
                     else:
