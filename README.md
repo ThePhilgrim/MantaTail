@@ -31,6 +31,13 @@ To start, please follow these steps:
    - Windows `py -m pip install -r requirements.txt`
 4. Happy coding!
 
+### Resources
+
+Some handy resources for developing IRC-related programs:
+
+- [Ircdocs.horse](https://ircdocs.horse/)
+- [RFC1459](https://datatracker.ietf.org/doc/html/rfc1459)
+
 ### Pull Requests
 
 Any pull request will automatically be checked for proper format by `black`.
