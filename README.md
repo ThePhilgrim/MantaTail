@@ -22,7 +22,7 @@ If you are interested in contributing to Mantatail, thank you! You are most welc
 
 To start, please follow these steps:
 
-1. Fork the repository to your local machine
+1. Fork the repository and `git clone` it to your local machine
 2. Create a virtual environment and activate it
    - Mac/Linux: `python3 -m venv env` -> `source env/bin/activate`
    - Windows: `py -m venv env` -> `env\Scripts\activate`
