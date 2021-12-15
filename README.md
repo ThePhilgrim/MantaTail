@@ -27,8 +27,7 @@ To start, please follow these steps:
    - Mac/Linux: `python3 -m venv env` -> `source env/bin/activate`
    - Windows: `py -m venv env` -> `env\Scripts\activate`
 3. Download the necessary dependencies for development
-   - Mac/Linux `python3 -m pip install -r requirements-dev.txt`
-   - Windows `py -m pip install -r requirements.txt`
+   - Mac/Linux/Windows `pip install -r requirements-dev.txt`
 4. Happy coding!
 
 ### Resources
