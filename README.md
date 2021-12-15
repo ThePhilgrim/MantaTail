@@ -9,8 +9,6 @@ It is still at an early stage of production, and is therefore missing several cr
 - Message of the day
 - Join channel
 - Part from channel
-- Supported error messages:
-  - [No such channel, Unknown command, You're not on that channel]
 
 ### Connect to MantaTail
 
