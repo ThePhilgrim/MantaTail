@@ -16,6 +16,25 @@ motd_dict_test = {
 }
 
 
+# Based on: https://gist.github.com/sbrugman/59b3535ebcd5aa0e2598293cfa58b6ab#gistcomment-3795790
+@pytest.fixture(autouse=True, scope="function")
+def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
+    last_exception = None
+
+    class ThreadWrapper(threading.Thread):
+        def run(self):
+            try:
+                super().run()
+            except Exception as e:
+                nonlocal last_exception
+                last_exception = e
+
+    monkeypatch.setattr(threading, "Thread", ThreadWrapper)
+    yield
+    if last_exception:
+        raise last_exception
+
+
 def test_run_server():
     server = Server(6667, motd_dict_test)
 
