@@ -28,6 +28,10 @@ To start, please follow these steps:
    - Mac/Linux/Windows `pip install -r requirements-dev.txt`
 4. Happy coding!
 
+### Tests
+
+Mantatail relies on Pytest for testing. In order to run the test suite, use `python3 -m pytest tests/test_file.py`
+
 ### Resources
 
 Some handy resources for developing IRC-related programs:
