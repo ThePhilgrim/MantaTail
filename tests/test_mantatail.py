@@ -23,7 +23,7 @@ def test_motd():
     # Otherwise it might not be fully started yet when the client quits.
     received = b''
     while not received.endswith(b'End of /MOTD command\r\n'):
-        received += client_socket.recv(100)
+        received += client_socket.recv(4096)
 
     client_socket.sendall(b'QUIT\r\n')
     client_socket.close()
