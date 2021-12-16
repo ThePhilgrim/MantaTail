@@ -18,7 +18,15 @@ def test_motd():
     client_socket = socket.socket()
     client_socket.connect(("localhost", 6667))
     client_socket.sendall(b"NICK foo\r\n")
-    client_socket.recv(4096)
 
-    server.listener_socket.close()
+    # Receiving everything the server is going to send helps prevent errors.
+    # Otherwise it might not be fully started yet when the client quits.
+    received = b''
+    while not received.endswith(b'End of /MOTD command\r\n'):
+        received += client_socket.recv(100)
+
+    client_socket.sendall(b'QUIT\r\n')
+    client_socket.close()
+
     server.listener_socket.shutdown(socket.SHUT_RDWR)
+    server.listener_socket.close()
