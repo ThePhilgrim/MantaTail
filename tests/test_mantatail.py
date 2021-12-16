@@ -50,3 +50,37 @@ def run_server(fail_test_if_there_is_an_error_in_a_thread):
     yield
     server.listener_socket.shutdown(socket.SHUT_RDWR)
     server.listener_socket.close()
+
+
+@pytest.fixture(scope="function")
+def user_alice(run_server):
+    alice_socket = socket.socket()
+    alice_socket.connect(("localhost", 6667))
+    alice_socket.sendall(b"NICK foo\r\n")
+
+    # Receiving everything the server is going to send helps prevent errors.
+    # Otherwise it might not be fully started yet when the client quits.
+    received = b""
+    while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
+        received += alice_socket.recv(4096)
+
+    yield
+    alice_socket.sendall(b"QUIT\r\n")
+    alice_socket.close()
+
+
+@pytest.fixture(scope="function")
+def user_bob(run_server):
+    bob_socket = socket.socket()
+    bob_socket.connect(("localhost", 6667))
+    bob_socket.sendall(b"NICK foo\r\n")
+
+    # Receiving everything the server is going to send helps prevent errors.
+    # Otherwise it might not be fully started yet when the client quits.
+    received = b""
+    while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
+        received += bob_socket.recv(4096)
+
+    yield
+    bob_socket.sendall(b"QUIT\r\n")
+    bob_socket.close()
