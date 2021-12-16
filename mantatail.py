@@ -55,7 +55,8 @@ class IrcCommandHandler:
 
         self.user.socket.sendall(start_msg)
 
-        if isinstance(self.server.motd_content, dict):
+        if self.server.motd_content:
+            print("if")
             motd = self.server.motd_content["motd"]
             for motd_line in motd:
                 motd_msg = bytes(
@@ -65,10 +66,11 @@ class IrcCommandHandler:
                 self.user.socket.sendall(motd_msg)
         # If motd.json could not be found
         else:
-            no_motd_num = irc_responses.ERR_NOMOTD
+            print("else")
+            no_motd_num, no_motd_info = irc_responses.ERR_NOMOTD
             self.user.socket.sendall(
                 bytes(
-                    f"{self.send_to_client_prefix} {no_motd_num} {self.server.motd_content}",
+                    f"{self.send_to_client_prefix} {no_motd_num} {no_motd_info}{self.send_to_client_suffix}",
                     encoding=self.encoding,
                 )
             )
@@ -151,9 +153,7 @@ class IrcCommandHandler:
 
 
 class Server:
-    def __init__(
-        self, port: int, motd_content: Union[Dict[str, List[str]], str]
-    ) -> None:
+    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.host = "127.0.0.1"
         self.port = port
         self.motd_content = motd_content
@@ -218,13 +218,13 @@ class Server:
                     call_handler_function(message)
 
 
-def get_motd_content_from_json() -> Union[Dict[str, List[str]], str]:
+def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
     try:
         with open("./resources/motd.json", "r") as file:
             motd_content: Dict[str, List[str]] = json.load(file)
             return motd_content
     except FileNotFoundError:
-        return ":MOTD File is missing\r\n"
+        return None
 
 
 if __name__ == "__main__":
