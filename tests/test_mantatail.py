@@ -17,7 +17,7 @@ motd_dict_test = {
 
 
 # Based on: https://gist.github.com/sbrugman/59b3535ebcd5aa0e2598293cfa58b6ab#gistcomment-3795790
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(scope="function")
 def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
     last_exception = None
 
@@ -35,7 +35,8 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
         raise last_exception
 
 
-def test_run_server():
+@pytest.fixture(autouse=True, scope="function")
+def test_run_server(fail_test_if_there_is_an_error_in_a_thread):
     server = Server(6667, motd_dict_test)
 
     def run_server(server):
