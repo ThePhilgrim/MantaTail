@@ -53,7 +53,7 @@ def test_run_server():
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
     received = b""
-    while not received.endswith(b"- End test MOTD\r\n"):
+    while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
         received += client_socket.recv(4096)
 
     client_socket.sendall(b"QUIT\r\n")
