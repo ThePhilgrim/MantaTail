@@ -24,6 +24,7 @@ jobs:
       - run: |
           python3 -m mypy --strict *.py
   pytest:
+    timeout-minutes: 2
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
