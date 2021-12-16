@@ -3,9 +3,21 @@ import socket
 import threading
 from mantatail import Server
 
+motd_dict_test = {
+    "motd": [
+        "- Hello {user_nick}, this is a test MOTD!",
+        "-",
+        "- Foo",
+        "- Bar",
+        "- Baz",
+        "-",
+        "- End test MOTD",
+    ]
+}
 
-def test_motd():
-    server = Server(6667)
+
+def test_run_server():
+    server = Server(6667, motd_dict_test)
 
     def run_server(server):
         try:
@@ -21,11 +33,11 @@ def test_motd():
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
-    received = b''
-    while not received.endswith(b'End of /MOTD command\r\n'):
+    received = b""
+    while not received.endswith(b"- End test MOTD\r\n"):
         received += client_socket.recv(4096)
 
-    client_socket.sendall(b'QUIT\r\n')
+    client_socket.sendall(b"QUIT\r\n")
     client_socket.close()
 
     server.listener_socket.shutdown(socket.SHUT_RDWR)
