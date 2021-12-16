@@ -36,7 +36,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def test_run_server(fail_test_if_there_is_an_error_in_a_thread):
+def run_server(fail_test_if_there_is_an_error_in_a_thread):
     server = Server(6667, motd_dict_test)
 
     def run_server(server):
@@ -47,18 +47,6 @@ def test_run_server(fail_test_if_there_is_an_error_in_a_thread):
 
     threading.Thread(target=run_server, args=[server]).start()
 
-    client_socket = socket.socket()
-    client_socket.connect(("localhost", 6667))
-    client_socket.sendall(b"NICK foo\r\n")
-
-    # Receiving everything the server is going to send helps prevent errors.
-    # Otherwise it might not be fully started yet when the client quits.
-    received = b""
-    while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
-        received += client_socket.recv(4096)
-
-    client_socket.sendall(b"QUIT\r\n")
-    client_socket.close()
-
+    yield
     server.listener_socket.shutdown(socket.SHUT_RDWR)
     server.listener_socket.close()
