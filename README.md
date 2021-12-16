@@ -41,7 +41,10 @@ Some handy resources for developing IRC-related programs:
 
 ### Pull Requests
 
-Any pull request will automatically be checked for proper format by `black`.
-It will also be checked for type hinting with `mypy` (--strict mode).
+Any pull request will automatically be checked for proper format by `black`, `mypy` (--strict mode), as well as by `pytest`
 
-To make sure the PR will pass these checks, please use `black file.py`. Also run `mypy --strict file.py` to make sure there are no current type checking errors.
+To make sure the PR will pass these checks, please use the following commands before pushing:
+
+- `black *.py tests/*.py`
+- `mypy --strict *.py`
+- `python3 -m pytest tests/*.py`

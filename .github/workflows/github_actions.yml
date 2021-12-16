@@ -11,7 +11,7 @@ jobs:
       - run: |
           python3 -m pip install black
       - run: |
-          python3 -m black --check mantatail.py
+          python3 -m black --check *.py tests/*py
   mypy:
     runs-on: ubuntu-latest
     steps:
