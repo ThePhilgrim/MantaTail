@@ -64,7 +64,7 @@ def user_alice(run_server):
     while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
         received += alice_socket.recv(4096)
 
-    yield
+    yield user_alice
     alice_socket.sendall(b"QUIT\r\n")
     alice_socket.close()
 
@@ -81,6 +81,6 @@ def user_bob(run_server):
     while not received.endswith(b"\r\n:mantatail 376 foo :End of /MOTD command\r\n"):
         received += bob_socket.recv(4096)
 
-    yield
+    yield user_bob
     bob_socket.sendall(b"QUIT\r\n")
     bob_socket.close()
