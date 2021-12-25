@@ -131,6 +131,7 @@ def test_no_such_channel(user_alice):
 
 def test_youre_not_on_that_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
+    # TODO: wait until server says that join is done, prevents randomly occurring errors
     user_bob.sendall(b"PART #foo\r\n")
     received = recv_loop(user_bob)
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
