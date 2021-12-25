@@ -40,7 +40,7 @@ class Server:
         _user_name = None
         _nick = None
 
-        user_instantiated = False
+        user = None
 
         with user_socket:
             while True:
@@ -51,7 +51,7 @@ class Server:
                     if request_chunk:
                         request += request_chunk
                     else:
-                        if user_instantiated:
+                        if user is not None:
                             print(f"{user.nick} has disconnected.")
 
                         else:
@@ -71,7 +71,7 @@ class Server:
                     # ex. "handle_nick" or "handle_join"
                     handler_function_to_call = "handle_" + verb_lower
 
-                    if user_instantiated:
+                    if user is not None:
                         try:
                             call_handler_function = getattr(
                                 command_handler, handler_function_to_call
@@ -96,12 +96,11 @@ class Server:
                                 )
                             )
 
-                    if _user_name and _nick and not user_instantiated:
-                        user: User = User(user_host, user_socket, _user_name, _nick)
+                    if _user_name and _nick and user is None:
+                        user = User(user_host, user_socket, _user_name, _nick)
                         command_handler: IrcCommandHandler = IrcCommandHandler(
                             self, user
                         )
-                        user_instantiated = True
                         command_handler.handle_motd()
 
 
