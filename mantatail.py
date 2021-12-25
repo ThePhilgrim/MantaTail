@@ -56,7 +56,6 @@ class IrcCommandHandler:
         self.user.socket.sendall(start_msg)
 
         if self.server.motd_content:
-            print("if")
             motd = self.server.motd_content["motd"]
             for motd_line in motd:
                 motd_msg = bytes(
