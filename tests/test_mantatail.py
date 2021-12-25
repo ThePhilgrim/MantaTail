@@ -77,7 +77,7 @@ def user_alice(run_server):
     alice_socket.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def user_bob(run_server):
     bob_socket = socket.socket()
     bob_socket.connect(("localhost", 6667))
