@@ -5,24 +5,121 @@ import threading
 import re
 import sys
 import json
-from typing import Dict, Optional, Union, List
+from typing import Dict, Optional, Union, List, Tuple
 
 import irc_responses
 
 
+class Server:
+    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
+        self.host = "127.0.0.1"
+        self.port = port
+        self.motd_content = motd_content
+        self.listener_socket = socket.socket()
+        self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.listener_socket.bind((self.host, self.port))
+        self.listener_socket.listen(5)
+
+        self.channels: Dict[str, Channel] = {}
+
+    def run_server_forever(self) -> None:
+        while True:
+            user_socket, user_address = self.listener_socket.accept()
+            user_info = (user_address[0], user_socket)
+
+            client_thread = threading.Thread(
+                target=self.recv_loop, args=[user_info], daemon=True
+            )
+
+            client_thread.start()
+
+    def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
+
+        user_host = user_info[0]
+        user_socket = user_info[1]
+        _user_name = None
+        _nick = None
+
+        user_instantiated = False
+
+        with user_socket:
+            while True:
+                request = b""
+                # IRC messages always end with b"\r\n"
+                while not request.endswith(b"\r\n"):
+                    request_chunk = user_socket.recv(4096)
+                    if request_chunk:
+                        request += request_chunk
+                    else:
+                        if user_instantiated:
+                            print(f"{user.nick} has disconnected.")
+
+                        else:
+                            print("Disconnected.")
+                        return
+
+                decoded_message = request.decode("utf-8")
+                for line in decoded_message.split("\r\n")[:-1]:
+                    if " " in line:
+                        verb, message = line.split(" ", 1)
+                    else:
+                        verb = line
+                        message = verb
+
+                    verb_lower = verb.lower()
+
+                    # ex. "handle_nick" or "handle_join"
+                    handler_function_to_call = "handle_" + verb_lower
+
+                    if user_instantiated:
+                        try:
+                            call_handler_function = getattr(
+                                command_handler, handler_function_to_call
+                            )
+                        except AttributeError:
+                            command_handler.handle_unknown_command(verb_lower)
+                            return
+
+                        call_handler_function(message)
+
+                    else:
+                        if verb_lower == "user":
+                            _user_name = message.split(" ", 1)[0]
+                        elif verb_lower == "nick":
+                            _nick = message
+                        else:
+                            error_code, error_info = irc_responses.ERR_NOTREGISTERED
+                            user_socket.sendall(
+                                bytes(
+                                    f":mantatail {error_code} * {error_info}\r\n",
+                                    encoding="utf-8",
+                                )
+                            )
+
+                    if _user_name and _nick and not user_instantiated:
+                        user: User = User(user_host, user_socket, _user_name, _nick)
+                        command_handler: IrcCommandHandler = IrcCommandHandler(
+                            self, user
+                        )
+                        user_instantiated = True
+                        command_handler.handle_motd()
+
+
 class User:
-    def __init__(self, host: str, socket: socket.socket):
+    def __init__(self, host: str, socket: socket.socket, user: str, nick: str):
         self.socket = socket
         self.host = host
-        self.nick: Optional[str] = None
-        self.user_name: Optional[str] = None
+        # Nick is shown in user lists etc, user_name is not
+        self.nick = nick
+        self.user_name = user
 
     def create_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
 
 class Channel:
-    def __init__(self) -> None:
+    def __init__(self, channel_name: str) -> None:
+        self.channel_name = channel_name
         self.user_dict: Dict[Optional[str], User] = {}
 
 
@@ -78,17 +175,22 @@ class IrcCommandHandler:
     def handle_join(self, channel_name: str) -> None:
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
-        if not re.match(channel_regex, channel_name):
+        lower_channel_name = channel_name.lower()
+
+        if not re.match(channel_regex, lower_channel_name):
             self.handle_no_such_channel(channel_name)
         else:
-            if channel_name not in self.server.channels.keys():
-                self.server.channels[channel_name] = Channel()
+            if lower_channel_name not in self.server.channels.keys():
+                self.server.channels[lower_channel_name] = Channel(channel_name)
 
+            lower_user_nick = self.user.nick.lower()
             if (
-                self.user.nick
-                not in self.server.channels[channel_name].user_dict.keys()
+                lower_user_nick
+                not in self.server.channels[lower_channel_name].user_dict.keys()
             ):
-                self.server.channels[channel_name].user_dict[self.user.nick] = self.user
+                self.server.channels[lower_channel_name].user_dict[
+                    lower_user_nick
+                ] = self.user
 
         # TODO: Check for:
         #   * User invited to channel
@@ -97,9 +199,14 @@ class IrcCommandHandler:
         #   * Not joined too many channels
 
     def handle_part(self, channel_name: str) -> None:
-        if channel_name not in self.server.channels.keys():
+        lower_channel_name = channel_name.lower()
+        lower_user_nick = self.user.nick.lower()
+        if lower_channel_name not in self.server.channels.keys():
             self.handle_no_such_channel(channel_name)
-        elif self.user.nick not in self.server.channels[channel_name].user_dict.keys():
+        elif (
+            lower_user_nick
+            not in self.server.channels[lower_channel_name].user_dict.keys()
+        ):
             (
                 not_on_channel_num,
                 not_on_channel_info,
@@ -109,9 +216,9 @@ class IrcCommandHandler:
                 not_on_channel_num, not_on_channel_info, channel_name
             )
         else:
-            del self.server.channels[channel_name].user_dict[self.user.nick]
-            if len(self.server.channels[channel_name].user_dict) == 0:
-                del self.server.channels[channel_name]
+            del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
+            if len(self.server.channels[lower_channel_name].user_dict) == 0:
+                del self.server.channels[lower_channel_name]
 
         # TODO: Support user writing /part without specifying channel name
 
@@ -120,12 +227,6 @@ class IrcCommandHandler:
 
     def _handle_kick(self, message: str) -> None:
         pass
-
-    def handle_nick(self, nick: str) -> None:
-        self.user.nick = nick
-
-    def handle_user(self, message: str) -> None:
-        self.user.user_name = message.split(" ", 1)[0]
 
     def _handle_privmsg(self, message: str) -> None:
         pass
@@ -148,72 +249,6 @@ class IrcCommandHandler:
                 encoding=self.encoding,
             )
         )
-
-
-class Server:
-    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
-        self.host = "127.0.0.1"
-        self.port = port
-        self.motd_content = motd_content
-        self.listener_socket = socket.socket()
-        self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener_socket.bind((self.host, self.port))
-        self.listener_socket.listen(5)
-
-        self.channels: Dict[str, Channel] = {}
-
-    def run_server_forever(self) -> None:
-        while True:
-            user_socket, user_address = self.listener_socket.accept()
-            user = User(user_address[0], user_socket)
-
-            command_handler = IrcCommandHandler(self, user)
-
-            client_thread = threading.Thread(
-                target=self.recv_loop, args=[user, command_handler], daemon=True
-            )
-
-            client_thread.start()
-
-    def recv_loop(self, user: User, command_handler: IrcCommandHandler) -> None:
-        with user.socket:
-            while True:
-                request = b""
-                # IRC messages always end with b"\r\n"
-                while not request.endswith(b"\r\n"):
-                    request_chunk = user.socket.recv(4096)
-                    if request_chunk:
-                        request += request_chunk
-                    else:
-                        print(f"{user.nick} has disconnected.")
-                        return
-
-                decoded_message = request.decode("utf-8")
-                for line in decoded_message.split("\r\n")[:-1]:
-                    if " " in line:
-                        verb, message = line.split(" ", 1)
-                    else:
-                        verb = line
-                        message = verb
-
-                    verb_lower = verb.lower()
-
-                    if verb_lower == "nick":
-                        user.nick = message
-                        command_handler.handle_motd()
-
-                    # ex. "handle_nick" or "handle_join"
-                    handler_function_to_call = "handle_" + verb_lower
-
-                    try:
-                        call_handler_function = getattr(
-                            command_handler, handler_function_to_call
-                        )
-                    except AttributeError:
-                        command_handler.handle_unknown_command(verb_lower)
-                        return
-
-                    call_handler_function(message)
 
 
 def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:

@@ -7,6 +7,7 @@ ERR_TOOMANYCHANNELS = ("405", ":You have joined too many channels")
 ERR_UNKNOWNCOMMAND = ("421", ":Unknown command")
 ERR_NOMOTD = ("422", ":MOTD File is missing")
 ERR_NOTONCHANNEL = ("442", ":You're not on that channel")
+ERR_NOTREGISTERED = ("451", ":You have not registered")
 
 # Command Responses
 RPL_MOTDSTART = ("375", "Message of the day - ")

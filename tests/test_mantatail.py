@@ -64,13 +64,14 @@ def run_server(fail_test_if_there_is_an_error_in_a_thread):
 def user_alice(run_server):
     alice_socket = socket.socket()
     alice_socket.connect(("localhost", 6667))
-    alice_socket.sendall(b"NICK alice\r\n")
+    alice_socket.sendall(b"NICK Alice\r\n")
+    alice_socket.sendall(b"USER AliceUsr 0 * :Alice's real name\r\n")
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
     received = b""
-    while not received.endswith(b"\r\n:mantatail 376 alice :End of /MOTD command\r\n"):
-        received += alice_socket.recv(4096)
+    while not received.endswith(b"\r\n:mantatail 376 Alice :End of /MOTD command\r\n"):
+        received += alice_socket.recv(1)
 
     yield alice_socket
     alice_socket.sendall(b"QUIT\r\n")
@@ -81,13 +82,14 @@ def user_alice(run_server):
 def user_bob(run_server):
     bob_socket = socket.socket()
     bob_socket.connect(("localhost", 6667))
-    bob_socket.sendall(b"NICK bob\r\n")
+    bob_socket.sendall(b"NICK Bob\r\n")
+    bob_socket.sendall(b"USER BobUsr 0 * :Bob's real name\r\n")
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
     received = b""
-    while not received.endswith(b"\r\n:mantatail 376 bob :End of /MOTD command\r\n"):
-        received += bob_socket.recv(4096)
+    while not received.endswith(b"\r\n:mantatail 376 Bob :End of /MOTD command\r\n"):
+        received += bob_socket.recv(1)
 
     yield bob_socket
     bob_socket.sendall(b"QUIT\r\n")
@@ -109,6 +111,16 @@ def recv_loop(user):
 ##############
 #    TESTS   #
 ##############
+
+
+def test_join_before_registering(run_server):
+    user_socket = socket.socket()
+    user_socket.connect(("localhost", 6667))
+    user_socket.sendall(b"JOIN #foo\r\n")
+    received = b""
+    while not received.endswith(b"\r\n"):
+        received += user_socket.recv(1)
+    assert received == b":mantatail 451 * :You have not registered\r\n"
 
 
 def test_no_such_channel(user_alice):
