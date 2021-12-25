@@ -64,7 +64,22 @@ class Server:
 
                     verb_lower = verb.lower()
 
-                    if not user_instantiated:
+                    # ex. "handle_nick" or "handle_join"
+                    handler_function_to_call = "handle_" + verb_lower
+
+                    if user_instantiated:
+                        try:
+                            call_handler_function = getattr(
+                                command_handler, handler_function_to_call
+                            )
+                        except AttributeError:
+                            print("HELLOO")
+                            command_handler.handle_unknown_command(verb_lower)
+                            return
+
+                        call_handler_function(message)
+
+                    else:
                         if verb_lower == "user":
                             _user_name = message.split(" ", 1)[0]
                         elif verb_lower == "nick":
@@ -83,20 +98,6 @@ class Server:
                         command_handler = IrcCommandHandler(self, user)
                         user_instantiated = True
                         command_handler.handle_motd()
-
-                    # ex. "handle_nick" or "handle_join"
-                    handler_function_to_call = "handle_" + verb_lower
-
-                    if user_instantiated:
-                        try:
-                            call_handler_function = getattr(
-                                command_handler, handler_function_to_call
-                            )
-                        except AttributeError:
-                            command_handler.handle_unknown_command(verb_lower)
-                            return
-
-                        call_handler_function(message)
 
 
 class User:
