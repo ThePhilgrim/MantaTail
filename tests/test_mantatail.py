@@ -60,7 +60,7 @@ def run_server(fail_test_if_there_is_an_error_in_a_thread):
     server.listener_socket.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def user_alice(run_server):
     alice_socket = socket.socket()
     alice_socket.connect(("localhost", 6667))
