@@ -251,7 +251,7 @@ class IrcCommandHandler:
         )
 
 
-def split_on_new_line(string):
+def split_on_new_line(string: str) -> List[str]:
     if string.endswith("\r\n"):
         return string.split("\r\n")
     else:
