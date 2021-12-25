@@ -65,7 +65,6 @@ class IrcCommandHandler:
                 self.user.socket.sendall(motd_msg)
         # If motd.json could not be found
         else:
-            print("else")
             no_motd_num, no_motd_info = irc_responses.ERR_NOMOTD
             self.user.socket.sendall(
                 bytes(
