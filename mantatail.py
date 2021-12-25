@@ -64,10 +64,19 @@ class Server:
 
                     verb_lower = verb.lower()
 
-                    if verb_lower == "user":
-                        _user_name = message.split(" ", 1)[0]
-                    elif verb_lower == "nick":
-                        _nick = message
+                    if not user_instantiated:
+                        if verb_lower == "user":
+                            _user_name = message.split(" ", 1)[0]
+                        elif verb_lower == "nick":
+                            _nick = message
+                        else:
+                            error_code, error_info = irc_responses.ERR_NOTREGISTERED
+                            user_socket.sendall(
+                                bytes(
+                                    f":mantatail {error_code} * {error_info}\r\n",
+                                    encoding="utf-8",
+                                )
+                            )
 
                     if _user_name and _nick and not user_instantiated:
                         user = User(user_host, user_socket, _user_name, _nick)
@@ -78,15 +87,7 @@ class Server:
                     # ex. "handle_nick" or "handle_join"
                     handler_function_to_call = "handle_" + verb_lower
 
-                    if not user_instantiated:
-                        error_code, error_info = irc_responses.ERR_NOTREGISTERED
-                        user_socket.sendall(
-                            bytes(
-                                f":mantatail {error_code} * {error_info}\r\n",
-                                encoding="utf-8",
-                            )
-                        )
-                    else:
+                    if user_instantiated:
                         try:
                             call_handler_function = getattr(
                                 command_handler, handler_function_to_call
