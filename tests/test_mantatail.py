@@ -1,6 +1,7 @@
 import pytest
 import socket
 import threading
+import time
 from mantatail import Server
 
 motd_dict_test = {
@@ -129,6 +130,7 @@ def test_no_such_channel(user_alice):
 
 def test_youre_not_on_that_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)  # TODO: wait until server says that join is done
     user_bob.sendall(b"PART #foo\r\n")
     received = receive_line(user_bob)
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
