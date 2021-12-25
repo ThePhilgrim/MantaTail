@@ -71,7 +71,6 @@ def user_alice(run_server):
     # Otherwise it might not be fully started yet when the client quits.
     received = b""
     while not received.endswith(b"\r\n:mantatail 376 Alice :End of /MOTD command\r\n"):
-        print(received)
         received += alice_socket.recv(1)
 
     yield alice_socket
@@ -114,20 +113,24 @@ def recv_loop(user):
 ##############
 
 
-def test_join_before_registering(user_alice):
-    user_alice.sendall(b"JOIN #foo\r\n")
+def test_join_before_registering(run_server):
+    user_socket = socket.socket()
+    user_socket.connect(("localhost", 6667))
+    user_socket.sendall(b"JOIN #foo\r\n")
+    received = b""
+    while not received.endswith(b"\r\n"):
+        received += user_socket.recv(1)
+    assert received == b":mantatail 451 * :You have not registered\r\n"
+
+
+def test_no_such_channel(user_alice):
+    user_alice.sendall(b"PART #foo\r\n")
     received = recv_loop(user_alice)
-    assert received == b":mantatail 421 * :You have not registered\r\n"
+    assert received == b":mantatail 403 #foo :No such channel\r\n"
 
 
-# def test_no_such_channel(user_alice):
-#     user_alice.sendall(b"PART #foo\r\n")
-#     received = recv_loop(user_alice)
-#     assert received == b":mantatail 403 #foo :No such channel\r\n"
-
-
-# def test_youre_not_on_that_channel(user_alice, user_bob):
-#     user_alice.sendall(b"JOIN #foo\r\n")
-#     user_bob.sendall(b"PART #foo\r\n")
-#     received = recv_loop(user_bob)
-#     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
+def test_youre_not_on_that_channel(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    user_bob.sendall(b"PART #foo\r\n")
+    received = recv_loop(user_bob)
+    assert received == b":mantatail 442 #foo :You're not on that channel\r\n"

@@ -51,7 +51,11 @@ class Server:
                     if request_chunk:
                         request += request_chunk
                     else:
-                        print(f"{user.nick} has disconnected.")
+                        if user_instantiated:
+                            print(f"{user.nick} has disconnected.")
+
+                        else:
+                            print("Disconnected.")
                         return
 
                 decoded_message = request.decode("utf-8")
