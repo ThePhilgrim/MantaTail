@@ -93,8 +93,10 @@ class Server:
                             )
 
                     if _user_name and _nick and not user_instantiated:
-                        user = User(user_host, user_socket, _user_name, _nick)
-                        command_handler = IrcCommandHandler(self, user)
+                        user: User = User(user_host, user_socket, _user_name, _nick)
+                        command_handler: IrcCommandHandler = IrcCommandHandler(
+                            self, user
+                        )
                         user_instantiated = True
                         command_handler.handle_motd()
 
