@@ -1,11 +1,9 @@
-# from io import open_code  # Does anybody know why I imported this?
 from __future__ import annotations
 import socket
 import threading
 import re
-import sys
 import json
-from typing import Dict, Optional, Union, List, Tuple
+from typing import Dict, Optional, List, Tuple
 
 import irc_responses
 
@@ -71,18 +69,7 @@ class Server:
                     # ex. "handle_nick" or "handle_join"
                     handler_function_to_call = "handle_" + verb_lower
 
-                    if user is not None:
-                        try:
-                            call_handler_function = getattr(
-                                command_handler, handler_function_to_call
-                            )
-                        except AttributeError:
-                            command_handler.handle_unknown_command(verb_lower)
-                            return
-
-                        call_handler_function(message)
-
-                    else:
+                    if user is None:
                         if verb_lower == "user":
                             _user_name = message.split(" ", 1)[0]
                         elif verb_lower == "nick":
@@ -102,6 +89,17 @@ class Server:
                                 self, user
                             )
                             command_handler.handle_motd()
+
+                    else:
+                        try:
+                            call_handler_function = getattr(
+                                command_handler, handler_function_to_call
+                            )
+                        except AttributeError:
+                            command_handler.handle_unknown_command(verb_lower)
+                            return
+
+                        call_handler_function(message)
 
 
 class User:
