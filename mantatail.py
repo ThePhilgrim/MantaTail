@@ -5,7 +5,7 @@ import threading
 import re
 import sys
 import json
-from typing import Dict, Optional, Union, List
+from typing import Dict, Optional, Union, List, Tuple
 
 import irc_responses
 
@@ -25,23 +25,33 @@ class Server:
     def run_server_forever(self) -> None:
         while True:
             user_socket, user_address = self.listener_socket.accept()
-            user = User(user_address[0], user_socket)
+            user_info = (user_address[0], user_socket)
 
-            command_handler = IrcCommandHandler(self, user)
+            command_handler = IrcCommandHandler(self)
 
             client_thread = threading.Thread(
-                target=self.recv_loop, args=[user, command_handler], daemon=True
+                target=self.recv_loop, args=[user_info, command_handler], daemon=True
             )
 
             client_thread.start()
 
-    def recv_loop(self, user: User, command_handler: IrcCommandHandler) -> None:
-        with user.socket:
+    def recv_loop(
+        self, user_info: Tuple[str, socket.socket], command_handler: IrcCommandHandler
+    ) -> None:
+
+        user_host = user_info[0]
+        user_socket = user_info[1]
+        _user_name = None
+        _nick = None
+
+        _user_instantiated = False
+
+        with user_socket:
             while True:
                 request = b""
                 # IRC messages always end with b"\r\n"
                 while not request.endswith(b"\r\n"):
-                    request_chunk = user.socket.recv(4096)
+                    request_chunk = user_socket.recv(4096)
                     if request_chunk:
                         request += request_chunk
                     else:
@@ -58,8 +68,14 @@ class Server:
 
                     verb_lower = verb.lower()
 
-                    if verb_lower == "nick":
-                        user.nick = message
+                    if verb_lower == "user":
+                        _user_name = message.split(" ", 1)[0]
+                    elif verb_lower == "nick":
+                        _nick = message
+
+                    if _user_name and _nick and not _user_instantiated:
+                        user = User(user_host, user_socket, _user_name, _nick)
+                        _user_instantiated = True
                         command_handler.handle_motd()
 
                     # ex. "handle_nick" or "handle_join"
@@ -77,30 +93,30 @@ class Server:
 
 
 class User:
-    def __init__(self, host: str, socket: socket.socket):
+    def __init__(self, host: str, socket: socket.socket, user: str, nick: str):
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
-        self.nick: Optional[str] = None
-        self.user_name: Optional[str] = None
+        self.nick: nick
+        self.user_name: user
 
     def create_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
 
 class Channel:
-    def __init__(self, channel_name) -> None:
+    def __init__(self, channel_name: str) -> None:
         self.channel_name = channel_name
         self.user_dict: Dict[Optional[str], User] = {}
 
 
 class IrcCommandHandler:
-    def __init__(self, server: Server, user: User) -> None:
+    def __init__(self, server: Server) -> None:
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
         self.server = server
-        self.user = user
+        self.user = None
 
     def handle_motd(self) -> None:
         (
@@ -199,11 +215,11 @@ class IrcCommandHandler:
     def _handle_kick(self, message: str) -> None:
         pass
 
-    def handle_nick(self, nick: str) -> None:
-        self.user.nick = nick
+    # def handle_nick(self, nick: str) -> None:
+    #     self.user.nick = nick
 
-    def handle_user(self, message: str) -> None:
-        self.user.user_name = message.split(" ", 1)[0]
+    # def handle_user(self, message: str) -> None:
+    #     self.user.user_name = message.split(" ", 1)[0]
 
     def _handle_privmsg(self, message: str) -> None:
         pass
