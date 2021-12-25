@@ -73,7 +73,6 @@ class Server:
                                 command_handler, handler_function_to_call
                             )
                         except AttributeError:
-                            print("HELLOO")
                             command_handler.handle_unknown_command(verb_lower)
                             return
 
