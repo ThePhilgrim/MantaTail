@@ -27,24 +27,20 @@ class Server:
             user_socket, user_address = self.listener_socket.accept()
             user_info = (user_address[0], user_socket)
 
-            command_handler = IrcCommandHandler(self)
-
             client_thread = threading.Thread(
-                target=self.recv_loop, args=[user_info, command_handler], daemon=True
+                target=self.recv_loop, args=[user_info], daemon=True
             )
 
             client_thread.start()
 
-    def recv_loop(
-        self, user_info: Tuple[str, socket.socket], command_handler: IrcCommandHandler
-    ) -> None:
+    def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
 
         user_host = user_info[0]
         user_socket = user_info[1]
         _user_name = None
         _nick = None
 
-        _user_instantiated = False
+        user_instantiated = False
 
         with user_socket:
             while True:
@@ -73,23 +69,33 @@ class Server:
                     elif verb_lower == "nick":
                         _nick = message
 
-                    if _user_name and _nick and not _user_instantiated:
+                    if _user_name and _nick and not user_instantiated:
                         user = User(user_host, user_socket, _user_name, _nick)
-                        _user_instantiated = True
+                        command_handler = IrcCommandHandler(self, user)
+                        user_instantiated = True
                         command_handler.handle_motd()
 
                     # ex. "handle_nick" or "handle_join"
                     handler_function_to_call = "handle_" + verb_lower
 
-                    try:
-                        call_handler_function = getattr(
-                            command_handler, handler_function_to_call
+                    if not user_instantiated:
+                        error_code, error_info = irc_responses.ERR_NOTREGISTERED
+                        user_socket.sendall(
+                            bytes(
+                                f":mantatail {error_code} * {error_info}\r\n",
+                                encoding="utf-8",
+                            )
                         )
-                    except AttributeError:
-                        command_handler.handle_unknown_command(verb_lower)
-                        return
+                    else:
+                        try:
+                            call_handler_function = getattr(
+                                command_handler, handler_function_to_call
+                            )
+                        except AttributeError:
+                            command_handler.handle_unknown_command(verb_lower)
+                            return
 
-                    call_handler_function(message)
+                        call_handler_function(message)
 
 
 class User:
@@ -97,8 +103,8 @@ class User:
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
-        self.nick: nick
-        self.user_name: user
+        self.nick = nick
+        self.user_name = user
 
     def create_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
@@ -111,12 +117,12 @@ class Channel:
 
 
 class IrcCommandHandler:
-    def __init__(self, server: Server) -> None:
+    def __init__(self, server: Server, user: User) -> None:
         self.encoding = "utf-8"
         self.send_to_client_prefix = ":mantatail"
         self.send_to_client_suffix = "\r\n"
         self.server = server
-        self.user = None
+        self.user = user
 
     def handle_motd(self) -> None:
         (
