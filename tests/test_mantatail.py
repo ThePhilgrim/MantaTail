@@ -132,3 +132,6 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     user_bob.sendall(b"PART #foo\r\n")
     received = receive_line(user_bob)
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
+
+
+# TODO: Test irc server & netcat new line difference \r\n & \n
