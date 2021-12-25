@@ -15,6 +15,9 @@ motd_dict_test = {
     ]
 }
 
+##############
+#  FIXTURES  #
+##############
 
 # Based on: https://gist.github.com/sbrugman/59b3535ebcd5aa0e2598293cfa58b6ab#gistcomment-3795790
 @pytest.fixture(scope="function")
@@ -48,7 +51,12 @@ def run_server(fail_test_if_there_is_an_error_in_a_thread):
     threading.Thread(target=run_server, args=[server]).start()
 
     yield
-    server.listener_socket.shutdown(socket.SHUT_RDWR)
+    # .shutdown() raises an OSError on mac, removing it makes the test suite freeze on linux.
+    try:
+        server.listener_socket.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+
     server.listener_socket.close()
 
 
@@ -84,3 +92,8 @@ def user_bob(run_server):
     yield user_bob
     bob_socket.sendall(b"QUIT\r\n")
     bob_socket.close()
+
+
+##############
+#    TESTS   #
+##############
