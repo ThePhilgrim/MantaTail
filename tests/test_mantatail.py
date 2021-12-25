@@ -38,7 +38,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
         raise last_exception
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
     server = Server(6667, motd_dict_test)
 
