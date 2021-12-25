@@ -228,12 +228,6 @@ class IrcCommandHandler:
     def _handle_kick(self, message: str) -> None:
         pass
 
-    # def handle_nick(self, nick: str) -> None:
-    #     self.user.nick = nick
-
-    # def handle_user(self, message: str) -> None:
-    #     self.user.user_name = message.split(" ", 1)[0]
-
     def _handle_privmsg(self, message: str) -> None:
         pass
 
