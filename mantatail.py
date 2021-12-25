@@ -45,8 +45,8 @@ class Server:
         with user_socket:
             while True:
                 request = b""
-                # IRC messages always end with b"\r\n"
-                while not request.endswith(b"\r\n"):
+                # IRC messages always end with b"\r\n" (netcat uses "\n")
+                while not request.endswith(b"\n"):
                     request_chunk = user_socket.recv(4096)
                     if request_chunk:
                         request += request_chunk
@@ -59,7 +59,7 @@ class Server:
                         return
 
                 decoded_message = request.decode("utf-8")
-                for line in decoded_message.split("\r\n")[:-1]:
+                for line in split_on_new_line(decoded_message)[:-1]:
                     if " " in line:
                         verb, message = line.split(" ", 1)
                     else:
@@ -249,6 +249,13 @@ class IrcCommandHandler:
                 encoding=self.encoding,
             )
         )
+
+
+def split_on_new_line(string: str) -> List[str]:
+    if string.endswith("\r\n"):
+        return string.split("\r\n")
+    else:
+        return string.split("\n")
 
 
 def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
