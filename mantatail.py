@@ -90,6 +90,8 @@ class Server:
                             return
 
                         call_handler_function(message)
+                        if user.closed_connection:
+                            return
 
 
 class User:
@@ -100,8 +102,7 @@ class User:
         self.nick = nick
         self.user_name = user
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
-        print(self.user_name)
-        print(self.user_mask)
+        self.closed_connection = False
 
 class Channel:
     def __init__(self, channel_name: str, channel_creator: str) -> None:
@@ -195,10 +196,9 @@ class IrcCommandHandler:
             if len(self.server.channels[lower_channel_name].user_dict) == 0:
                 del self.server.channels[lower_channel_name]
 
-        # TODO: Support user writing /part without specifying channel name
-
-    def handle_quit(self, message) -> None:
-        pass
+    def handle_quit(self, message: str) -> None:
+        self.user.closed_connection = True
+        self.user.socket.close()
 
     def _handle_kick(self, message: str) -> None:
         pass
