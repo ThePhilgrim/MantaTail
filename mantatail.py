@@ -96,12 +96,12 @@ class Server:
                                 )
                             )
 
-                    if _user_name and _nick and user is None:
-                        user = User(user_host, user_socket, _user_name, _nick)
-                        command_handler: IrcCommandHandler = IrcCommandHandler(
-                            self, user
-                        )
-                        command_handler.handle_motd()
+                        if _user_name and _nick:
+                            user = User(user_host, user_socket, _user_name, _nick)
+                            command_handler: IrcCommandHandler = IrcCommandHandler(
+                                self, user
+                            )
+                            command_handler.handle_motd()
 
 
 class User:
