@@ -111,6 +111,7 @@ class User:
         # Nick is shown in user lists etc, user_name is not
         self.nick = nick
         self.user_name = user
+        self.closed_connection = False
 
     def create_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
@@ -221,7 +222,7 @@ class IrcCommandHandler:
 
         # TODO: Support user writing /part without specifying channel name
 
-    def handle_quit(self, message) -> None:
+    def handle_quit(self, message: str) -> None:
         self.user.closed_connection = True
         self.user.socket.close()
 
