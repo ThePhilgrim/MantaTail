@@ -38,46 +38,15 @@ jobs:
           python3 -m pip install pyflakes
       - run: |
           pyflakes *.py tests
-  pytest-windows:
+  pytest:
     timeout-minutes: 2
-    strategy:
-      matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10']
-    env:
-      TCLLIBPATH: lib
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: python -m pytest
-  pytest-linux:
-    timeout-minutes: 2
-    strategy:
-      matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10']
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v1
+      - uses: actions/setup-python@v1
         with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: python3 -m pytest
-  pytest-macos:
-    timeout-minutes: 2
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        # Homebrew doesn't have Python 10 yet.
-        python-version: ['3.7', '3.8', '3.9']
-    env:
-      TCLLIBPATH: ./lib
-      PYTHON: /usr/local/opt/python@${{ matrix.python-version }}/libexec/bin/python
-    steps:
-      - uses: actions/checkout@v2
-      - run: brew install python@${{ matrix.python-version }}
-      - run: $PYTHON -m pip install -r requirements.txt -r requirements-dev.txt
-      - run: $PYTHON -m pytest
+          python-version: '3.9'
+      - run: |
+          python3 -m pip install pytest
+      - run: |
+          python3 -m pytest tests/*.py
