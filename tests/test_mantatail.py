@@ -136,4 +136,11 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
 
 
-# TODO: Test irc server & netcat new line difference \r\n & \n
+# netcat sends \n line endings, but is fine receiving \r\n
+def test_netcatting(run_server):
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))  # nc localhost 6667
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
+        while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+            pass
