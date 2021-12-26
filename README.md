@@ -48,4 +48,4 @@ To make sure the PR will pass these checks, please use the following commands be
 - `black *.py tests/*.py`
 - `mypy --strict *.py`
 - `python3 -m pytest tests/*.py`
-- `python3 -m pyflakes *.py`
+- `python3 -m pyflakes *.py tests/`
