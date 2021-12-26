@@ -103,6 +103,7 @@ def user_bob(run_server):
 
 
 def receive_line(sock):
+    sock.settimeout(1)
     received = b""
     while not received.endswith(b"\r\n"):
         received += sock.recv(1)
