@@ -79,7 +79,7 @@ class Server:
 
                         if _user_name and _nick:
                             user = User(user_host, user_socket, _user_name, _nick)
-                            command_handler: IrcCommandHandler = IrcCommandHandler(self, user)
+                            command_handler = IrcCommandHandler(self, user)
                             command_handler.handle_motd()
 
                     else:
