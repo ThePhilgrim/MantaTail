@@ -41,10 +41,11 @@ Some handy resources for developing IRC-related programs:
 
 ### Pull Requests
 
-Any pull request will automatically be checked for proper format by `black`, `mypy` (--strict mode), as well as by `pytest`
+Any pull request will automatically be checked for proper format by `black`, `pyflakes`, `mypy` (--strict mode), as well as by `pytest`
 
 To make sure the PR will pass these checks, please use the following commands before pushing:
 
 - `black *.py tests/*.py`
 - `mypy --strict *.py`
 - `python3 -m pytest tests/*.py`
+- `python3 -m pyflakes *.py tests/`
