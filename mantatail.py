@@ -10,6 +10,7 @@ import irc_responses
 
 class Server:
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
+        print("Starting Mantatail...")
         self.host = "127.0.0.1"
         self.port = port
         self.motd_content = motd_content
@@ -21,13 +22,12 @@ class Server:
         self.channels: Dict[str, Channel] = {}
 
     def run_server_forever(self) -> None:
+        print(f"Mantatail running ({self.host}:{self.port})")
         while True:
-            user_socket, user_address = self.listener_socket.accept()
+            (user_socket, user_address) = self.listener_socket.accept()
             user_info = (user_address[0], user_socket)
 
-            client_thread = threading.Thread(
-                target=self.recv_loop, args=[user_info], daemon=True
-            )
+            client_thread = threading.Thread(target=self.recv_loop, args=[user_info], daemon=True)
 
             client_thread.start()
 
@@ -51,7 +51,6 @@ class Server:
                     else:
                         if user is not None:
                             print(f"{user.nick} has disconnected.")
-
                         else:
                             print("Disconnected.")
                         return
@@ -59,7 +58,7 @@ class Server:
                 decoded_message = request.decode("utf-8")
                 for line in split_on_new_line(decoded_message)[:-1]:
                     if " " in line:
-                        verb, message = line.split(" ", 1)
+                        (verb, message,) = line.split(" ", 1)
                     else:
                         verb = line
                         message = verb
@@ -71,30 +70,21 @@ class Server:
 
                     if user is None:
                         if verb_lower == "user":
-                            _user_name = message.split(" ", 1)[0]
+                            _user_name = message
                         elif verb_lower == "nick":
                             _nick = message
                         else:
-                            error_code, error_info = irc_responses.ERR_NOTREGISTERED
-                            user_socket.sendall(
-                                bytes(
-                                    f":mantatail {error_code} * {error_info}\r\n",
-                                    encoding="utf-8",
-                                )
-                            )
+                            (error_code, error_info) = irc_responses.ERR_NOTREGISTERED
+                            user_socket.sendall(bytes(f":mantatail {error_code} * {error_info}\r\n", encoding="utf-8"))
 
                         if _user_name and _nick:
                             user = User(user_host, user_socket, _user_name, _nick)
-                            command_handler: IrcCommandHandler = IrcCommandHandler(
-                                self, user
-                            )
+                            command_handler: IrcCommandHandler = IrcCommandHandler(self, user)
                             command_handler.handle_motd()
 
                     else:
                         try:
-                            call_handler_function = getattr(
-                                command_handler, handler_function_to_call
-                            )
+                            call_handler_function = getattr(command_handler, handler_function_to_call)
                         except AttributeError:
                             command_handler.handle_unknown_command(verb_lower)
                             return
@@ -109,15 +99,21 @@ class User:
         # Nick is shown in user lists etc, user_name is not
         self.nick = nick
         self.user_name = user
-
-    def create_user_mask(self) -> str:
-        return f"{self.nick}!{self.user_name}@{self.host}"
-
+        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
+        print(self.user_name)
+        print(self.user_mask)
 
 class Channel:
-    def __init__(self, channel_name: str) -> None:
+    def __init__(self, channel_name: str, channel_creator: str) -> None:
         self.channel_name = channel_name
+        self.channel_creator = channel_creator
         self.user_dict: Dict[Optional[str], User] = {}
+
+    # TODO:
+    #   * Send topic (332)
+    #   * Optional/Later: (333) https://modern.ircdocs.horse/#rpltopicwhotime-333
+    #   * Send Name list (353)
+    #   * Send End of Name list (366)
 
 
 class IrcCommandHandler:
@@ -129,15 +125,9 @@ class IrcCommandHandler:
         self.user = user
 
     def handle_motd(self) -> None:
-        (
-            start_num,
-            start_info,
-        ) = irc_responses.RPL_MOTDSTART
+        (start_num, start_info) = irc_responses.RPL_MOTDSTART
         motd_num = irc_responses.RPL_MOTD
-        (
-            end_num,
-            end_info,
-        ) = irc_responses.RPL_ENDOFMOTD
+        (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
 
         motd_start_and_end = {
             "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
@@ -148,7 +138,7 @@ class IrcCommandHandler:
         end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
 
         self.user.socket.sendall(start_msg)
-
+        
         if self.server.motd_content:
             motd = self.server.motd_content["motd"]
             for motd_line in motd:
@@ -159,10 +149,9 @@ class IrcCommandHandler:
                 self.user.socket.sendall(motd_msg)
         # If motd.json could not be found
         else:
-            no_motd_num, no_motd_info = irc_responses.ERR_NOMOTD
+            (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
             self.user.socket.sendall(
-                bytes(
-                    f"{self.send_to_client_prefix} {no_motd_num} {no_motd_info}{self.send_to_client_suffix}",
+                bytes(f"{self.send_to_client_prefix} {no_motd_num} {no_motd_info}{self.send_to_client_suffix}",
                     encoding=self.encoding,
                 )
             )
@@ -178,40 +167,29 @@ class IrcCommandHandler:
             self.handle_no_such_channel(channel_name)
         else:
             if lower_channel_name not in self.server.channels.keys():
-                self.server.channels[lower_channel_name] = Channel(channel_name)
+                self.server.channels[lower_channel_name] = Channel(channel_name, self.user.nick)
 
             lower_user_nick = self.user.nick.lower()
-            if (
-                lower_user_nick
-                not in self.server.channels[lower_channel_name].user_dict.keys()
-            ):
-                self.server.channels[lower_channel_name].user_dict[
-                    lower_user_nick
-                ] = self.user
+            if lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+                self.server.channels[lower_channel_name].user_dict[lower_user_nick] = self.user
+                self.user.socket.sendall(bytes(f":{self.user.user_mask} JOIN {channel_name}{self.send_to_client_suffix}", encoding=self.encoding))
 
         # TODO: Check for:
         #   * User invited to channel
         #   * Nick/user not matching bans
         #   * Eventual password matches
         #   * Not joined too many channels
+        #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
     def handle_part(self, channel_name: str) -> None:
         lower_channel_name = channel_name.lower()
         lower_user_nick = self.user.nick.lower()
         if lower_channel_name not in self.server.channels.keys():
             self.handle_no_such_channel(channel_name)
-        elif (
-            lower_user_nick
-            not in self.server.channels[lower_channel_name].user_dict.keys()
-        ):
-            (
-                not_on_channel_num,
-                not_on_channel_info,
-            ) = irc_responses.ERR_NOTONCHANNEL
+        elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+            (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
-            self.generate_error_reply(
-                not_on_channel_num, not_on_channel_info, channel_name
-            )
+            self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
         else:
             del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
             if len(self.server.channels[lower_channel_name].user_dict) == 0:
@@ -219,7 +197,7 @@ class IrcCommandHandler:
 
         # TODO: Support user writing /part without specifying channel name
 
-    def _handle_quit(self) -> None:
+    def handle_quit(self, message) -> None:
         pass
 
     def _handle_kick(self, message: str) -> None:
@@ -229,20 +207,16 @@ class IrcCommandHandler:
         pass
 
     def handle_unknown_command(self, command: str) -> None:
-        unknown_cmd_num, unknown_cmd_info = irc_responses.ERR_UNKNOWNCOMMAND
+        (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
 
         self.generate_error_reply(unknown_cmd_num, unknown_cmd_info, command)
 
     def handle_no_such_channel(self, channel_name: str) -> None:
-        no_channel_num, no_channel_info = irc_responses.ERR_NOSUCHCHANNEL
+        (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
         self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
 
-    def generate_error_reply(
-        self, error_num: str, error_info: str, error_topic: str
-    ) -> None:
-        self.user.socket.sendall(
-            bytes(
-                f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
+    def generate_error_reply(self, error_num: str, error_info: str, error_topic: str) -> None:
+        self.user.socket.sendall(bytes(f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
                 encoding=self.encoding,
             )
         )
