@@ -137,7 +137,7 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
 
 
 # netcat sends \n line endings, but is fine receiving \r\n
-def test_netcatting(run_server):
+def test_connect_via_netcat(run_server):
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))  # nc localhost 6667
         nc.sendall(b"NICK nc\n")
