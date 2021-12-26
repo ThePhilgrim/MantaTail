@@ -100,6 +100,8 @@ class Server:
                             return
 
                         call_handler_function(message)
+                        if user.closed_connection:
+                            return
 
 
 class User:
@@ -219,8 +221,9 @@ class IrcCommandHandler:
 
         # TODO: Support user writing /part without specifying channel name
 
-    def _handle_quit(self) -> None:
-        pass
+    def handle_quit(self, message) -> None:
+        self.user.closed_connection = True
+        self.user.socket.close()
 
     def _handle_kick(self, message: str) -> None:
         pass
