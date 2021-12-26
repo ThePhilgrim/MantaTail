@@ -132,8 +132,5 @@ dmypy.json
 # Mac File
 .DS_Store
 
-# Code plan
-plan.md
-
 # VS Code
 .vscode/
