@@ -220,8 +220,6 @@ class IrcCommandHandler:
             if len(self.server.channels[lower_channel_name].user_dict) == 0:
                 del self.server.channels[lower_channel_name]
 
-        # TODO: Support user writing /part without specifying channel name
-
     def handle_quit(self, message: str) -> None:
         self.user.closed_connection = True
         self.user.socket.close()
