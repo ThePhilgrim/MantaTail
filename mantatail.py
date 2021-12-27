@@ -101,7 +101,6 @@ class Server:
                         except AttributeError:
                             command_handler.handle_unknown_command(verb_lower)
 
-                        
                         if user.closed_connection:
                             return
 
