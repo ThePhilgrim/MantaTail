@@ -206,7 +206,6 @@ class IrcCommandHandler:
                     ] = self.user
 
                     for user in channel_user_keys:
-                        print(self, user)
                         self.server.channels[lower_channel_name].user_dict[
                             user
                         ].socket.sendall(
