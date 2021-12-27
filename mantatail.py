@@ -97,11 +97,11 @@ class Server:
                             call_handler_function = getattr(
                                 command_handler, handler_function_to_call
                             )
+                            call_handler_function(message)
                         except AttributeError:
                             command_handler.handle_unknown_command(verb_lower)
-                            return
 
-                        call_handler_function(message)
+                        
                         if user.closed_connection:
                             return
 
