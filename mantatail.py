@@ -81,7 +81,6 @@ class Server:
                             _nick = message
                         else:
                             (error_code, error_info) = irc_responses.ERR_NOTREGISTERED
-<<<<<<< HEAD
                             user_socket.sendall(
                                 bytes(
                                     f":mantatail {error_code} * {error_info}\r\n",
@@ -94,13 +93,6 @@ class Server:
                             command_handler: IrcCommandHandler = IrcCommandHandler(
                                 self, user
                             )
-=======
-                            user_socket.sendall(bytes(f":mantatail {error_code} * {error_info}\r\n", encoding="utf-8"))
-
-                        if _user_name and _nick:
-                            user = User(user_host, user_socket, _user_name, _nick)
-                            command_handler = IrcCommandHandler(self, user)
->>>>>>> 67b5ee8a1f798906c8b5ecc43eaceb6e248b55f5
                             command_handler.handle_motd()
 
                     else:
