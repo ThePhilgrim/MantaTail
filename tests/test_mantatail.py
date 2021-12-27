@@ -66,7 +66,7 @@ def user_alice(run_server):
     alice_socket = socket.socket()
     alice_socket.connect(("localhost", 6667))
     alice_socket.sendall(b"NICK Alice\r\n")
-    alice_socket.sendall(b"USER Alice 0 * :Alice's real name\r\n")
+    alice_socket.sendall(b"USER AliceUsr 0 * :Alice's real name\r\n")
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
@@ -85,7 +85,7 @@ def user_bob(run_server):
     bob_socket = socket.socket()
     bob_socket.connect(("localhost", 6667))
     bob_socket.sendall(b"NICK Bob\r\n")
-    bob_socket.sendall(b"USER Bob 0 * :Bob's real name\r\n")
+    bob_socket.sendall(b"USER BobUsr 0 * :Bob's real name\r\n")
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
@@ -127,12 +127,11 @@ def test_join_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     user_bob.sendall(b"JOIN #foo\r\n")
     received = receive_line(user_bob)
-    print(received)
-    assert received == b":Bob!Bob 0 * :Bob's real name@127.0.0.1 JOIN #foo\r\n"
-    # while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob Alice\r\n":
-    #     pass
-    # while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
-    #     pass
+    assert received == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
+    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob Alice\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
 
 
 def test_no_such_channel(user_alice):
