@@ -208,7 +208,6 @@ class IrcCommandHandler:
                         lower_user_nick
                     ] = self.user
 
-
                     for user in channel_user_keys:
                         print(self, user)
                         self.server.channels[lower_channel_name].user_dict[
