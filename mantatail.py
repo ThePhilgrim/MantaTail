@@ -1,5 +1,4 @@
 from __future__ import annotations
-import time
 import socket
 import threading
 import re
@@ -208,7 +207,7 @@ class IrcCommandHandler:
                 self.server.channels[lower_channel_name].user_dict[
                     lower_user_nick
                 ] = self.user
-                
+
                 with self.server.thread_lock:
                     for user in channel_user_keys:
                         self.server.channels[lower_channel_name].user_dict[
