@@ -176,40 +176,41 @@ class IrcCommandHandler:
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
         lower_channel_name = channel_name.lower()
+        with self.server.thread_lock:
+            if not re.match(channel_regex, lower_channel_name):
+                self.handle_no_such_channel(channel_name)
+            else:
+                if lower_channel_name not in self.server.channels.keys():
+                    self.server.channels[lower_channel_name] = Channel(
+                        channel_name, self.user.nick
+                    )
 
-        if not re.match(channel_regex, lower_channel_name):
-            self.handle_no_such_channel(channel_name)
-        else:
-            if lower_channel_name not in self.server.channels.keys():
-                self.server.channels[lower_channel_name] = Channel(
-                    channel_name, self.user.nick
-                )
+                lower_user_nick = self.user.nick.lower()
 
-            lower_user_nick = self.user.nick.lower()
-
-            if (
-                lower_user_nick
-                not in self.server.channels[lower_channel_name].user_dict.keys()
-            ):
-
-                channel_user_keys = self.server.channels[
-                    lower_channel_name
-                ].user_dict.keys()
-                channel_users = " ".join(
-                    [
-                        self.server.channels[lower_channel_name]
-                        .user_dict[user_key]
-                        .nick
-                        for user_key in channel_user_keys
-                    ]
-                )
-
-                self.server.channels[lower_channel_name].user_dict[
+                if (
                     lower_user_nick
-                ] = self.user
+                    not in self.server.channels[lower_channel_name].user_dict.keys()
+                ):
 
-                with self.server.thread_lock:
+                    channel_user_keys = self.server.channels[
+                        lower_channel_name
+                    ].user_dict.keys()
+                    channel_users = " ".join(
+                        [
+                            self.server.channels[lower_channel_name]
+                            .user_dict[user_key]
+                            .nick
+                            for user_key in channel_user_keys
+                        ]
+                    )
+
+                    self.server.channels[lower_channel_name].user_dict[
+                        lower_user_nick
+                    ] = self.user
+
+
                     for user in channel_user_keys:
+                        print(self, user)
                         self.server.channels[lower_channel_name].user_dict[
                             user
                         ].socket.sendall(
@@ -219,20 +220,20 @@ class IrcCommandHandler:
                             )
                         )
 
-                # TODO: Implement topic functionality for existing channels & MODE for new ones
+                    # TODO: Implement topic functionality for existing channels & MODE for new ones
 
-                self.user.socket.sendall(
-                    bytes(
-                        f"{self.send_to_client_prefix} 353 {self.user.nick} = {channel_name} :{self.user.nick} {channel_users}{self.send_to_client_suffix}",
-                        encoding=self.encoding,
+                    self.user.socket.sendall(
+                        bytes(
+                            f"{self.send_to_client_prefix} 353 {self.user.nick} = {channel_name} :{self.user.nick} {channel_users}{self.send_to_client_suffix}",
+                            encoding=self.encoding,
+                        )
                     )
-                )
-                self.user.socket.sendall(
-                    bytes(
-                        f"{self.send_to_client_prefix} 366 {self.user.nick} {channel_name} :End of /NAMES list.{self.send_to_client_suffix}",
-                        encoding=self.encoding,
+                    self.user.socket.sendall(
+                        bytes(
+                            f"{self.send_to_client_prefix} 366 {self.user.nick} {channel_name} :End of /NAMES list.{self.send_to_client_suffix}",
+                            encoding=self.encoding,
+                        )
                     )
-                )
 
         # TODO:
         #   * Send topic (332)

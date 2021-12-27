@@ -1,5 +1,6 @@
 import pytest
 import socket
+import traceback
 import threading
 import time
 from mantatail import Server
@@ -30,6 +31,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
             try:
                 super().run()
             except Exception as e:
+                traceback.print_exc()
                 nonlocal last_exception
                 last_exception = e
 
@@ -127,6 +129,7 @@ def test_join_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     # time.sleep(1)
     user_bob.sendall(b"JOIN #foo\r\n")
+    
     received = receive_line(user_bob)
     assert received == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
     while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob Alice\r\n":
