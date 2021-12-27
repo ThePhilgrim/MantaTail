@@ -14,7 +14,7 @@ class Server:
         self.host = "127.0.0.1"
         self.port = port
         self.motd_content = motd_content
-        self.thread_lock = threading.Lock()
+        self.channels_and_users_thread_lock = threading.Lock()
         self.listener_socket = socket.socket()
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, self.port))
@@ -61,10 +61,7 @@ class Server:
                 decoded_message = request.decode("utf-8")
                 for line in split_on_new_line(decoded_message)[:-1]:
                     if " " in line:
-                        (
-                            verb,
-                            message,
-                        ) = line.split(" ", 1)
+                        (verb, message) = line.split(" ", 1)
                     else:
                         verb = line
                         message = verb
@@ -176,7 +173,7 @@ class IrcCommandHandler:
         channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
         lower_channel_name = channel_name.lower()
-        with self.server.thread_lock:
+        with self.server.channels_and_users_thread_lock:
             if not re.match(channel_regex, lower_channel_name):
                 self.handle_no_such_channel(channel_name)
             else:
