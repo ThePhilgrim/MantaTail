@@ -152,6 +152,18 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
 
 
+def test_send_unknown_commands(user_alice):
+    user_alice.sendall(b"FOO\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail 421 foo :Unknown command\r\n"
+    user_alice.sendall(b"FOO\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail 421 foo :Unknown command\r\n"
+    user_alice.sendall(b"FOO\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail 421 foo :Unknown command\r\n"
+
+
 # netcat sends \n line endings, but is fine receiving \r\n
 def test_connect_via_netcat(run_server):
     with socket.socket() as nc:
