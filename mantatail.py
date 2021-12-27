@@ -15,6 +15,7 @@ class Server:
         self.host = "127.0.0.1"
         self.port = port
         self.motd_content = motd_content
+        self.thread_lock = threading.Lock()
         self.listener_socket = socket.socket()
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, self.port))
@@ -207,15 +208,17 @@ class IrcCommandHandler:
                 self.server.channels[lower_channel_name].user_dict[
                     lower_user_nick
                 ] = self.user
-                for user in channel_user_keys:
-                    self.server.channels[lower_channel_name].user_dict[
-                        user
-                    ].socket.sendall(
-                        bytes(
-                            f":{self.user.user_mask} JOIN {channel_name}{self.send_to_client_suffix}",
-                            encoding=self.encoding,
+                
+                with self.server.thread_lock:
+                    for user in channel_user_keys:
+                        self.server.channels[lower_channel_name].user_dict[
+                            user
+                        ].socket.sendall(
+                            bytes(
+                                f":{self.user.user_mask} JOIN {channel_name}{self.send_to_client_suffix}",
+                                encoding=self.encoding,
+                            )
                         )
-                    )
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
