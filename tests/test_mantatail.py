@@ -2,6 +2,7 @@ import pytest
 import socket
 import traceback
 import threading
+import random
 import time
 from mantatail import Server
 
@@ -162,6 +163,17 @@ def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
     received = receive_line(user_alice)
     assert received == b":mantatail 421 foo :Unknown command\r\n"
+
+
+def test_join_part_race_condition(user_alice, user_bob):
+    for i in range(100):
+        user_alice.sendall(b"JOIN #foo\r\n")
+        time.sleep(random.randint(0, 10) / 1000)
+        user_alice.sendall(b"PART #foo\r\n")
+
+        user_bob.sendall(b"JOIN #foo\r\n")
+        time.sleep(random.randint(0, 10) / 1000)
+        user_bob.sendall(b"PART #foo\r\n")
 
 
 # netcat sends \n line endings, but is fine receiving \r\n
