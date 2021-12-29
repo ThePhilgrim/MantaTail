@@ -153,6 +153,7 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
 
 def test_send_privmsg(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
 
     while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
