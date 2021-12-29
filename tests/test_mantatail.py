@@ -1,4 +1,5 @@
 import pytest
+import random
 import socket
 import traceback
 import threading
@@ -172,3 +173,13 @@ def test_connect_via_netcat(run_server):
         nc.sendall(b"USER nc 0 * :netcat\n")
         while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
             pass
+
+
+def test_join_part_race_condition(user_alice, user_bob):
+    for i in range(100):
+        user_alice.sendall(b"JOIN #foo\r\n")
+        time.sleep(random.randint(0, 10) / 1000)
+        user_alice.sendall(b"PART #foo\r\n")
+        user_bob.sendall(b"JOIN #foo\r\n")
+        time.sleep(random.randint(0, 10) / 1000)
+        user_bob.sendall(b"PART #foo\r\n")
