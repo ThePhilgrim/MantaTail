@@ -256,13 +256,15 @@ class IrcCommandHandler:
             self.handle_privmsg_to_user(receiver, privmsg)
         else:
             lower_channel_name = receiver.lower()
-            channel_user_keys = self.server.channels[lower_channel_name].user_dict.keys()
-
-            sender_user_mask = (
-                self.server.channels[lower_channel_name].user_dict[self.user.nick.lower()].user_mask
-            )
-
             with self.server.channels_and_users_thread_lock:
+                channel_user_keys = self.server.channels[lower_channel_name].user_dict.keys()
+
+                sender_user_mask = (
+                    self.server.channels[lower_channel_name]
+                    .user_dict[self.user.nick.lower()]
+                    .user_mask
+                )
+
                 for user in channel_user_keys:
                     if user != self.user.nick.lower():
                         self.server.channels[lower_channel_name].user_dict[user].socket.sendall(
