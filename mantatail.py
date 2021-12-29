@@ -232,18 +232,18 @@ class IrcCommandHandler:
         # TODO: Show part message to other users & Remove from user from channel user list.
         lower_channel_name = channel_name.lower()
         lower_user_nick = self.user.nick.lower()
-        
-        with self.server.channels_and_users_thread_lock:
-          if lower_channel_name not in self.server.channels.keys():
-              self.handle_no_such_channel(channel_name)
-          elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
-              (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
-              self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
-          else:
-              del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
-              if len(self.server.channels[lower_channel_name].user_dict) == 0:
-                  del self.server.channels[lower_channel_name]
+        with self.server.channels_and_users_thread_lock:
+            if lower_channel_name not in self.server.channels.keys():
+                self.handle_no_such_channel(channel_name)
+            elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+                (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
+
+                self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
+            else:
+                del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
+                if len(self.server.channels[lower_channel_name].user_dict) == 0:
+                    del self.server.channels[lower_channel_name]
 
     def handle_quit(self, message: str) -> None:
         self.user.closed_connection = True
@@ -253,22 +253,26 @@ class IrcCommandHandler:
         pass
 
     def handle_privmsg(self, message: str) -> None:
-        (receiver, privmsg) = message.split(" ", 1)
-        if not receiver.startswith("#"):
-            self.handle_privmsg_to_user(receiver, privmsg)
-        else:
+        with self.server.channels_and_users_thread_lock:
+            (receiver, privmsg) = message.split(" ", 1)
+            lower_sender_nick = self.user.nick.lower()
             lower_channel_name = receiver.lower()
-            with self.server.channels_and_users_thread_lock:
-                channel_user_keys = self.server.channels[lower_channel_name].user_dict.keys()
 
+            if not receiver.startswith("#"):
+                self.handle_privmsg_to_user(receiver, privmsg)
+            elif lower_channel_name not in self.server.channels.keys():
+                no_nick_num, no_nick_info = irc_responses.ERR_NOSUCHNICK
+                self.generate_error_reply(no_nick_num, no_nick_info, receiver)
+            elif lower_sender_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+                cant_send_num, cant_send_info = irc_responses.ERR_CANNOTSENDTOCHAN
+                self.generate_error_reply(cant_send_num, cant_send_info, receiver)
+            else:
                 sender_user_mask = (
-                    self.server.channels[lower_channel_name]
-                    .user_dict[self.user.nick.lower()]
-                    .user_mask
+                    self.server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
                 )
 
-                for user in channel_user_keys:
-                    if user != self.user.nick.lower():
+                for user in self.server.channels[lower_channel_name].user_dict.keys():
+                    if user != lower_sender_nick:
                         self.server.channels[lower_channel_name].user_dict[user].socket.sendall(
                             bytes(
                                 f":{sender_user_mask} PRIVMSG {receiver} {privmsg}{self.send_to_client_suffix}",
