@@ -229,19 +229,21 @@ class IrcCommandHandler:
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
     def handle_part(self, channel_name: str) -> None:
-        # TODO: Show part message to other users & Remove from user list.
+        # TODO: Show part message to other users & Remove from user from channel user list.
         lower_channel_name = channel_name.lower()
         lower_user_nick = self.user.nick.lower()
-        if lower_channel_name not in self.server.channels.keys():
-            self.handle_no_such_channel(channel_name)
-        elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
-            (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
+        
+        with self.server.channels_and_users_thread_lock:
+          if lower_channel_name not in self.server.channels.keys():
+              self.handle_no_such_channel(channel_name)
+          elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+              (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
-            self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
-        else:
-            del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
-            if len(self.server.channels[lower_channel_name].user_dict) == 0:
-                del self.server.channels[lower_channel_name]
+              self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
+          else:
+              del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
+              if len(self.server.channels[lower_channel_name].user_dict) == 0:
+                  del self.server.channels[lower_channel_name]
 
     def handle_quit(self, message: str) -> None:
         self.user.closed_connection = True
