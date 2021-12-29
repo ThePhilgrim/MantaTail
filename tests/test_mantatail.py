@@ -72,9 +72,7 @@ def user_alice(run_server):
 
     # Receiving everything the server is going to send helps prevent errors.
     # Otherwise it might not be fully started yet when the client quits.
-    while (
-        receive_line(alice_socket) != b":mantatail 376 Alice :End of /MOTD command\r\n"
-    ):
+    while receive_line(alice_socket) != b":mantatail 376 Alice :End of /MOTD command\r\n":
         pass
 
     yield alice_socket
