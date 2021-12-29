@@ -254,12 +254,15 @@ class IrcCommandHandler:
 
     def handle_privmsg(self, message: str) -> None:
         with self.server.channels_and_users_thread_lock:
-            (receiver, privmsg) = message.split(" ", 1)
+            (receiver, colon_privmsg) = message.split(" ", 1)
+
+            assert colon_privmsg.startswith(":")
+
             lower_sender_nick = self.user.nick.lower()
             lower_channel_name = receiver.lower()
 
             if not receiver.startswith("#"):
-                self.handle_privmsg_to_user(receiver, privmsg)
+                self.handle_privmsg_to_user(receiver, colon_privmsg)
             elif lower_channel_name not in self.server.channels.keys():
                 no_nick_num, no_nick_info = irc_responses.ERR_NOSUCHNICK
                 self.generate_error_reply(no_nick_num, no_nick_info, receiver)
@@ -271,11 +274,11 @@ class IrcCommandHandler:
                     self.server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
                 )
 
-                for user in self.server.channels[lower_channel_name].user_dict.keys():
-                    if user != lower_sender_nick:
-                        self.server.channels[lower_channel_name].user_dict[user].socket.sendall(
+                for user_nick, user in self.server.channels[lower_channel_name].user_dict.items():
+                    if user_nick != lower_sender_nick:
+                        user.socket.sendall(
                             bytes(
-                                f":{sender_user_mask} PRIVMSG {receiver} {privmsg}{self.send_to_client_suffix}",
+                                f":{sender_user_mask} PRIVMSG {receiver} {colon_privmsg}{self.send_to_client_suffix}",
                                 encoding=self.encoding,
                             )
                         )
