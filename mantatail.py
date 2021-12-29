@@ -9,7 +9,7 @@ import irc_responses
 
 
 class Server:
-    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str],]]) -> None:
+    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
         print("Starting Mantatail...")
         self.host = "127.0.0.1"
         self.port = port
@@ -20,7 +20,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.channels: Dict[str, Channel,] = {}
+        self.channels: Dict[str, Channel] = {}
 
     def run_server_forever(self) -> None:
         print(f"Mantatail running ({self.host}:{self.port})")
@@ -32,7 +32,7 @@ class Server:
 
             client_thread.start()
 
-    def recv_loop(self, user_info: Tuple[str, socket.socket,]) -> None:
+    def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
 
         user_host = user_info[0]
         user_socket = user_info[1]
@@ -117,7 +117,7 @@ class Channel:
         self.name = channel_name
         self.creator = channel_creator
         self.topic = None
-        self.user_dict: Dict[Optional[str], User,] = {}
+        self.user_dict: Dict[Optional[str], User] = {}
 
 
 class IrcCommandHandler:
@@ -308,10 +308,10 @@ def split_on_new_line(string: str) -> List[str]:
         return string.split("\n")
 
 
-def get_motd_content_from_json() -> Optional[Dict[str, List[str],]]:
+def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
     try:
         with open("./resources/motd.json", "r") as file:
-            motd_content: Dict[str, List[str],] = json.load(file)
+            motd_content: Dict[str, List[str]] = json.load(file)
             return motd_content
     except FileNotFoundError:
         return None
