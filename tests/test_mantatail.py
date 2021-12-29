@@ -151,6 +151,39 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
 
 
+def test_send_privmsg(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
+    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo :Bar\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Bar\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :Hello world\r\n")
+    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Hello world\r\n"
+
+
+def test_privmsg_error_messages(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
+
+    assert receive_line(user_bob) == b":mantatail 404 #foo :Cannot send to channel\r\n"
+
+    user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
+
+    assert receive_line(user_bob) == b":mantatail 401 #bar :No such nick/channel\r\n"
+
+
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
     received = receive_line(user_alice)

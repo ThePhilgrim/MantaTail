@@ -229,8 +229,10 @@ class IrcCommandHandler:
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
     def handle_part(self, channel_name: str) -> None:
+        # TODO: Show part message to other users & Remove from user from channel user list.
         lower_channel_name = channel_name.lower()
         lower_user_nick = self.user.nick.lower()
+
         with self.server.channels_and_users_thread_lock:
             if lower_channel_name not in self.server.channels.keys():
                 self.handle_no_such_channel(channel_name)
@@ -250,7 +252,38 @@ class IrcCommandHandler:
     def _handle_kick(self, message: str) -> None:
         pass
 
-    def _handle_privmsg(self, message: str) -> None:
+    def handle_privmsg(self, message: str) -> None:
+        with self.server.channels_and_users_thread_lock:
+            (receiver, colon_privmsg) = message.split(" ", 1)
+
+            assert colon_privmsg.startswith(":")
+
+            lower_sender_nick = self.user.nick.lower()
+            lower_channel_name = receiver.lower()
+
+            if not receiver.startswith("#"):
+                self.handle_privmsg_to_user(receiver, colon_privmsg)
+            elif lower_channel_name not in self.server.channels.keys():
+                no_nick_num, no_nick_info = irc_responses.ERR_NOSUCHNICK
+                self.generate_error_reply(no_nick_num, no_nick_info, receiver)
+            elif lower_sender_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+                cant_send_num, cant_send_info = irc_responses.ERR_CANNOTSENDTOCHAN
+                self.generate_error_reply(cant_send_num, cant_send_info, receiver)
+            else:
+                sender_user_mask = (
+                    self.server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
+                )
+
+                for user_nick, user in self.server.channels[lower_channel_name].user_dict.items():
+                    if user_nick != lower_sender_nick:
+                        user.socket.sendall(
+                            bytes(
+                                f":{sender_user_mask} PRIVMSG {receiver} {colon_privmsg}{self.send_to_client_suffix}",
+                                encoding=self.encoding,
+                            )
+                        )
+
+    def handle_privmsg_to_user(self, receiver: str, message: str) -> None:
         pass
 
     def handle_unknown_command(self, command: str) -> None:
