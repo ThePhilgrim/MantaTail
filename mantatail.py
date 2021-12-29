@@ -299,7 +299,7 @@ class IrcCommandHandler:
                             )
                         )
 
-    def handle_privmsg_to_user(self, receiver, message: str) -> None:
+    def handle_privmsg_to_user(self, receiver: str, message: str) -> None:
         pass
 
     def handle_unknown_command(self, command: str) -> None:
