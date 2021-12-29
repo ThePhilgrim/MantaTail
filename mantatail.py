@@ -245,6 +245,7 @@ class IrcCommandHandler:
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
     def handle_part(self, channel_name: str) -> None:
+        # TODO: Show part message to other users & Remove from user list.
         lower_channel_name = channel_name.lower()
         lower_user_nick = self.user.nick.lower()
         if lower_channel_name not in self.server.channels.keys():
@@ -270,7 +271,35 @@ class IrcCommandHandler:
     def _handle_kick(self, message: str) -> None:
         pass
 
-    def _handle_privmsg(self, message: str) -> None:
+    def handle_privmsg(self, message: str) -> None:
+        receiver, privmsg = message.split(" ", 1)
+        if not receiver.startswith("#"):
+            self.handle_privmsg_to_user(receiver, privmsg)
+        else:
+            lower_channel_name = receiver.lower()
+            channel_user_keys = self.server.channels[
+                lower_channel_name
+            ].user_dict.keys()
+
+            sender_user_mask = (
+                self.server.channels[lower_channel_name]
+                .user_dict[self.user.nick.lower()]
+                .user_mask
+            )
+
+            with self.server.channels_and_users_thread_lock:
+                for user in channel_user_keys:
+                    if user != self.user.nick.lower():
+                        self.server.channels[lower_channel_name].user_dict[
+                            user
+                        ].socket.sendall(
+                            bytes(
+                                f":{sender_user_mask} PRIVMSG {receiver} {privmsg}{self.send_to_client_suffix}",
+                                encoding=self.encoding,
+                            )
+                        )
+
+    def handle_privmsg_to_user(self, receiver, message: str) -> None:
         pass
 
     def handle_unknown_command(self, command: str) -> None:
