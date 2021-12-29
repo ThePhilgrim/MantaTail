@@ -28,9 +28,7 @@ class Server:
             (user_socket, user_address) = self.listener_socket.accept()
             user_info = (user_address[0], user_socket)
 
-            client_thread = threading.Thread(
-                target=self.recv_loop, args=[user_info], daemon=True
-            )
+            client_thread = threading.Thread(target=self.recv_loop, args=[user_info], daemon=True)
 
             client_thread.start()
 
@@ -80,16 +78,13 @@ class Server:
                             (error_code, error_info) = irc_responses.ERR_NOTREGISTERED
                             user_socket.sendall(
                                 bytes(
-                                    f":mantatail {error_code} * {error_info}\r\n",
-                                    encoding="utf-8",
+                                    f":mantatail {error_code} * {error_info}\r\n", encoding="utf-8"
                                 )
                             )
 
                         if _user_message and _nick:
                             user = User(user_host, user_socket, _user_message, _nick)
-                            command_handler: IrcCommandHandler = IrcCommandHandler(
-                                self, user
-                            )
+                            command_handler: IrcCommandHandler = IrcCommandHandler(self, user)
                             command_handler.handle_motd()
 
                     else:
@@ -169,7 +164,9 @@ class IrcCommandHandler:
         self.user.socket.sendall(end_msg)
 
     def handle_join(self, channel_name: str) -> None:
-        channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+        channel_regex = (
+            r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+        )
 
         lower_channel_name = channel_name.lower()
         with self.server.channels_and_users_thread_lock:
@@ -177,37 +174,24 @@ class IrcCommandHandler:
                 self.handle_no_such_channel(channel_name)
             else:
                 if lower_channel_name not in self.server.channels.keys():
-                    self.server.channels[lower_channel_name] = Channel(
-                        channel_name, self.user.nick
-                    )
+                    self.server.channels[lower_channel_name] = Channel(channel_name, self.user.nick)
 
                 lower_user_nick = self.user.nick.lower()
 
-                if (
-                    lower_user_nick
-                    not in self.server.channels[lower_channel_name].user_dict.keys()
-                ):
+                if lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
 
-                    channel_user_keys = self.server.channels[
-                        lower_channel_name
-                    ].user_dict.keys()
+                    channel_user_keys = self.server.channels[lower_channel_name].user_dict.keys()
                     channel_users = " ".join(
                         [
-                            self.server.channels[lower_channel_name]
-                            .user_dict[user_key]
-                            .nick
+                            self.server.channels[lower_channel_name].user_dict[user_key].nick
                             for user_key in channel_user_keys
                         ]
                     )
 
-                    self.server.channels[lower_channel_name].user_dict[
-                        lower_user_nick
-                    ] = self.user
+                    self.server.channels[lower_channel_name].user_dict[lower_user_nick] = self.user
 
                     for user in channel_user_keys:
-                        self.server.channels[lower_channel_name].user_dict[
-                            user
-                        ].socket.sendall(
+                        self.server.channels[lower_channel_name].user_dict[user].socket.sendall(
                             bytes(
                                 f":{self.user.user_mask} JOIN {channel_name}{self.send_to_client_suffix}",
                                 encoding=self.encoding,
@@ -250,18 +234,10 @@ class IrcCommandHandler:
         with self.server.channels_and_users_thread_lock:
             if lower_channel_name not in self.server.channels.keys():
                 self.handle_no_such_channel(channel_name)
-            elif (
-                lower_user_nick
-                not in self.server.channels[lower_channel_name].user_dict.keys()
-            ):
-                (
-                    not_on_channel_num,
-                    not_on_channel_info,
-                ) = irc_responses.ERR_NOTONCHANNEL
+            elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
+                (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
-                self.generate_error_reply(
-                    not_on_channel_num, not_on_channel_info, channel_name
-                )
+                self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
             else:
                 del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
                 if len(self.server.channels[lower_channel_name].user_dict) == 0:
@@ -286,9 +262,7 @@ class IrcCommandHandler:
         (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
         self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
 
-    def generate_error_reply(
-        self, error_num: str, error_info: str, error_topic: str
-    ) -> None:
+    def generate_error_reply(self, error_num: str, error_info: str, error_topic: str) -> None:
         self.user.socket.sendall(
             bytes(
                 f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
