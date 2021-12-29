@@ -173,6 +173,7 @@ def test_send_privmsg(user_alice, user_bob):
 
 def test_privmsg_error_messages(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
     user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
 
     assert receive_line(user_bob) == b":mantatail 404 #foo :Cannot send to channel\r\n"
