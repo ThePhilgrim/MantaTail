@@ -4,18 +4,12 @@ import socket
 import traceback
 import threading
 import time
-from mantatail import Server
+import mantatail
+
+# from mantatail import Server
 
 motd_dict_test = {
-    "motd": [
-        "- Hello {user_nick}, this is a test MOTD!",
-        "-",
-        "- Foo",
-        "- Bar",
-        "- Baz",
-        "-",
-        "- End test MOTD",
-    ]
+    "motd": ["- Hello {user_nick}, this is a test MOTD!", "-", "- Foo", "- Bar", "- Baz", "-", "- End test MOTD"]
 }
 
 ##############
@@ -44,7 +38,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
-    server = Server(6667, motd_dict_test)
+    server = mantatail.Server(6667, motd_dict_test)
 
     def run_server(server):
         try:

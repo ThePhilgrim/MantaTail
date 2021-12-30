@@ -1,12 +1,8 @@
 from __future__ import annotations
 import socket
 import threading
-import re
 import json
 from typing import Dict, Optional, List, Tuple
-
-import irc_responses
-import handle
 
 
 class Server:
@@ -34,6 +30,7 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
+        import handle
 
         user_host = user_info[0]
         user_socket = user_info[1]
@@ -67,17 +64,13 @@ class Server:
 
                     verb_lower = verb.lower()
 
-                    # ex. "handle.nick" or "handle.join"
-                    # handler_function_to_call = "handle." + verb_lower
-
                     if user is None:
                         if verb_lower == "user":
                             _user_message = message
                         elif verb_lower == "nick":
                             _nick = message
                         else:
-                            (error_code, error_info) = irc_responses.ERR_NOTREGISTERED
-                            user_socket.sendall(bytes(f":mantatail {error_code} * {error_info}\r\n", encoding="utf-8"))
+                            user_socket.sendall(handle.error_not_registered())
 
                         if _user_message and _nick:
                             user = User(user_host, user_socket, _user_message, _nick)
@@ -85,21 +78,12 @@ class Server:
 
                     else:
                         try:
+                            # ex. "handle.nick" or "handle.join"
                             call_handler_function = getattr(handle, verb_lower)
+                            call_handler_function(self, user, message)
 
                         except AttributeError:
-                            print("attr1")
-                            # ! for refactor - remove later
-                            handler_function_to_call = "handle_" + verb_lower
-                            try:
-                                print("try2")
-                                call_handler_function = getattr(command_handler, handler_function_to_call)
-                                call_handler_function(message)
-                            except AttributeError:
-                                print("attr2")
-                                handle.error_unknown_command(user, verb)
-                        else:
-                            call_handler_function(self, user, message)
+                            handle.error_unknown_command(user, verb_lower)
 
                         if user.closed_connection:
                             return
@@ -123,15 +107,6 @@ class Channel:
         self.creator = channel_creator
         self.topic = None
         self.user_dict: Dict[Optional[str], User] = {}
-
-
-# class IrcCommandHandler:
-#     def __init__(self, server: Server, user: User) -> None:
-#         self.encoding = "utf-8"
-#         self.send_to_client_prefix = ":mantatail"
-#         self.send_to_client_suffix = "\r\n"
-#         self.server = server
-#         self.user = user
 
 
 def split_on_new_line(string: str) -> List[str]:

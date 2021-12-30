@@ -103,7 +103,7 @@ def part(server: mantatail.Server, user: mantatail.User, channel_name: str) -> N
 
 
 # !Not implemented
-def _kick(self, message: str) -> None:
+def _kick(message: str) -> None:
     pass
 
 
@@ -113,7 +113,6 @@ def quit(server: mantatail.Server, user: mantatail.User, channel_name: str) -> N
 
 
 def privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
-    print("NEW")
     with server.channels_and_users_thread_lock:
         (receiver, colon_privmsg) = msg.split(" ", 1)
 
@@ -141,7 +140,7 @@ def privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
 
 
 # !Not implemented
-def privmsg_to_user(receiver, colon_privmsg) -> None:
+def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
     pass
 
 
@@ -154,6 +153,13 @@ def error_unknown_command(user: mantatail.User, command: str) -> None:
     send_bytes_to_user(user, error_message_as_bytes)
 
 
+def error_not_registered() -> bytes:
+    (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
+
+    message = f"{not_registered_num} * {not_registered_info}"
+    return convert_string_to_server_message(message)
+
+
 def error_no_motd(user: mantatail.User) -> None:
     (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
 
@@ -162,7 +168,7 @@ def error_no_motd(user: mantatail.User) -> None:
     send_bytes_to_user(user, error_message_as_bytes)
 
 
-def error_no_such_nick_channel(user: mantatail.User, channel_name) -> None:
+def error_no_such_nick_channel(user: mantatail.User, channel_name: str) -> None:
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
     message = f"{no_nick_num} {channel_name} {no_nick_info}"
@@ -178,7 +184,7 @@ def error_not_on_channel(user: mantatail.User, channel_name: str) -> None:
     send_bytes_to_user(user, error_message_as_bytes)
 
 
-def error_cannot_send_to_channel(user: mantatail.User, channel_name) -> None:
+def error_cannot_send_to_channel(user: mantatail.User, channel_name: str) -> None:
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {channel_name} {cant_send_info}"
@@ -195,7 +201,7 @@ def error_no_such_channel(user: mantatail.User, channel_name: str) -> None:
 
 
 ### Actions
-def convert_string_to_server_message(message: str, prefix="mantatail") -> bytes:
+def convert_string_to_server_message(message: str, prefix: str = "mantatail") -> bytes:
     utf_8 = "utf-8"
     suffix = "\r\n"
     return bytes(f":{prefix} {message}{suffix}", encoding=utf_8)
