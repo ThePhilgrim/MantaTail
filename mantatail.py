@@ -101,6 +101,16 @@ class User:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.closed_connection = False
 
+    def send_string_to_user(self, message: str) -> None:
+        message_as_bytes = bytes(f":mantatail {message}\r\n", encoding="utf-8")
+        self.socket.sendall(message_as_bytes)
+
+    def send_string_with_user_prefix(self, message: str, prefix: str) -> None:
+        if not prefix:
+            prefix = self.user_mask
+        message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+        self.socket.sendall(message_as_bytes)
+
 
 class Channel:
     def __init__(self, channel_name: str, channel_creator: str) -> None:
