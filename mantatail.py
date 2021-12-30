@@ -79,7 +79,7 @@ class Server:
 
                     else:
                         try:
-                            # ex. "handle.nick" or "handle.join"
+                            # ex. "command.handle_nick" or "command.handle_join"
                             call_handler_function = getattr(command, parsed_command)
                             call_handler_function(self, user, message)
 
