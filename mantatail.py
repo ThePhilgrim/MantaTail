@@ -4,6 +4,8 @@ import threading
 import json
 from typing import Dict, Optional, List, Tuple
 
+import command
+
 
 class Server:
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -30,8 +32,6 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
-        import command
-
         user_host = user_info[0]
         user_socket = user_info[1]
         _user_message = None
