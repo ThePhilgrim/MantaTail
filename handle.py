@@ -33,7 +33,9 @@ def motd(server: mantatail.Server, user: mantatail.User) -> None:
 
 
 def join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
-    channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+    channel_regex = (
+        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+    )
 
     lower_channel_name = channel_name.lower()
     with server.channels_and_users_thread_lock:
@@ -49,7 +51,10 @@ def join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> N
 
                 channel_user_keys = server.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
-                    [server.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
+                    [
+                        server.channels[lower_channel_name].user_dict[user_key].nick
+                        for user_key in channel_user_keys
+                    ]
                 )
 
                 server.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -129,7 +134,9 @@ def privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
         elif lower_sender_nick not in server.channels[lower_channel_name].user_dict.keys():
             error_cannot_send_to_channel(user, receiver)
         else:
-            sender_user_mask = server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
+            sender_user_mask = (
+                server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
+            )
 
             for user_nick, user in server.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:

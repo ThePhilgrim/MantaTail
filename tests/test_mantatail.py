@@ -9,7 +9,15 @@ import mantatail
 # from mantatail import Server
 
 motd_dict_test = {
-    "motd": ["- Hello {user_nick}, this is a test MOTD!", "-", "- Foo", "- Bar", "- Baz", "-", "- End test MOTD"]
+    "motd": [
+        "- Hello {user_nick}, this is a test MOTD!",
+        "-",
+        "- Foo",
+        "- Bar",
+        "- Baz",
+        "-",
+        "- End test MOTD",
+    ]
 }
 
 ##############
