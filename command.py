@@ -30,15 +30,15 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
                 for nick in channel_user_keys:
                     message = f"JOIN {channel_name}"
                     receiver = server.channels[lower_channel_name].user_dict[nick]
-                    receiver.send_string_with_user_prefix(message, user.user_mask)
+                    receiver.send_string_user_mask_prefix(message, user.user_mask)
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
                 message = f"353 {user.nick} = {channel_name} :{user.nick} {channel_users}"
-                user.send_string_to_user(message)
+                user.send_string(message)
 
                 message = f"366 {user.nick} {channel_name} :End of /NAMES list."
-                user.send_string_to_user(message)
+                user.send_string(message)
 
         # TODO:
         #   * Send topic (332)
@@ -104,7 +104,7 @@ def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> 
             for user_nick, user in server.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:
                     message = f"PRIVMSG {receiver} {colon_privmsg}"
-                    user.send_string_with_user_prefix(message, sender_user_mask)
+                    user.send_string_user_mask_prefix(message, sender_user_mask)
 
 
 # Private functions
@@ -124,18 +124,18 @@ def motd(server: mantatail.Server, user: mantatail.User) -> None:
         "end_msg": f"{end_num} {user.nick} {end_info}",
     }
 
-    user.send_string_to_user(motd_start_and_end["start_msg"])
+    user.send_string(motd_start_and_end["start_msg"])
 
     if server.motd_content:
         motd = server.motd_content["motd"]
         for motd_line in motd:
             motd_message = f"{motd_num} {user.nick} :{motd_line.format(user_nick=user.nick)}"
-            user.send_string_to_user(motd_message)
+            user.send_string(motd_message)
     # If motd.json could not be found
     else:
         error_no_motd(user)
 
-    user.send_string_to_user(motd_start_and_end["end_msg"])
+    user.send_string(motd_start_and_end["end_msg"])
 
 
 ### Error Messages
@@ -143,7 +143,7 @@ def error_unknown_command(user: mantatail.User, command: str) -> None:
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
 
     message = f"{unknown_cmd_num} {command} {unknown_cmd_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)
 
 
 def error_not_registered() -> bytes:
@@ -156,31 +156,31 @@ def error_no_motd(user: mantatail.User) -> None:
     (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
 
     message = f"{no_motd_num} {no_motd_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)
 
 
 def error_no_such_nick_channel(user: mantatail.User, channel_name: str) -> None:
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
     message = f"{no_nick_num} {channel_name} {no_nick_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)
 
 
 def error_not_on_channel(user: mantatail.User, channel_name: str) -> None:
     (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
     message = f"{not_on_channel_num} {channel_name} {not_on_channel_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)
 
 
 def error_cannot_send_to_channel(user: mantatail.User, channel_name: str) -> None:
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {channel_name} {cant_send_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)
 
 
 def error_no_such_channel(user: mantatail.User, channel_name: str) -> None:
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
-    user.send_string_to_user(message)
+    user.send_string(message)

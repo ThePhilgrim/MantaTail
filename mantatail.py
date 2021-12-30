@@ -81,10 +81,10 @@ class Server:
                         try:
                             # ex. "command.handle_nick" or "command.handle_join"
                             call_handler_function = getattr(command, parsed_command)
-                            call_handler_function(self, user, message)
-
                         except AttributeError:
                             command.error_unknown_command(user, verb_lower)
+                        else:
+                            call_handler_function(self, user, message)
 
                         if user.closed_connection:
                             return
@@ -101,13 +101,11 @@ class User:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.closed_connection = False
 
-    def send_string_to_user(self, message: str) -> None:
+    def send_string(self, message: str) -> None:
         message_as_bytes = bytes(f":mantatail {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
 
-    def send_string_with_user_prefix(self, message: str, prefix: str) -> None:
-        if not prefix:
-            prefix = self.user_mask
+    def send_string_user_mask_prefix(self, message: str, prefix: str) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
 
