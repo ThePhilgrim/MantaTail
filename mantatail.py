@@ -17,7 +17,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.channels: Dict[str, Channel] = {}
+        self.channels: Dict[str, Channel] = {}  #! Put somewhere else?
 
     def run_server_forever(self) -> None:
         print(f"Mantatail running ({self.host}:{self.port})")
@@ -30,7 +30,7 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
-        import handle
+        import command
 
         user_host = user_info[0]
         user_socket = user_info[1]
@@ -63,6 +63,7 @@ class Server:
                         message = verb
 
                     verb_lower = verb.lower()
+                    parsed_command = "handle_" + verb_lower
 
                     if user is None:
                         if verb_lower == "user":
@@ -70,20 +71,20 @@ class Server:
                         elif verb_lower == "nick":
                             _nick = message
                         else:
-                            user_socket.sendall(handle.error_not_registered())
+                            user_socket.sendall(command.error_not_registered())
 
                         if _user_message and _nick:
                             user = User(user_host, user_socket, _user_message, _nick)
-                            handle.motd(self, user)
+                            command.motd(self, user)
 
                     else:
                         try:
                             # ex. "handle.nick" or "handle.join"
-                            call_handler_function = getattr(handle, verb_lower)
+                            call_handler_function = getattr(command, parsed_command)
                             call_handler_function(self, user, message)
 
                         except AttributeError:
-                            handle.error_unknown_command(user, verb_lower)
+                            command.error_unknown_command(user, verb_lower)
 
                         if user.closed_connection:
                             return

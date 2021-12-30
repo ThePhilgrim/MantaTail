@@ -4,35 +4,7 @@ import irc_responses
 
 
 ### Handlers
-def motd(server: mantatail.Server, user: mantatail.User) -> None:
-    (start_num, start_info) = irc_responses.RPL_MOTDSTART
-    motd_num = irc_responses.RPL_MOTD
-    (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
-
-    motd_start_and_end = {
-        "start_msg": f"{start_num} {user.nick} :- mantatail {start_info}",
-        "end_msg": f"{end_num} {user.nick} {end_info}",
-    }
-
-    start_message_as_bytes = convert_string_to_server_message(motd_start_and_end["start_msg"])
-    end_message_as_bytes = convert_string_to_server_message(motd_start_and_end["end_msg"])
-
-    send_bytes_to_user(user, start_message_as_bytes)
-
-    if server.motd_content:
-        motd = server.motd_content["motd"]
-        for motd_line in motd:
-            motd_message = f"{motd_num} {user.nick} :{motd_line.format(user_nick=user.nick)}"
-            motd_message_as_bytes = convert_string_to_server_message(motd_message)
-            send_bytes_to_user(user, motd_message_as_bytes)
-    # If motd.json could not be found
-    else:
-        error_no_motd(user)
-
-    send_bytes_to_user(user, end_message_as_bytes)
-
-
-def join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
     channel_regex = (
         r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     )
@@ -91,7 +63,7 @@ def join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> N
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def part(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_part(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -108,16 +80,16 @@ def part(server: mantatail.Server, user: mantatail.User, channel_name: str) -> N
 
 
 # !Not implemented
-def _kick(message: str) -> None:
+def _handle_kick(message: str) -> None:
     pass
 
 
-def quit(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_quit(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
     user.closed_connection = True
     user.socket.close()
 
 
-def privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
+def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
     with server.channels_and_users_thread_lock:
         (receiver, colon_privmsg) = msg.split(" ", 1)
 
@@ -146,9 +118,39 @@ def privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
                     send_bytes_to_user(user, message_as_bytes)
 
 
+# Private functions
+
 # !Not implemented
 def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
     pass
+
+
+def motd(server: mantatail.Server, user: mantatail.User) -> None:
+    (start_num, start_info) = irc_responses.RPL_MOTDSTART
+    motd_num = irc_responses.RPL_MOTD
+    (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
+
+    motd_start_and_end = {
+        "start_msg": f"{start_num} {user.nick} :- mantatail {start_info}",
+        "end_msg": f"{end_num} {user.nick} {end_info}",
+    }
+
+    start_message_as_bytes = convert_string_to_server_message(motd_start_and_end["start_msg"])
+    end_message_as_bytes = convert_string_to_server_message(motd_start_and_end["end_msg"])
+
+    send_bytes_to_user(user, start_message_as_bytes)
+
+    if server.motd_content:
+        motd = server.motd_content["motd"]
+        for motd_line in motd:
+            motd_message = f"{motd_num} {user.nick} :{motd_line.format(user_nick=user.nick)}"
+            motd_message_as_bytes = convert_string_to_server_message(motd_message)
+            send_bytes_to_user(user, motd_message_as_bytes)
+    # If motd.json could not be found
+    else:
+        error_no_motd(user)
+
+    send_bytes_to_user(user, end_message_as_bytes)
 
 
 ### Error Messages
@@ -201,7 +203,6 @@ def error_cannot_send_to_channel(user: mantatail.User, channel_name: str) -> Non
 
 def error_no_such_channel(user: mantatail.User, channel_name: str) -> None:
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
-
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
     error_message_as_bytes = convert_string_to_server_message(message)
     send_bytes_to_user(user, error_message_as_bytes)
