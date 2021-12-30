@@ -4,9 +4,8 @@ import socket
 import traceback
 import threading
 import time
-import mantatail
 
-# from mantatail import Server
+from mantatail import Server
 
 # fmt: off
 motd_dict_test = {
@@ -49,7 +48,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
-    server = mantatail.Server(6667, motd_dict_test)
+    server = Server(6667, motd_dict_test)
 
     def run_server(server):
         try:
