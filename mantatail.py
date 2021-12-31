@@ -75,7 +75,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         user_socket.sendall(command.error_not_registered())
 
                     if _user_message and _nick:
-                        user = User(user_host, user_socket, _user_message, _nick)
+                        user = UserConnection(user_host, user_socket, _user_message, _nick)
                         command.motd(state.motd_content, user)
 
                 else:
@@ -91,7 +91,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         return
 
 
-class User:
+class UserConnection:
     def __init__(self, host: str, socket: socket.socket, user_message: str, nick: str):
         self.socket = socket
         self.host = host
@@ -112,7 +112,7 @@ class Channel:
         self.name = channel_name
         self.creator = channel_creator
         self.topic = None
-        self.user_dict: Dict[Optional[str], User] = {}
+        self.user_dict: Dict[Optional[str], UserConnection] = {}
 
 
 def split_on_new_line(string: str) -> List[str]:

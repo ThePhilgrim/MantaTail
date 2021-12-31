@@ -7,7 +7,7 @@ from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_join(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
+def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     channel_regex = (
         r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     )
@@ -54,7 +54,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.User, channel_name
         #   * Send End of Name list (366)
 
         # TODO: Check for:
-        #   * User invited to channel
+        #   * UserConnection invited to channel
         #   * Nick/user not matching bans
         #   * Eventual password matches
         #   * Not joined too many channels
@@ -63,7 +63,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.User, channel_name
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
+def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -84,12 +84,12 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
+def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     user.closed_connection = True
     user.socket.close()
 
 
-def handle_privmsg(state: mantatail.ServerState, user: mantatail.User, msg: str) -> None:
+def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
     with state.lock:
         (receiver, colon_privmsg) = msg.split(" ", 1)
 
@@ -121,7 +121,7 @@ def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
     pass
 
 
-def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.User) -> None:
+def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:
     (start_num, start_info) = irc_responses.RPL_MOTDSTART
     motd_num = irc_responses.RPL_MOTD
     (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
@@ -146,7 +146,7 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.User) -> 
 
 
 ### Error Messages
-def error_unknown_command(user: mantatail.User, command: str) -> None:
+def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
 
     message = f"{unknown_cmd_num} {command} {unknown_cmd_info}"
@@ -159,35 +159,35 @@ def error_not_registered() -> bytes:
     return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="utf-8")
 
 
-def error_no_motd(user: mantatail.User) -> None:
+def error_no_motd(user: mantatail.UserConnection) -> None:
     (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
 
     message = f"{no_motd_num} {no_motd_info}"
     user.send_string(message)
 
 
-def error_no_such_nick_channel(user: mantatail.User, channel_name: str) -> None:
+def error_no_such_nick_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
     message = f"{no_nick_num} {channel_name} {no_nick_info}"
     user.send_string(message)
 
 
-def error_not_on_channel(user: mantatail.User, channel_name: str) -> None:
+def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
     message = f"{not_on_channel_num} {channel_name} {not_on_channel_info}"
     user.send_string(message)
 
 
-def error_cannot_send_to_channel(user: mantatail.User, channel_name: str) -> None:
+def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {channel_name} {cant_send_info}"
     user.send_string(message)
 
 
-def error_no_such_channel(user: mantatail.User, channel_name: str) -> None:
+def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
     user.send_string(message)
