@@ -7,7 +7,9 @@ from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_join(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
     channel_regex = (
         r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     )
@@ -63,7 +65,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_part(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -84,7 +88,9 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_quit(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
     user.closed_connection = True
     user.socket.close()
 
