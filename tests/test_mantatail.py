@@ -48,7 +48,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
-    listener = Listener(6667)
+    listener = Listener(6667, motd_dict_test)
 
     def run_server():
         try:

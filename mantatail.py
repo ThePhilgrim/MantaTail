@@ -14,9 +14,10 @@ class ServerState:
 
 
 class Listener:
-    def __init__(self, port: int) -> None:
+    def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.host = "127.0.0.1"
         self.port = port
+        self.motd_content = motd_content
         self.listener_socket = socket.socket()
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
@@ -24,14 +25,12 @@ class Listener:
         self.state = ServerState()
 
     def run_server_forever(self) -> None:
-        motd_content = get_motd_content_from_json()
-
         print(f"Mantatail running ({self.host}:{self.port})")
         while True:
             (user_socket, user_address) = self.listener_socket.accept()
             client_thread = threading.Thread(
                 target=recv_loop,
-                args=[self.state, user_address[0], user_socket, motd_content],
+                args=[self.state, user_address[0], user_socket, self.motd_content],
                 daemon=True,
             )
             client_thread.start()
@@ -140,4 +139,4 @@ def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
 
 
 if __name__ == "__main__":
-    Listener(6667).run_forever()
+    Listener(6667, get_motd_content_from_json()).run_forever()
