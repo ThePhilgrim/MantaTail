@@ -114,7 +114,7 @@ class Channel:
         self.operators = set()
         self.user_dict: Dict[Optional[str], User] = {}
 
-        self.operators.append(self.founder)
+        # self.operators.append(self.founder)
 
     def set_operator(self):
         pass
