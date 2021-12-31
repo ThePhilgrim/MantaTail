@@ -8,21 +8,21 @@ import command
 
 
 class ServerState:
-    def __init__(self) -> None:
+    def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
+        self.motd_content = motd_content
 
 
 class Listener:
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.host = "127.0.0.1"
         self.port = port
-        self.motd_content = motd_content
         self.listener_socket = socket.socket()
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
         self.listener_socket.listen(5)
-        self.state = ServerState()
+        self.state = ServerState(motd_content)
 
     def run_server_forever(self) -> None:
         print(f"Mantatail running ({self.host}:{self.port})")
@@ -30,7 +30,7 @@ class Listener:
             (user_socket, user_address) = self.listener_socket.accept()
             client_thread = threading.Thread(
                 target=recv_loop,
-                args=[self.state, user_address[0], user_socket, self.motd_content],
+                args=[self.state, user_address[0], user_socket],
                 daemon=True,
             )
             client_thread.start()
@@ -40,7 +40,6 @@ def recv_loop(
     state: ServerState,
     user_host: str,
     user_socket: socket.socket,
-    motd_content: Optional[Dict[str, List[str]]],
 ) -> None:
     _user_message = None
     _nick = None
@@ -83,7 +82,7 @@ def recv_loop(
 
                     if _user_message and _nick:
                         user = User(user_host, user_socket, _user_message, _nick)
-                        command.motd(motd_content, user)
+                        command.motd(state.motd_content, user)
 
                 else:
                     try:
