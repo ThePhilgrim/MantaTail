@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import time
 import mantatail
 import irc_responses
 
@@ -88,8 +89,17 @@ def _handle_kick(message: str) -> None:
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
-    user.closed_connection = True
-    user.socket.close()
+    # TODO: Implement logic for different reasons & disconnects.
+    reason = "(Remote host closed the connection)"
+
+    for channel_name, channel in state.channels.items():
+        message = f"QUIT {channel_name} Quit: {reason}"
+        if user.nick.lower() in channel.user_dict.keys():
+            for nick, receiver in channel.user_dict.items():
+                if nick != user.nick.lower():
+                    receiver.send_string_to_client(message, prefix=user.user_mask)
+
+    close_connection(user)
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
@@ -146,6 +156,11 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
         error_no_motd(user)
 
     user.send_string_to_client(motd_start_and_end["end_msg"])
+
+
+def close_connection(user: mantatail.UserConnection) -> None:
+    user.closed_connection = True
+    user.socket.close()
 
 
 ### Error Messages
