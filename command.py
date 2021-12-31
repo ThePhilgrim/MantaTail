@@ -35,7 +35,7 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
                 for nick in channel_user_keys:
                     message = f"JOIN {channel_name}"
                     receiver = server.channels[lower_channel_name].user_dict[nick]
-                    receiver.send_string_user_mask_prefix(message, user.user_mask)
+                    receiver.send_string(message, prefix=user.user_mask)
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
@@ -104,14 +104,12 @@ def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> 
         elif lower_sender_nick not in server.channels[lower_channel_name].user_dict.keys():
             error_cannot_send_to_channel(user, receiver)
         else:
-            sender_user_mask = (
-                server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
-            )
+            sender = server.channels[lower_channel_name].user_dict[lower_sender_nick]
 
             for user_nick, user in server.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:
                     message = f"PRIVMSG {receiver} {colon_privmsg}"
-                    user.send_string_user_mask_prefix(message, sender_user_mask)
+                    user.send_string(message, prefix=sender.user_mask)
 
 
 # Private functions
