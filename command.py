@@ -3,38 +3,40 @@ import re
 import mantatail
 import irc_responses
 
+from typing import Optional, Dict, List
+
 
 ### Handlers
-def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_join(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
     channel_regex = (
         r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     )
 
     lower_channel_name = channel_name.lower()
-    with server.channels_and_users_thread_lock:
+    with state.lock:
         if not re.match(channel_regex, lower_channel_name):
             error_no_such_channel(user, channel_name)
         else:
-            if lower_channel_name not in server.channels.keys():
-                server.channels[lower_channel_name] = mantatail.Channel(channel_name, user.nick)
+            if lower_channel_name not in state.channels.keys():
+                state.channels[lower_channel_name] = mantatail.Channel(channel_name, user.nick)
 
             lower_user_nick = user.nick.lower()
 
-            if lower_user_nick not in server.channels[lower_channel_name].user_dict.keys():
+            if lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
 
-                channel_user_keys = server.channels[lower_channel_name].user_dict.keys()
+                channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
                     [
-                        server.channels[lower_channel_name].user_dict[user_key].nick
+                        state.channels[lower_channel_name].user_dict[user_key].nick
                         for user_key in channel_user_keys
                     ]
                 )
 
-                server.channels[lower_channel_name].user_dict[lower_user_nick] = user
+                state.channels[lower_channel_name].user_dict[lower_user_nick] = user
 
                 for nick in channel_user_keys:
                     message = f"JOIN {channel_name}"
-                    receiver = server.channels[lower_channel_name].user_dict[nick]
+                    receiver = state.channels[lower_channel_name].user_dict[nick]
                     receiver.send_string(message, prefix=user.user_mask)
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
@@ -61,20 +63,20 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_part(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
 
-    with server.channels_and_users_thread_lock:
-        if lower_channel_name not in server.channels.keys():
+    with state.lock:
+        if lower_channel_name not in state.channels.keys():
             error_no_such_channel(user, channel_name)
-        elif lower_user_nick not in server.channels[lower_channel_name].user_dict.keys():
+        elif lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
             error_not_on_channel(user, channel_name)
         else:
-            del server.channels[lower_channel_name].user_dict[lower_user_nick]
-            if len(server.channels[lower_channel_name].user_dict) == 0:
-                del server.channels[lower_channel_name]
+            del state.channels[lower_channel_name].user_dict[lower_user_nick]
+            if len(state.channels[lower_channel_name].user_dict) == 0:
+                del state.channels[lower_channel_name]
 
 
 # !Not implemented
@@ -82,13 +84,13 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+def handle_quit(state: mantatail.ServerState, user: mantatail.User, channel_name: str) -> None:
     user.closed_connection = True
     user.socket.close()
 
 
-def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> None:
-    with server.channels_and_users_thread_lock:
+def handle_privmsg(state: mantatail.ServerState, user: mantatail.User, msg: str) -> None:
+    with state.lock:
         (receiver, colon_privmsg) = msg.split(" ", 1)
 
         assert colon_privmsg.startswith(":")
@@ -98,15 +100,15 @@ def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> 
 
         if not receiver.startswith("#"):
             privmsg_to_user(receiver, colon_privmsg)
-        elif lower_channel_name not in server.channels.keys():
+        elif lower_channel_name not in state.channels.keys():
             error_no_such_nick_channel(user, receiver)
 
-        elif lower_sender_nick not in server.channels[lower_channel_name].user_dict.keys():
+        elif lower_sender_nick not in state.channels[lower_channel_name].user_dict.keys():
             error_cannot_send_to_channel(user, receiver)
         else:
-            sender = server.channels[lower_channel_name].user_dict[lower_sender_nick]
+            sender = state.channels[lower_channel_name].user_dict[lower_sender_nick]
 
-            for user_nick, user in server.channels[lower_channel_name].user_dict.items():
+            for user_nick, user in state.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:
                     message = f"PRIVMSG {receiver} {colon_privmsg}"
                     user.send_string(message, prefix=sender.user_mask)
@@ -119,7 +121,7 @@ def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
     pass
 
 
-def motd(server: mantatail.Server, user: mantatail.User) -> None:
+def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.User) -> None:
     (start_num, start_info) = irc_responses.RPL_MOTDSTART
     motd_num = irc_responses.RPL_MOTD
     (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
@@ -131,8 +133,8 @@ def motd(server: mantatail.Server, user: mantatail.User) -> None:
 
     user.send_string(motd_start_and_end["start_msg"])
 
-    if server.motd_content:
-        motd = server.motd_content["motd"]
+    if motd_content:
+        motd = motd_content["motd"]
         for motd_line in motd:
             motd_message = f"{motd_num} {user.nick} :{motd_line.format(user_nick=user.nick)}"
             user.send_string(motd_message)
