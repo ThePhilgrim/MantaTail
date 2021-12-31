@@ -6,7 +6,13 @@ import irc_responses
 
 ### Handlers
 def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
+<<<<<<< HEAD
     channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+=======
+    channel_regex = (
+        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+    )
+>>>>>>> main
 
     lower_channel_name = channel_name.lower()
     with server.channels_and_users_thread_lock:
@@ -22,7 +28,14 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
 
                 channel_user_keys = server.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
+<<<<<<< HEAD
                     [server.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
+=======
+                    [
+                        server.channels[lower_channel_name].user_dict[user_key].nick
+                        for user_key in channel_user_keys
+                    ]
+>>>>>>> main
                 )
 
                 server.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -30,7 +43,11 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
                 for nick in channel_user_keys:
                     message = f"JOIN {channel_name}"
                     receiver = server.channels[lower_channel_name].user_dict[nick]
+<<<<<<< HEAD
                     receiver.send_string_user_mask_prefix(message, user.user_mask)
+=======
+                    receiver.send_string(message, prefix=user.user_mask)
+>>>>>>> main
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
@@ -118,12 +135,12 @@ def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> 
         elif lower_sender_nick not in server.channels[lower_channel_name].user_dict.keys():
             error_cannot_send_to_channel(user, receiver)
         else:
-            sender_user_mask = server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
+            sender = server.channels[lower_channel_name].user_dict[lower_sender_nick]
 
             for user_nick, user in server.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:
                     message = f"PRIVMSG {receiver} {colon_privmsg}"
-                    user.send_string_user_mask_prefix(message, sender_user_mask)
+                    user.send_string(message, prefix=sender.user_mask)
 
 
 # Private functions
