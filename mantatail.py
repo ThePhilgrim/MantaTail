@@ -1,11 +1,10 @@
 from __future__ import annotations
 import socket
 import threading
-import re
 import json
 from typing import Dict, Optional, List, Tuple
 
-import irc_responses
+import command
 
 
 class Server:
@@ -20,7 +19,7 @@ class Server:
         self.listener_socket.bind((self.host, self.port))
         self.listener_socket.listen(5)
 
-        self.channels: Dict[str, Channel] = {}
+        self.channels: Dict[str, Channel] = {}  #! Put somewhere else?
 
     def run_server_forever(self) -> None:
         print(f"Mantatail running ({self.host}:{self.port})")
@@ -33,7 +32,6 @@ class Server:
             client_thread.start()
 
     def recv_loop(self, user_info: Tuple[str, socket.socket]) -> None:
-
         user_host = user_info[0]
         user_socket = user_info[1]
         _user_message = None
@@ -65,9 +63,7 @@ class Server:
                         message = verb
 
                     verb_lower = verb.lower()
-
-                    # ex. "handle_nick" or "handle_join"
-                    handler_function_to_call = "handle_" + verb_lower
+                    parsed_command = "handle_" + verb_lower
 
                     if user is None:
                         if verb_lower == "user":
@@ -75,26 +71,20 @@ class Server:
                         elif verb_lower == "nick":
                             _nick = message
                         else:
-                            (error_code, error_info) = irc_responses.ERR_NOTREGISTERED
-                            user_socket.sendall(
-                                bytes(
-                                    f":mantatail {error_code} * {error_info}\r\n", encoding="utf-8"
-                                )
-                            )
+                            user_socket.sendall(command.error_not_registered())
 
                         if _user_message and _nick:
                             user = User(user_host, user_socket, _user_message, _nick)
-                            command_handler: IrcCommandHandler = IrcCommandHandler(self, user)
-                            command_handler.handle_motd()
+                            command.motd(self, user)
 
                     else:
                         try:
-                            call_handler_function = getattr(
-                                command_handler, handler_function_to_call
-                            )
-                            call_handler_function(message)
+                            # ex. "command.handle_nick" or "command.handle_join"
+                            call_handler_function = getattr(command, parsed_command)
                         except AttributeError:
-                            command_handler.handle_unknown_command(verb_lower)
+                            command.error_unknown_command(user, verb_lower)
+                        else:
+                            call_handler_function(self, user, message)
 
                         if user.closed_connection:
                             return
@@ -111,6 +101,14 @@ class User:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.closed_connection = False
 
+    def send_string(self, message: str) -> None:
+        message_as_bytes = bytes(f":mantatail {message}\r\n", encoding="utf-8")
+        self.socket.sendall(message_as_bytes)
+
+    def send_string_user_mask_prefix(self, message: str, prefix: str) -> None:
+        message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+        self.socket.sendall(message_as_bytes)
+
 
 class Channel:
     def __init__(self, channel_name: str, channel_creator: str) -> None:
@@ -118,190 +116,6 @@ class Channel:
         self.creator = channel_creator
         self.topic = None
         self.user_dict: Dict[Optional[str], User] = {}
-
-
-class IrcCommandHandler:
-    def __init__(self, server: Server, user: User) -> None:
-        self.encoding = "utf-8"
-        self.send_to_client_prefix = ":mantatail"
-        self.send_to_client_suffix = "\r\n"
-        self.server = server
-        self.user = user
-
-    def handle_motd(self) -> None:
-        (start_num, start_info) = irc_responses.RPL_MOTDSTART
-        motd_num = irc_responses.RPL_MOTD
-        (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
-
-        motd_start_and_end = {
-            "start_msg": f"{self.send_to_client_prefix} {start_num} {self.user.nick} :- mantatail {start_info}{self.send_to_client_suffix}",
-            "end_msg": f"{self.send_to_client_prefix} {end_num} {self.user.nick} {end_info}{self.send_to_client_suffix}",
-        }
-
-        start_msg = bytes(motd_start_and_end["start_msg"], encoding=self.encoding)
-        end_msg = bytes(motd_start_and_end["end_msg"], encoding=self.encoding)
-
-        self.user.socket.sendall(start_msg)
-
-        if self.server.motd_content:
-            motd = self.server.motd_content["motd"]
-            for motd_line in motd:
-                motd_msg = bytes(
-                    f"{self.send_to_client_prefix} {motd_num} {self.user.nick} :{motd_line.format(user_nick=self.user.nick)}{self.send_to_client_suffix}",
-                    encoding=self.encoding,
-                )
-                self.user.socket.sendall(motd_msg)
-        # If motd.json could not be found
-        else:
-            (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
-            self.user.socket.sendall(
-                bytes(
-                    f"{self.send_to_client_prefix} {no_motd_num} {no_motd_info}{self.send_to_client_suffix}",
-                    encoding=self.encoding,
-                )
-            )
-
-        self.user.socket.sendall(end_msg)
-
-    def handle_join(self, channel_name: str) -> None:
-        channel_regex = (
-            r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
-        )
-
-        lower_channel_name = channel_name.lower()
-        with self.server.channels_and_users_thread_lock:
-            if not re.match(channel_regex, lower_channel_name):
-                self.handle_no_such_channel(channel_name)
-            else:
-                if lower_channel_name not in self.server.channels.keys():
-                    self.server.channels[lower_channel_name] = Channel(channel_name, self.user.nick)
-
-                lower_user_nick = self.user.nick.lower()
-
-                if lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
-
-                    channel_user_keys = self.server.channels[lower_channel_name].user_dict.keys()
-                    channel_users = " ".join(
-                        [
-                            self.server.channels[lower_channel_name].user_dict[user_key].nick
-                            for user_key in channel_user_keys
-                        ]
-                    )
-
-                    self.server.channels[lower_channel_name].user_dict[lower_user_nick] = self.user
-
-                    for user in channel_user_keys:
-                        self.server.channels[lower_channel_name].user_dict[user].socket.sendall(
-                            bytes(
-                                f":{self.user.user_mask} JOIN {channel_name}{self.send_to_client_suffix}",
-                                encoding=self.encoding,
-                            )
-                        )
-
-                    # TODO: Implement topic functionality for existing channels & MODE for new ones
-
-                    self.user.socket.sendall(
-                        bytes(
-                            f"{self.send_to_client_prefix} 353 {self.user.nick} = {channel_name} :{self.user.nick} {channel_users}{self.send_to_client_suffix}",
-                            encoding=self.encoding,
-                        )
-                    )
-                    self.user.socket.sendall(
-                        bytes(
-                            f"{self.send_to_client_prefix} 366 {self.user.nick} {channel_name} :End of /NAMES list.{self.send_to_client_suffix}",
-                            encoding=self.encoding,
-                        )
-                    )
-
-        # TODO:
-        #   * Send topic (332)
-        #   * Optional/Later: (333) https://modern.ircdocs.horse/#rpltopicwhotime-333
-        #   * Send Name list (353)
-        #   * Send End of Name list (366)
-
-        # TODO: Check for:
-        #   * User invited to channel
-        #   * Nick/user not matching bans
-        #   * Eventual password matches
-        #   * Not joined too many channels
-
-        # TODO:
-        #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
-
-    def handle_part(self, channel_name: str) -> None:
-        # TODO: Show part message to other users & Remove from user from channel user list.
-        lower_channel_name = channel_name.lower()
-        lower_user_nick = self.user.nick.lower()
-
-        with self.server.channels_and_users_thread_lock:
-            if lower_channel_name not in self.server.channels.keys():
-                self.handle_no_such_channel(channel_name)
-            elif lower_user_nick not in self.server.channels[lower_channel_name].user_dict.keys():
-                (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
-
-                self.generate_error_reply(not_on_channel_num, not_on_channel_info, channel_name)
-            else:
-                del self.server.channels[lower_channel_name].user_dict[lower_user_nick]
-                if len(self.server.channels[lower_channel_name].user_dict) == 0:
-                    del self.server.channels[lower_channel_name]
-
-    def handle_quit(self, message: str) -> None:
-        self.user.closed_connection = True
-        self.user.socket.close()
-
-    def _handle_kick(self, message: str) -> None:
-        pass
-
-    def handle_privmsg(self, message: str) -> None:
-        with self.server.channels_and_users_thread_lock:
-            (receiver, colon_privmsg) = message.split(" ", 1)
-
-            assert colon_privmsg.startswith(":")
-
-            lower_sender_nick = self.user.nick.lower()
-            lower_channel_name = receiver.lower()
-
-            if not receiver.startswith("#"):
-                self.handle_privmsg_to_user(receiver, colon_privmsg)
-            elif lower_channel_name not in self.server.channels.keys():
-                no_nick_num, no_nick_info = irc_responses.ERR_NOSUCHNICK
-                self.generate_error_reply(no_nick_num, no_nick_info, receiver)
-            elif lower_sender_nick not in self.server.channels[lower_channel_name].user_dict.keys():
-                cant_send_num, cant_send_info = irc_responses.ERR_CANNOTSENDTOCHAN
-                self.generate_error_reply(cant_send_num, cant_send_info, receiver)
-            else:
-                sender_user_mask = (
-                    self.server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
-                )
-
-                for user_nick, user in self.server.channels[lower_channel_name].user_dict.items():
-                    if user_nick != lower_sender_nick:
-                        user.socket.sendall(
-                            bytes(
-                                f":{sender_user_mask} PRIVMSG {receiver} {colon_privmsg}{self.send_to_client_suffix}",
-                                encoding=self.encoding,
-                            )
-                        )
-
-    def handle_privmsg_to_user(self, receiver: str, message: str) -> None:
-        pass
-
-    def handle_unknown_command(self, command: str) -> None:
-        (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
-
-        self.generate_error_reply(unknown_cmd_num, unknown_cmd_info, command)
-
-    def handle_no_such_channel(self, channel_name: str) -> None:
-        (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
-        self.generate_error_reply(no_channel_num, no_channel_info, channel_name)
-
-    def generate_error_reply(self, error_num: str, error_info: str, error_topic: str) -> None:
-        self.user.socket.sendall(
-            bytes(
-                f"{self.send_to_client_prefix} {error_num} {error_topic} {error_info}{self.send_to_client_suffix}",
-                encoding=self.encoding,
-            )
-        )
 
 
 def split_on_new_line(string: str) -> List[str]:

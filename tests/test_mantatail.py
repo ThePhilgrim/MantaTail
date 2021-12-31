@@ -4,8 +4,10 @@ import socket
 import traceback
 import threading
 import time
+
 from mantatail import Server
 
+# fmt: off
 motd_dict_test = {
     "motd": [
         "- Hello {user_nick}, this is a test MOTD!",
@@ -14,9 +16,11 @@ motd_dict_test = {
         "- Bar",
         "- Baz",
         "-",
-        "- End test MOTD",
-    ]
+        "- End test MOTD"
+        ]
 }
+
+# fmt: on
 
 ##############
 #  FIXTURES  #
