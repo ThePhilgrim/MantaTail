@@ -56,7 +56,7 @@ def handle_join(
         #   * Send End of Name list (366)
 
         # TODO: Check for:
-        #   * UserConnection invited to channel
+        #   * User invited to channel
         #   * Nick/user not matching bans
         #   * Eventual password matches
         #   * Not joined too many channels
