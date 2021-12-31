@@ -5,7 +5,7 @@ import traceback
 import threading
 import time
 
-from mantatail import Server
+from mantatail import Listener
 
 # fmt: off
 motd_dict_test = {
@@ -48,24 +48,24 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
-    server = Server(6667, motd_dict_test)
+    listener = Listener(6667, motd_dict_test)
 
-    def run_server(server):
+    def run_server():
         try:
-            server.run_server_forever()
+            listener.run_server_forever()
         except OSError:
             return
 
-    threading.Thread(target=run_server, args=[server]).start()
+    threading.Thread(target=run_server).start()
 
     yield
+
     # .shutdown() raises an OSError on mac, removing it makes the test suite freeze on linux.
     try:
-        server.listener_socket.shutdown(socket.SHUT_RDWR)
+        listener.listener_socket.shutdown(socket.SHUT_RDWR)
     except OSError:
         pass
-
-    server.listener_socket.close()
+    listener.listener_socket.close()
 
 
 @pytest.fixture
