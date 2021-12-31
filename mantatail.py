@@ -111,11 +111,17 @@ class User:
 
 
 class Channel:
-    def __init__(self, channel_name: str, channel_creator: str) -> None:
+    def __init__(self, channel_name: str, channel_founder: str) -> None:
         self.name = channel_name
-        self.creator = channel_creator
+        self.founder = channel_founder
         self.topic = None
+        self.operators = set()
         self.user_dict: Dict[Optional[str], User] = {}
+
+        self.operators.append(self.founder)
+
+    def set_operator(self):
+        pass
 
 
 def split_on_new_line(string: str) -> List[str]:

@@ -6,9 +6,7 @@ import irc_responses
 
 ### Handlers
 def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: str) -> None:
-    channel_regex = (
-        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
-    )
+    channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
     lower_channel_name = channel_name.lower()
     with server.channels_and_users_thread_lock:
@@ -24,10 +22,7 @@ def handle_join(server: mantatail.Server, user: mantatail.User, channel_name: st
 
                 channel_user_keys = server.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
-                    [
-                        server.channels[lower_channel_name].user_dict[user_key].nick
-                        for user_key in channel_user_keys
-                    ]
+                    [server.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
                 )
 
                 server.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -77,6 +72,25 @@ def handle_part(server: mantatail.Server, user: mantatail.User, channel_name: st
                 del server.channels[lower_channel_name]
 
 
+def handle_mode(server: mantatail.Server, user: mantatail.User, mode_args: str) -> None:
+    args = mode_args.split(" ")
+
+    if args[0].startswith("#") and args[1] == "+o":
+        chan = server.channels[args[0].lower()]
+        mode = args[1]
+        if args[0].lower() not in server.channels.keys():
+            error_no_such_channel(user, args[0])
+        elif user.nick.lower() not in chan.user_dict.keys():
+            error_not_on_channel(user, args[0])
+        elif user.nick.lower() not in chan.operators:
+            error_no_operator_privileges()
+        else:
+            chan.set_operator(args[2])
+    else:
+        command = f"{args[0]} {args[1]}"
+        error_unknown_command(user, command)
+
+
 # !Not implemented
 def _handle_kick(message: str) -> None:
     pass
@@ -104,9 +118,7 @@ def handle_privmsg(server: mantatail.Server, user: mantatail.User, msg: str) -> 
         elif lower_sender_nick not in server.channels[lower_channel_name].user_dict.keys():
             error_cannot_send_to_channel(user, receiver)
         else:
-            sender_user_mask = (
-                server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
-            )
+            sender_user_mask = server.channels[lower_channel_name].user_dict[lower_sender_nick].user_mask
 
             for user_nick, user in server.channels[lower_channel_name].user_dict.items():
                 if user_nick != lower_sender_nick:
@@ -191,3 +203,7 @@ def error_no_such_channel(user: mantatail.User, channel_name: str) -> None:
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
     user.send_string(message)
+
+
+def error_no_operator_privileges():
+    print("You're not an operator.")  # TODO: Implement proper error message
