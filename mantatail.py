@@ -132,4 +132,4 @@ def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
 
 
 if __name__ == "__main__":
-    Listener(6667, get_motd_content_from_json()).run_forever()
+    Listener(6667, get_motd_content_from_json()).run_server_forever()
