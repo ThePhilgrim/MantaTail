@@ -102,7 +102,7 @@ class UserConnection:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.closed_connection = False
 
-    def send_string(self, message: str, prefix: str = "mantatail") -> None:
+    def send_string_to_client(self, message: str, prefix: str = "mantatail") -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
 
