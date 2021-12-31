@@ -7,12 +7,8 @@ from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_join(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
-    channel_regex = (
-        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
-    )
+def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+    channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
     lower_channel_name = channel_name.lower()
     with state.lock:
@@ -28,10 +24,7 @@ def handle_join(
 
                 channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
-                    [
-                        state.channels[lower_channel_name].user_dict[user_key].nick
-                        for user_key in channel_user_keys
-                    ]
+                    [state.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
                 )
 
                 state.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -65,9 +58,7 @@ def handle_join(
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
+def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -78,7 +69,15 @@ def handle_part(
         elif lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
             error_not_on_channel(user, channel_name)
         else:
-            del state.channels[lower_channel_name].user_dict[lower_user_nick]
+            channel_users = state.channels[lower_channel_name].user_dict
+
+            for nick in channel_users.keys():
+                message = f"PART {channel_name}"
+                receiver = channel_users[nick]
+                receiver.send_string_to_client(message, prefix=user.user_mask)
+
+            del channel_users[lower_user_nick]
+
             if len(state.channels[lower_channel_name].user_dict) == 0:
                 del state.channels[lower_channel_name]
 
@@ -88,9 +87,7 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
+def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     user.closed_connection = True
     user.socket.close()
 
