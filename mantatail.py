@@ -29,18 +29,12 @@ class Listener:
         while True:
             (user_socket, user_address) = self.listener_socket.accept()
             client_thread = threading.Thread(
-                target=recv_loop,
-                args=[self.state, user_address[0], user_socket],
-                daemon=True,
+                target=recv_loop, args=[self.state, user_address[0], user_socket], daemon=True
             )
             client_thread.start()
 
 
-def recv_loop(
-    state: ServerState,
-    user_host: str,
-    user_socket: socket.socket,
-) -> None:
+def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     _user_message = None
     _nick = None
 
