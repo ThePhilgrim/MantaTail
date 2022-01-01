@@ -81,8 +81,9 @@ def user_alice(run_server):
         pass
 
     yield alice_socket
-    print("ALICE QUITTING")
     alice_socket.sendall(b"QUIT\r\n")
+    while b"QUIT\r\n" not in receive_line(alice_socket):
+        pass
     alice_socket.close()
 
 
@@ -99,8 +100,9 @@ def user_bob(run_server):
         pass
 
     yield bob_socket
-    print("BOB QUITTING")
     bob_socket.sendall(b"QUIT\r\n")
+    while b"QUIT\r\n" not in receive_line(bob_socket):
+        pass
     bob_socket.close()
 
 
