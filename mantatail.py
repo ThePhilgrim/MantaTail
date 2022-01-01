@@ -115,19 +115,14 @@ class Channel:
         self.modes: List[str] = []
         self.operators: Set[str] = set()
         self.user_dict: Dict[Optional[str], UserConnection] = {}
-        print("EMPTY", self.operators)
 
         self.operators.add(self.founder.lower())
 
-        print("ADD FOUNDER", self.operators)
-
     def set_operator(self, user: str) -> None:
         self.operators.add(user)
-        print("ADD USER", self.operators)
 
     def remove_operator(self, user: str) -> None:
         self.operators.discard(user)
-        print("REMOVE USER", self.operators)
 
 
 def split_on_new_line(string: str) -> List[str]:
