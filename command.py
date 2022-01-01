@@ -209,7 +209,6 @@ def process_channel_modes(
                         error_no_operator_privileges(user, target_chan)
                     elif target_user.lower() not in state.channels[target_chan].user_dict.keys():
                         error_user_not_in_channel(user, target_user, target_chan)
-                        pass
                     elif mode_command[0] == "+":
                         state.channels[target_chan.lower()].set_operator(target_user)
                         message = f"MODE {target_chan} {args[1]} {target_user}"
