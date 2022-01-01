@@ -216,32 +216,29 @@ def test_connect_via_netcat(run_server):
 
 
 def test_nick_already_taken(run_server):
-    with socket.socket() as nc:
-        nc.connect(("localhost", 6667))
-        nc.sendall(b"NICK nc\n")
-        nc.sendall(b"USER nc 0 * :netcat\n")
-        while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
-            pass
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+    while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
 
-    with socket.socket() as nc2:
-        nc2.connect(("localhost", 6667))
-        nc2.sendall(b"NICK nc\n")
-        received = receive_line(nc2)
-        assert received == b":mantatail 433 nc :Nickname is already in use\r\n"
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"NICK nc\n")
+    received = receive_line(nc2)
+    assert received == b":mantatail 433 nc :Nickname is already in use\r\n"
 
-    # ! This part of the test times out.
-    # nc.sendall(b"QUIT\n")
-    # while b"QUIT" not in receive_line(nc):
-    #     pass
-    # nc.close()
+    nc.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc):
+        pass
+    nc.close()
 
-    # nc2.sendall(b"NICK nc\n")
-    # nc2.sendall(b"USER nc\n")
-    # received = receive_line(nc2)
-    # print(received)
+    nc2.sendall(b"NICK nc\n")
+    nc2.sendall(b"USER nc\n")
 
-    # while receive_line(nc2) != b":mantatail 376 nc :End of /MOTD command\r\n":
-    #     pass
+    while receive_line(nc2) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
 
 
 def test_join_part_race_condition(user_alice, user_bob):
