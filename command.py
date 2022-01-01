@@ -196,10 +196,7 @@ def process_channel_modes(
         message = f'{irc_responses.RPL_CHANNELMODEIS} {args[0]} {" ".join(state.channels[args[0].lower()].modes)}'
         user.send_string_to_client(message)
     else:
-        assert len(args) == 3
-        target_chan = args[0]
-        mode_command = list(args[1])
-        target_user = args[2]
+        target_chan, mode_command, target_user = args
 
         command_contains_unsupported_modes = False
 
