@@ -101,12 +101,12 @@ def handle_quit(
 ) -> None:
     # TODO: Implement logic for different reasons & disconnects.
     reason = "(Remote host closed the connection)"
+    message = f"QUIT Quit: {reason}"
 
     receivers = set()
     with state.lock:
         receivers.add(user)
         for channel_name, channel in state.channels.items():
-            message = f"QUIT {channel_name} Quit: {reason}"
             if user.nick.lower() in channel.user_dict.keys():
                 for nick, receiver in channel.user_dict.items():
                     receivers.add(receiver)
