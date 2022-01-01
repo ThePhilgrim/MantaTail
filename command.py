@@ -7,12 +7,8 @@ from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_join(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
-    channel_regex = (
-        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
-    )
+def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+    channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
 
     lower_channel_name = channel_name.lower()
     with state.lock:
@@ -28,10 +24,7 @@ def handle_join(
 
                 channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
-                    [
-                        state.channels[lower_channel_name].user_dict[user_key].nick
-                        for user_key in channel_user_keys
-                    ]
+                    [state.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
                 )
 
                 state.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -65,9 +58,7 @@ def handle_join(
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
+def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -91,13 +82,13 @@ def handle_part(
                 del state.channels[lower_channel_name]
 
 
-def handle_mode(server: mantatail.Server, user: mantatail.User, mode_args: str) -> None:
+def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
     args = mode_args.split(" ")
 
     if args[0].startswith("#") and args[1] == "+o":
-        chan = server.channels[args[0].lower()]
+        chan = state.channels[args[0].lower()]
         mode = args[1]
-        if args[0].lower() not in server.channels.keys():
+        if args[0].lower() not in state.channels.keys():
             error_no_such_channel(user, args[0])
         elif user.nick.lower() not in chan.user_dict.keys():
             error_not_on_channel(user, args[0])
@@ -238,3 +229,7 @@ def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> 
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
     user.send_string_to_client(message)
+
+
+def error_no_operator_privileges() -> None:
+    pass

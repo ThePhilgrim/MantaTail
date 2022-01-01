@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import threading
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 
 import command
 
@@ -112,12 +112,12 @@ class Channel:
         self.name = channel_name
         self.founder = channel_founder
         self.topic = None
-        self.operators = set()
-        self.user_dict: Dict[Optional[str], User] = {}
+        self.operators: Set[str] = set()
+        self.user_dict: Dict[Optional[str], UserConnection] = {}
 
-        # self.operators.append(self.founder)
+        self.operators.add(self.founder.lower())
 
-    def set_operator(self):
+    def set_operator(self, user: str) -> None:
         pass
 
 
