@@ -222,14 +222,12 @@ def test_operator_no_privileges(user_alice, user_bob):
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
-    user_bob.sendall(b"MODE #foo +o Alice")
+    user_bob.sendall(b"MODE #foo +o Alice\r\n")
     received = receive_line(user_bob)
-    print(received)
-    # assert received == b":mantatail 482 #foo :You're not channel operator\r\n"
+    assert received == b":mantatail 482 #foo :You're not channel operator\r\n"
 
 
 # TODO:
-# * No privileges
 # * User not in channel
 # * Unknown mode flag
 
