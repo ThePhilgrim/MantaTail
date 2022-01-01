@@ -103,19 +103,20 @@ def handle_quit(
     reason = "(Remote host closed the connection)"
 
     receivers = set()
+    with state.lock:
+        for channel_name, channel in state.channels.items():
+            message = f"QUIT {channel_name} Quit: {reason}"
+            if user.nick.lower() in channel.user_dict.keys():
+                for nick, receiver in channel.user_dict.items():
+                    receivers.add(receiver)
+                del state.channels[channel_name].user_dict[user.nick.lower()]
 
-    for channel_name, channel in state.channels.items():
-        message = f"QUIT {channel_name} Quit: {reason}"
-        if user.nick.lower() in channel.user_dict.keys():
-            for nick, receiver in channel.user_dict.items():
-                receivers.add(receiver)
-            del state.channels[channel_name].user_dict[user.nick.lower()]
+        for receiver in receivers:
+            print(receiver.nick)
+            receiver.send_string_to_client(message, prefix=user.user_mask)
 
-    for receiver in receivers:
-        receiver.send_string_to_client(message, prefix=user.user_mask)
-
-    user.closed_connection = True
-    user.socket.close()
+        user.closed_connection = True
+        user.socket.close()
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
