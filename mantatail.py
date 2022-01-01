@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import threading
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 
 import command
 
@@ -11,6 +11,7 @@ class ServerState:
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
+        self.users: Set[str] = set()
         self.motd_content = motd_content
 
 
@@ -51,6 +52,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     if user is not None:
                         print(f"{user.nick} has disconnected.")
+                        command.delete_user_from_server_users(state, user)
                     else:
                         print("Disconnected.")
                     return
@@ -70,7 +72,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     if verb_lower == "user":
                         _user_message = message
                     elif verb_lower == "nick":
-                        _nick = message
+                        if message.lower() in state.users:
+                            user_socket.sendall(command.error_nickname_in_use(message))
+                        else:
+                            _nick = message
+                            state.users.add(_nick.lower())
                     else:
                         user_socket.sendall(command.error_not_registered())
 

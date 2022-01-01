@@ -113,6 +113,8 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
 
+        delete_user_from_server_users(state, user)
+
         user.closed_connection = True
         user.socket.close()
 
@@ -173,6 +175,12 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
     user.send_string_to_client(motd_start_and_end["end_msg"])
 
 
+def delete_user_from_server_users(
+    state: mantatail.ServerState, user: mantatail.UserConnection
+) -> None:
+    state.users.discard(user.nick.lower())
+
+
 ### Error Messages
 def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
@@ -185,6 +193,14 @@ def error_not_registered() -> bytes:
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
     return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="utf-8")
+
+
+def error_nickname_in_use(message: str) -> bytes:
+    (nickname_in_use_num, nickname_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
+
+    return bytes(
+        f":mantatail {nickname_in_use_num} {message} {nickname_in_use_info}\r\n", encoding="utf-8"
+    )
 
 
 def error_no_motd(user: mantatail.UserConnection) -> None:
