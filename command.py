@@ -1,6 +1,5 @@
 from __future__ import annotations
 import re
-import time
 import mantatail
 import irc_responses
 
@@ -8,8 +7,12 @@ from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
-    channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+def handle_join(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
+    channel_regex = (
+        r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+    )
 
     lower_channel_name = channel_name.lower()
     with state.lock:
@@ -25,7 +28,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
                 channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
                 channel_users = " ".join(
-                    [state.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
+                    [
+                        state.channels[lower_channel_name].user_dict[user_key].nick
+                        for user_key in channel_user_keys
+                    ]
                 )
 
                 state.channels[lower_channel_name].user_dict[lower_user_nick] = user
@@ -59,7 +65,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_part(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
     # TODO: Show part message to other users & Remove from user from channel user list.
     lower_channel_name = channel_name.lower()
     lower_user_nick = user.nick.lower()
@@ -88,18 +96,26 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_quit(
+    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
+) -> None:
     # TODO: Implement logic for different reasons & disconnects.
     reason = "(Remote host closed the connection)"
+
+    receivers = set()
 
     for channel_name, channel in state.channels.items():
         message = f"QUIT {channel_name} Quit: {reason}"
         if user.nick.lower() in channel.user_dict.keys():
             for nick, receiver in channel.user_dict.items():
-                if nick != user.nick.lower():
-                    receiver.send_string_to_client(message, prefix=user.user_mask)
+                receivers.add(receiver)
+            del state.channels[channel_name].user_dict[user.nick.lower()]
 
-    close_connection(user)
+    for receiver in receivers:
+        receiver.send_string_to_client(message, prefix=user.user_mask)
+
+    user.closed_connection = True
+    user.socket.close()
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
@@ -156,11 +172,6 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
         error_no_motd(user)
 
     user.send_string_to_client(motd_start_and_end["end_msg"])
-
-
-def close_connection(user: mantatail.UserConnection) -> None:
-    user.closed_connection = True
-    user.socket.close()
 
 
 ### Error Messages
