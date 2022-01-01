@@ -82,6 +82,8 @@ def user_alice(run_server):
 
     yield alice_socket
     alice_socket.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(alice_socket):
+        pass
     alice_socket.close()
 
 
@@ -99,6 +101,8 @@ def user_bob(run_server):
 
     yield bob_socket
     bob_socket.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(bob_socket):
+        pass
     bob_socket.close()
 
 
@@ -151,6 +155,7 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)  # TODO: wait until server says that join is done
     user_bob.sendall(b"PART #foo\r\n")
+
     received = receive_line(user_bob)
     assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
 

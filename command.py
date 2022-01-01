@@ -78,7 +78,15 @@ def handle_part(
         elif lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
             error_not_on_channel(user, channel_name)
         else:
-            del state.channels[lower_channel_name].user_dict[lower_user_nick]
+            channel_users = state.channels[lower_channel_name].user_dict
+
+            for nick in channel_users.keys():
+                message = f"PART {channel_name}"
+                receiver = channel_users[nick]
+                receiver.send_string_to_client(message, prefix=user.user_mask)
+
+            del channel_users[lower_user_nick]
+
             if len(state.channels[lower_channel_name].user_dict) == 0:
                 del state.channels[lower_channel_name]
 
@@ -88,11 +96,25 @@ def _handle_kick(message: str) -> None:
     pass
 
 
-def handle_quit(
-    state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str
-) -> None:
-    user.closed_connection = True
-    user.socket.close()
+def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
+    # TODO: Implement logic for different reasons & disconnects.
+    reason = "(Remote host closed the connection)"
+    message = f"QUIT :Quit: {reason}"
+
+    receivers = set()
+    with state.lock:
+        receivers.add(user)
+        for channel_name, channel in state.channels.items():
+            if user.nick.lower() in channel.user_dict.keys():
+                for nick, receiver in channel.user_dict.items():
+                    receivers.add(receiver)
+                del state.channels[channel_name].user_dict[user.nick.lower()]
+
+        for receiver in receivers:
+            receiver.send_string_to_client(message, prefix=user.user_mask)
+
+        user.closed_connection = True
+        user.socket.close()
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
