@@ -96,20 +96,10 @@ def handle_mode(
 ) -> None:
     args = mode_args.split(" ")
 
-    if args[0].startswith("#") and args[1] == "+o":
-        chan = state.channels[args[0].lower()]
-        mode = args[1]
-        if args[0].lower() not in state.channels.keys():
-            error_no_such_channel(user, args[0])
-        elif user.nick.lower() not in chan.user_dict.keys():
-            error_not_on_channel(user, args[0])
-        elif user.nick.lower() not in chan.operators:
-            error_no_operator_privileges()
-        else:
-            chan.set_operator(args[2])
+    if args[0].startswith("#"):
+        process_channel_modes(state, user, args)
     else:
-        command = f"{args[0]} {args[1]}"
-        error_unknown_command(user, command)
+        process_user_modes()
 
 
 # !Not implemented
@@ -194,6 +184,48 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
     user.send_string_to_client(motd_start_and_end["end_msg"])
 
 
+def process_channel_modes(
+    state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]
+) -> None:
+    supported_channel_modes = ["o"]
+    if args[0].lower() not in state.channels.keys():
+
+        error_no_such_channel(user, args[0])
+    elif len(args) == 1:
+
+        message = f'{irc_responses.RPL_CHANNELMODEIS} {args[0]} {" ".join(state.channels[args[0].lower()].modes)}'
+        user.send_string_to_client(message)
+    else:
+        assert len(args) == 3
+        target_chan = args[0]
+        mode_command = list(args[1])
+        target_user = args[2]
+
+        command_contains_unsupported_modes = False
+
+        for mode in mode_command[1:]:
+            if mode not in supported_channel_modes:
+                command_contains_unsupported_modes = True
+            else:
+                if mode == "o":
+                    if user.nick != state.channels[target_chan.lower()].founder:
+                        error_no_operator_privileges()
+                    elif target_user.lower() not in state.channels[target_chan].user_dict.keys():
+                        # TODO: Send appropriate error, target user not on channel
+                        pass
+                    elif mode_command[0] == "+":
+                        state.channels[target_chan.lower()].set_operator(target_user)
+                    elif mode_command[0] == "-":
+                        state.channels[target_chan.lower()].remove_operator(target_user)
+
+        if command_contains_unsupported_modes:
+            error_unknown_mode_flag()
+
+
+def process_user_modes() -> None:
+    pass
+
+
 ### Error Messages
 def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
@@ -243,4 +275,9 @@ def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> 
 
 
 def error_no_operator_privileges() -> None:
-    pass
+    print("You don't have the proper permissions!")  # TODO: Implement the proper error message
+    return
+
+
+def error_unknown_mode_flag() -> None:
+    print("That mode flag is unknown to us")  # TODO: Implement the proper error message
