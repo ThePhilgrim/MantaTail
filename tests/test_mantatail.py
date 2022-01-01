@@ -205,6 +205,35 @@ def test_send_unknown_commands(user_alice):
     assert received == b":mantatail 421 foo :Unknown command\r\n"
 
 
+def test_operator_no_such_channel(user_alice):
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail 403 #foo :No such channel\r\n"
+
+
+def test_operator_no_privileges(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"MODE #foo +o Alice")
+    received = receive_line(user_bob)
+    print(received)
+    # assert received == b":mantatail 482 #foo :You're not channel operator\r\n"
+
+
+# TODO:
+# * No privileges
+# * User not in channel
+# * Unknown mode flag
+
+
 # netcat sends \n line endings, but is fine receiving \r\n
 def test_connect_via_netcat(run_server):
     with socket.socket() as nc:
