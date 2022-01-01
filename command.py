@@ -209,9 +209,9 @@ def process_channel_modes(
             else:
                 if mode == "o":
                     if user.nick != state.channels[target_chan.lower()].founder:
-                        error_no_operator_privileges()
+                        error_no_operator_privileges(user, target_chan)
                     elif target_user.lower() not in state.channels[target_chan].user_dict.keys():
-                        # TODO: Send appropriate error, target user not on channel
+                        error_user_not_in_channel(user, target_user, target_chan)
                         pass
                     elif mode_command[0] == "+":
                         state.channels[target_chan.lower()].set_operator(target_user)
@@ -219,7 +219,7 @@ def process_channel_modes(
                         state.channels[target_chan.lower()].remove_operator(target_user)
 
         if command_contains_unsupported_modes:
-            error_unknown_mode_flag()
+            error_unknown_mode_flag(user)
 
 
 def process_user_modes() -> None:
@@ -261,6 +261,14 @@ def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> N
     user.send_string_to_client(message)
 
 
+def error_user_not_in_channel(
+    user: mantatail.UserConnection, target_user: str, target_chan: str
+) -> None:
+    (not_in_chan_num, not_in_chan_info) = irc_responses.ERR_USERNOTINCHANNEL
+    message = f"{not_in_chan_num} {target_user} {target_chan} {not_in_chan_info}"
+    user.send_string_to_client(message)
+
+
 def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
@@ -274,10 +282,13 @@ def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> 
     user.send_string_to_client(message)
 
 
-def error_no_operator_privileges() -> None:
-    print("You don't have the proper permissions!")  # TODO: Implement the proper error message
-    return
+def error_no_operator_privileges(user: mantatail.UserConnection, target_channel: str) -> None:
+    (not_operator_num, not_operator_info) = irc_responses.ERR_CHANOPRIVSNEEDED
+    message = f"{not_operator_num} {target_channel} {not_operator_info}"
+    user.send_string_to_client(message)
 
 
-def error_unknown_mode_flag() -> None:
-    print("That mode flag is unknown to us")  # TODO: Implement the proper error message
+def error_unknown_mode_flag(user: mantatail.UserConnection) -> None:
+    (unknown_flag_num, unknown_flag_info) = irc_responses.ERR_UMODEUNKNOWNFLAG
+    message = f"{unknown_flag_num} {unknown_flag_info}"
+    user.send_string_to_client(message)

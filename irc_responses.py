@@ -9,6 +9,7 @@ ERR_NOMOTD = ("422", ":MOTD File is missing")
 ERR_USERNOTINCHANNEL = ("441", ":They aren't on that channel")
 ERR_NOTONCHANNEL = ("442", ":You're not on that channel")
 ERR_NOTREGISTERED = ("451", ":You have not registered")
+ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
 ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")
 
 # Command Responses
