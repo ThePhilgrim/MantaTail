@@ -9,6 +9,8 @@ It is still at an early stage of production, and is therefore missing several cr
 - Message of the day
 - Join channel
 - Part from channel
+- Send message to channel
+- Quit from server
 
 ### Connect to MantaTail
 
