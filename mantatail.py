@@ -108,15 +108,15 @@ class UserConnection:
 
 
 class Channel:
-    def __init__(self, channel_name: str, channel_founder: str) -> None:
+    def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
-        self.founder = channel_founder
+        self.founder = user.user_name
         self.topic = None
         self.modes: List[str] = []
         self.operators: Set[str] = set()
         self.user_dict: Dict[Optional[str], UserConnection] = {}
 
-        self.operators.add(self.founder.lower())
+        self.operators.add(user.nick.lower())
 
     def set_operator(self, user: str) -> None:
         self.operators.add(user)

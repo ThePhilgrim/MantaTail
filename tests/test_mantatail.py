@@ -7,6 +7,9 @@ import time
 
 from mantatail import Listener
 
+# Tests that are known to fail can be decorated with:
+# @pytest.mark.xfail(strict=True)
+
 # fmt: off
 motd_dict_test = {
     "motd": [
@@ -205,7 +208,7 @@ def test_send_unknown_commands(user_alice):
     assert received == b":mantatail 421 foo :Unknown command\r\n"
 
 
-def test_unknown_mode_flag(user_alice):
+def test_unknown_mode(user_alice):
     user_alice.sendall(b"JOIN #foo\r\n")
 
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
@@ -213,7 +216,7 @@ def test_unknown_mode_flag(user_alice):
 
     user_alice.sendall(b"MODE #foo +g Bob\r\n")
     received = receive_line(user_alice)
-    assert received == b":mantatail 501 :Unknown MODE flag\r\n"
+    assert received == b":mantatail 472 g :is unknown mode char to me\r\n"
 
 
 def test_operator_no_such_channel(user_alice):
