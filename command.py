@@ -72,7 +72,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             channel_users = state.channels[lower_channel_name].user_dict
 
             if lower_user_nick in state.channels[lower_channel_name].operators:
-                state.channels[lower_channel_name].remove_operator(user)
+                state.channels[lower_channel_name].remove_operator(user.nick.lower())
 
             for nick in channel_users.keys():
                 message = f"PART {channel_name}"
@@ -112,6 +112,9 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
                 for nick, receiver in channel.user_dict.items():
                     receivers.add(receiver)
                 del state.channels[channel_name].user_dict[user.nick.lower()]
+
+            if user.nick.lower() in channel.operators:
+                channel.remove_operator(user.nick.lower())
 
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
@@ -204,7 +207,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                         for receiver_nick, receiver in state.channels[target_chan.lower()].user_dict.items():
                             receiver.send_string_to_client(message)
                     elif mode_command[0] == "-":
-                        state.channels[target_chan.lower()].remove_operator(target_user)
+                        state.channels[target_chan.lower()].remove_operator(target_user.lower())
                         message = f"MODE {target_chan} {args[1]} {target_user}"
                         for receiver_nick, receiver in state.channels[target_chan.lower()].user_dict.items():
                             receiver.send_string_to_client(message)
@@ -215,6 +218,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                 error_unknown_mode(user, unknown_mode_flag)
 
 
+# !Not implemented
 def process_user_modes() -> None:
     pass
 
