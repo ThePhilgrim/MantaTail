@@ -99,7 +99,7 @@ def _handle_kick(message: str) -> None:
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
     # TODO: Implement logic for different reasons & disconnects.
     reason = "(Remote host closed the connection)"
-    message = f"QUIT Quit: {reason}"
+    message = f"QUIT :Quit: {reason}"
 
     receivers = set()
     with state.lock:
