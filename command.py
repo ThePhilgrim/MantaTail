@@ -216,11 +216,19 @@ def process_channel_modes(
                     elif mode_command[0] == "+":
                         state.channels[target_chan.lower()].set_operator(target_user)
                         message = f"MODE {target_chan} {args[1]} {target_user}"
-                        user.send_string_to_client(message)
+                        for receiver in [
+                            user,
+                            state.channels[target_chan.lower()].user_dict[target_user.lower()],
+                        ]:
+                            receiver.send_string_to_client(message)
                     elif mode_command[0] == "-":
                         state.channels[target_chan.lower()].remove_operator(target_user)
                         message = f"MODE {target_chan} {args[1]} {target_user}"
-                        user.send_string_to_client(message)
+                        for receiver in [
+                            user,
+                            state.channels[target_chan.lower()].user_dict[target_user.lower()],
+                        ]:
+                            receiver.send_string_to_client(message)
 
         if command_contains_unsupported_modes:
             error_unknown_mode_flag(user)
