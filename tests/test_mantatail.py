@@ -205,6 +205,17 @@ def test_send_unknown_commands(user_alice):
     assert received == b":mantatail 421 foo :Unknown command\r\n"
 
 
+def test_unknown_mode_flag(user_alice):
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +g Bob\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail 501 :Unknown MODE flag\r\n"
+
+
 def test_operator_no_such_channel(user_alice):
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     received = receive_line(user_alice)
@@ -227,9 +238,17 @@ def test_operator_no_privileges(user_alice, user_bob):
     assert received == b":mantatail 482 #foo :You're not channel operator\r\n"
 
 
-# TODO:
-# * User not in channel
-# * Unknown mode flag
+def test_operator_user_not_in_channel(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    user_bob.sendall(b"JOIN #bar\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+
+    received = receive_line(user_alice)
+    assert received == b":mantatail 441 Bob #foo :They aren't on that channel\r\n"
 
 
 # netcat sends \n line endings, but is fine receiving \r\n
