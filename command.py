@@ -19,14 +19,16 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
                 state.channels[lower_channel_name] = mantatail.Channel(channel_name, user)
 
             lower_user_nick = user.nick.lower()
+            channel = state.channels[lower_channel_name]
+            channel_user_dict = channel.user_dict
 
-            if lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
+            if lower_user_nick not in channel_user_dict.keys():
 
-                channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
+                channel_user_keys = channel_user_dict.keys()
 
                 channel_user_nicks = []
-                for channel_user in state.channels[lower_channel_name].user_dict.values():
-                    if channel_user.nick.lower() in state.channels[lower_channel_name].operators:
+                for channel_user in channel_user_dict.values():
+                    if channel_user.nick.lower() in channel.operators:
                         nick = f"@{channel_user.nick}"
                     else:
                         nick = channel_user.nick
@@ -34,11 +36,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
                 channel_users_str = " ".join(channel_user for channel_user in channel_user_nicks)
 
-                state.channels[lower_channel_name].user_dict[lower_user_nick] = user
+                channel_user_dict[lower_user_nick] = user
 
-                for usr in channel_user_keys:
+                for receiver in channel_user_dict.values():
                     message = f"JOIN {channel_name}"
-                    receiver = state.channels[lower_channel_name].user_dict[usr]
                     receiver.send_string_to_client(message, prefix=user.user_mask)
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
