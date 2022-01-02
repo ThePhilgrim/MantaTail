@@ -23,9 +23,6 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             channel_user_dict = channel.user_dict
 
             if lower_user_nick not in channel_user_dict.keys():
-
-                channel_user_keys = channel_user_dict.keys()
-
                 channel_user_nicks = []
                 for channel_user in channel_user_dict.values():
                     if channel_user.nick.lower() in channel.operators:
