@@ -52,6 +52,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     if user is not None:
                         print(f"{user.nick} has disconnected.")
+                        del state.connected_users[user.nick.lower()]
                     else:
                         print("Disconnected.")
                     return
@@ -71,9 +72,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     if verb_lower == "user":
                         _user_message = message
                     elif verb_lower == "nick":
-                        if message in state.connected_users.keys():
-                            # Send nick in use error here
-                            print("Nick already taken.")
+                        if message.lower() in state.connected_users.keys():
+                            user_socket.sendall(command.error_nick_in_use(message))
                         else:
                             _nick = message
                     else:
@@ -81,7 +81,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
                     if _user_message and _nick:
                         user = UserConnection(user_host, user_socket, _user_message, _nick)
-                        state.connected_users[_nick] = user
+                        state.connected_users[_nick.lower()] = user
                         command.motd(state.motd_content, user)
 
                 else:

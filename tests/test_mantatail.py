@@ -141,6 +141,11 @@ def receive_line(sock):
     return received
 
 
+# Makes it easier to assert bytes received from Sets
+def compare_sets(received_bytes, compare_with):
+    return set(received_bytes.split()) == set(compare_with.split())
+
+
 ##############
 #    TESTS   #
 ##############
@@ -226,6 +231,9 @@ def test_unknown_mode(user_alice):
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
         pass
 
+    user_alice.sendall(b"MODE #foo ^g Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 472 ^ :is unknown mode char to me\r\n"
+
     user_alice.sendall(b"MODE #foo +g Bob\r\n")
     assert receive_line(user_alice) == b":mantatail 472 g :is unknown mode char to me\r\n"
 
@@ -258,24 +266,33 @@ def test_operator_prefix(user_alice, user_bob, user_charlie):
     time.sleep(0.1)
     user_charlie.sendall(b"JOIN #foo\r\n")
 
-    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
-        pass
+    while True:
+        received = receive_line(user_charlie)
+        if b"353" in received:
+            assert compare_sets(received, b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n")
+            break
 
     user_charlie.sendall(b"PART #foo\r\n")
     user_alice.sendall(b"MODE #foo -o Bob\r\n")
     time.sleep(0.1)
     user_charlie.sendall(b"JOIN #foo\r\n")
 
-    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n":
-        pass
+    while True:
+        received = receive_line(user_charlie)
+        if b"353" in received:
+            assert compare_sets(received, b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n")
+            break
 
     user_charlie.sendall(b"PART #foo\r\n")
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     time.sleep(0.1)
     user_charlie.sendall(b"JOIN #foo\r\n")
 
-    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
-        pass
+    while True:
+        received = receive_line(user_charlie)
+        if b"353" in received:
+            assert compare_sets(received, b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n")
+            break
 
 
 def test_operator_no_such_channel(user_alice):
@@ -325,3 +342,31 @@ def test_join_part_race_condition(user_alice, user_bob):
         user_bob.sendall(b"JOIN #foo\r\n")
         time.sleep(random.randint(0, 10) / 1000)
         user_bob.sendall(b"PART #foo\r\n")
+
+
+def test_nick_already_taken(run_server):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+
+    while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
+
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"NICK nc\n")
+    assert receive_line(nc2) == b":mantatail 433 nc :Nickname is already in use\r\n"
+
+    nc.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc):
+        pass
+    nc.close()
+
+    time.sleep(0.1)
+
+    nc2.sendall(b"NICK nc\n")
+    nc2.sendall(b"USER nc\n")
+
+    while receive_line(nc2) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass

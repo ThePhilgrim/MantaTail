@@ -50,12 +50,14 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
-    channel = state.channels[channel_name.lower()]
+    try:
+        channel = state.channels[channel_name.lower()]
+    except KeyError:
+        error_no_such_channel(user, channel_name)
+        return
 
     with state.lock:
-        if channel not in state.channels.values():
-            error_no_such_channel(user, channel_name)
-        elif user not in channel.users:
+        if user not in channel.users:
             error_not_on_channel(user, channel_name)
         else:
             if user.nick.lower() in channel.operators:
@@ -104,6 +106,8 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
 
+        del state.connected_users[user.nick.lower()]
+
         user.closed_connection = True
         user.socket.close()
 
@@ -112,17 +116,21 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     with state.lock:
         (receiver, colon_privmsg) = msg.split(" ", 1)
         assert colon_privmsg.startswith(":")
-        channel = state.channels[receiver.lower()]
 
-        if not receiver.startswith("#"):
+        if receiver.startswith("#"):
+            try:
+                channel = state.channels[receiver.lower()]
+            except KeyError:
+                error_no_such_nick_channel(user, receiver)
+                return
+        else:
             privmsg_to_user(receiver, colon_privmsg)
-        elif channel not in state.channels.values():
-            error_no_such_nick_channel(user, receiver)
-        elif user not in channel.users:
+            return
+
+        if user not in channel.users:
             error_cannot_send_to_channel(user, receiver)
         else:
             for usr in channel.users:
-                # ! Make sure PRIVMSG should not be sent to sender aswell
                 if usr.nick != user.nick:
                     message = f"PRIVMSG {receiver} {colon_privmsg}"
                     usr.send_string_to_client(message, prefix=user.user_mask)
@@ -160,6 +168,12 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
 
 
 def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    supported_modes = ["+", "-", "o"]
+    for mode in args[1]:
+        if mode not in supported_modes:
+            error_unknown_mode(user, mode)
+            return
+
     with state.lock:
         if args[0].lower() not in state.channels.keys():
             error_no_such_channel(user, args[0])
@@ -169,33 +183,31 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         elif len(args) == 2:
             error_not_enough_params(user, args[0])
         else:
-            target_chan, mode_command, target_user = args
-            if mode_command[0] not in ["+", "-"]:
-                error_unknown_mode(user, mode_command[0])
+            channel = state.channels[args[0].lower()]
+            mode_command, flags = args[1][0], args[1][1:]
+            try:
+                target_usr = state.connected_users[args[2].lower()]
+            except KeyError:
+                error_no_such_nick_channel(user, args[2])
                 return
 
-            unknown_mode_flag = None
-            for mode in mode_command[1:]:
-                if mode == "o":
-                    if user.nick.lower() not in state.channels[target_chan.lower()].operators:
-                        error_no_operator_privileges(user, target_chan)
-                    elif target_user.lower() not in state.channels[target_chan].user_dict.keys():
-                        error_user_not_in_channel(user, target_user, target_chan)
-                    elif mode_command[0] == "+":
-                        state.channels[target_chan.lower()].set_operator(target_user.lower())
-                        message = f"MODE {target_chan} {args[1]} {target_user}"
-                        for receiver in state.channels[target_chan.lower()].user_dict.values():
-                            receiver.send_string_to_client(message)
-                    elif mode_command[0] == "-":
-                        state.channels[target_chan.lower()].remove_operator(target_user.lower())
-                        message = f"MODE {target_chan} {args[1]} {target_user}"
-                        for receiver in state.channels[target_chan.lower()].user_dict.values():
-                            receiver.send_string_to_client(message)
-                else:
-                    unknown_mode_flag = mode
+            for flag in flags:
+                if flag == "o":
+                    if user.nick.lower() not in channel.operators:
+                        error_no_operator_privileges(user, channel)
+                        return
+                    elif target_usr not in channel.users:
+                        error_user_not_in_channel(user, target_usr, channel)
+                        return
 
-            if unknown_mode_flag:
-                error_unknown_mode(user, unknown_mode_flag)
+                    if mode_command == "+":
+                        channel.set_operator(target_usr.nick.lower())
+                    elif mode_command[0] == "-":
+                        channel.remove_operator(target_usr.nick.lower())
+
+                    message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
+                    for usr in channel.users:
+                        usr.send_string_to_client(message)
 
 
 # !Not implemented
@@ -224,6 +236,12 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
     user.send_string_to_client(message)
 
 
+def error_nick_in_use(nick: str) -> bytes:
+    (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
+
+    return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="utf-8")
+
+
 def error_no_such_nick_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
@@ -238,9 +256,11 @@ def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> N
     user.send_string_to_client(message)
 
 
-def error_user_not_in_channel(user: mantatail.UserConnection, target_user: str, target_chan: str) -> None:
+def error_user_not_in_channel(
+    user: mantatail.UserConnection, target_usr: mantatail.UserConnection, channel: mantatail.Channel
+) -> None:
     (not_in_chan_num, not_in_chan_info) = irc_responses.ERR_USERNOTINCHANNEL
-    message = f"{not_in_chan_num} {target_user} {target_chan} {not_in_chan_info}"
+    message = f"{not_in_chan_num} {target_usr.nick} {channel.name} {not_in_chan_info}"
     user.send_string_to_client(message)
 
 
@@ -257,9 +277,9 @@ def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> 
     user.send_string_to_client(message)
 
 
-def error_no_operator_privileges(user: mantatail.UserConnection, target_channel: str) -> None:
+def error_no_operator_privileges(user: mantatail.UserConnection, channel: mantatail.Channel) -> None:
     (not_operator_num, not_operator_info) = irc_responses.ERR_CHANOPRIVSNEEDED
-    message = f"{not_operator_num} {target_channel} {not_operator_info}"
+    message = f"{not_operator_num} {channel.name} {not_operator_info}"
     user.send_string_to_client(message)
 
 
