@@ -23,19 +23,27 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             if lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
 
                 channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
-                channel_users = state.channels[lower_channel_name].user_dict.values()
-                channel_user_nicks = " ".join(channel_user.nick for channel_user in channel_users)
+
+                channel_user_nicks = []
+                for channel_user in state.channels[lower_channel_name].user_dict.values():
+                    if channel_user.nick.lower() in state.channels[lower_channel_name].operators:
+                        nick = f"@{channel_user.nick}"
+                    else:
+                        nick = channel_user.nick
+                    channel_user_nicks.append(nick)
+
+                channel_users_str = " ".join(channel_user for channel_user in channel_user_nicks)
 
                 state.channels[lower_channel_name].user_dict[lower_user_nick] = user
 
-                for nick in channel_user_keys:
+                for usr in channel_user_keys:
                     message = f"JOIN {channel_name}"
-                    receiver = state.channels[lower_channel_name].user_dict[nick]
+                    receiver = state.channels[lower_channel_name].user_dict[usr]
                     receiver.send_string_to_client(message, prefix=user.user_mask)
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
-                message = f"353 {user.nick} = {channel_name} :{user.nick} {channel_user_nicks}"
+                message = f"353 {user.nick} = {channel_name} :{user.nick} {channel_users_str}"
                 user.send_string_to_client(message)
 
                 message = f"366 {user.nick} {channel_name} :End of /NAMES list."
@@ -201,7 +209,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                     elif target_user.lower() not in state.channels[target_chan].user_dict.keys():
                         error_user_not_in_channel(user, target_user, target_chan)
                     elif mode_command[0] == "+":
-                        state.channels[target_chan.lower()].set_operator(target_user)
+                        state.channels[target_chan.lower()].set_operator(target_user.lower())
                         message = f"MODE {target_chan} {args[1]} {target_user}"
                         for receiver in state.channels[target_chan.lower()].user_dict.values():
                             receiver.send_string_to_client(message)

@@ -109,6 +109,25 @@ def user_bob(run_server):
     bob_socket.close()
 
 
+@pytest.fixture
+def user_charlie(run_server):
+    charlie_socket = socket.socket()
+    charlie_socket.connect(("localhost", 6667))
+    charlie_socket.sendall(b"NICK Charlie\r\n")
+    charlie_socket.sendall(b"USER CharlieUsr 0 * :Charlie's real name\r\n")
+
+    # Receiving everything the server is going to send helps prevent errors.
+    # Otherwise it might not be fully started yet when the client quits.
+    while receive_line(charlie_socket) != b":mantatail 376 Charlie :End of /MOTD command\r\n":
+        pass
+
+    yield charlie_socket
+    charlie_socket.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(charlie_socket):
+        pass
+    charlie_socket.close()
+
+
 ##############
 #    UTILS   #
 ##############
@@ -142,7 +161,8 @@ def test_join_channel(user_alice, user_bob):
 
     received = receive_line(user_bob)
     assert received == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
-    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob Alice\r\n":
+
+    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob @Alice\r\n":
         pass
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
@@ -239,6 +259,35 @@ def test_op_deop_user(user_alice, user_bob):
     assert received == b":mantatail MODE #foo -o Bob\r\n"
     received = receive_line(user_bob)
     assert received == b":mantatail MODE #foo -o Bob\r\n"
+
+
+def test_operator_prefix(user_alice, user_bob, user_charlie):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
+        pass
+
+    user_charlie.sendall(b"PART #foo\r\n")
+    user_alice.sendall(b"MODE #foo -o Bob\r\n")
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n":
+        pass
+
+    user_charlie.sendall(b"PART #foo\r\n")
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    time.sleep(1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
+        pass
 
 
 def test_operator_no_such_channel(user_alice):

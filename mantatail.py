@@ -116,13 +116,13 @@ class Channel:
         self.operators: Set[str] = set()
         self.user_dict: Dict[Optional[str], UserConnection] = {}
 
-        self.operators.add(user.nick.lower())
+        self.set_operator(user.nick.lower())
 
-    def set_operator(self, user: str) -> None:
-        self.operators.add(user)
+    def set_operator(self, user_nick_lower: str) -> None:
+        self.operators.add(user_nick_lower)
 
-    def remove_operator(self, user: str) -> None:
-        self.operators.discard(user)
+    def remove_operator(self, user_nick_lower: str) -> None:
+        self.operators.discard(user_nick_lower)
 
 
 def split_on_new_line(string: str) -> List[str]:
