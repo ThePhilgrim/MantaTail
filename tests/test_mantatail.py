@@ -243,7 +243,6 @@ def test_operator_no_privileges(user_alice, user_bob):
 
 def test_operator_user_not_in_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
-    user_bob.sendall(b"JOIN #bar\r\n")
 
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
         pass
