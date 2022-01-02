@@ -23,9 +23,8 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             if lower_user_nick not in state.channels[lower_channel_name].user_dict.keys():
 
                 channel_user_keys = state.channels[lower_channel_name].user_dict.keys()
-                channel_users = " ".join(
-                    [state.channels[lower_channel_name].user_dict[user_key].nick for user_key in channel_user_keys]
-                )
+                channel_users = state.channels[lower_channel_name].user_dict.values()
+                channel_user_nicks = " ".join(channel_user.nick for channel_user in channel_users)
 
                 state.channels[lower_channel_name].user_dict[lower_user_nick] = user
 
@@ -36,7 +35,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
                 # TODO: Implement topic functionality for existing channels & MODE for new ones
 
-                message = f"353 {user.nick} = {channel_name} :{user.nick} {channel_users}"
+                message = f"353 {user.nick} = {channel_name} :{user.nick} {channel_user_nicks}"
                 user.send_string_to_client(message)
 
                 message = f"366 {user.nick} {channel_name} :End of /NAMES list."
@@ -204,12 +203,12 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                     elif mode_command[0] == "+":
                         state.channels[target_chan.lower()].set_operator(target_user)
                         message = f"MODE {target_chan} {args[1]} {target_user}"
-                        for receiver_nick, receiver in state.channels[target_chan.lower()].user_dict.items():
+                        for receiver in state.channels[target_chan.lower()].user_dict.values():
                             receiver.send_string_to_client(message)
                     elif mode_command[0] == "-":
                         state.channels[target_chan.lower()].remove_operator(target_user.lower())
                         message = f"MODE {target_chan} {args[1]} {target_user}"
-                        for receiver_nick, receiver in state.channels[target_chan.lower()].user_dict.items():
+                        for receiver in state.channels[target_chan.lower()].user_dict.values():
                             receiver.send_string_to_client(message)
                 else:
                     unknown_mode_flag = mode

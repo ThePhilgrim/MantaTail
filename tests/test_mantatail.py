@@ -170,7 +170,6 @@ def test_send_privmsg(user_alice, user_bob):
 
     while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
         pass
-
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
@@ -219,6 +218,29 @@ def test_unknown_mode(user_alice):
     assert received == b":mantatail 472 g :is unknown mode char to me\r\n"
 
 
+def test_op_deop_user(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail MODE #foo +o Bob\r\n"
+    received = receive_line(user_bob)
+    assert received == b":mantatail MODE #foo +o Bob\r\n"
+
+    user_alice.sendall(b"MODE #foo -o Bob\r\n")
+    received = receive_line(user_alice)
+    assert received == b":mantatail MODE #foo -o Bob\r\n"
+    received = receive_line(user_bob)
+    assert received == b":mantatail MODE #foo -o Bob\r\n"
+
+
 def test_operator_no_such_channel(user_alice):
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     received = receive_line(user_alice)
@@ -232,7 +254,6 @@ def test_operator_no_privileges(user_alice, user_bob):
 
     while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
         pass
-
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
