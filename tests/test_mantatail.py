@@ -7,6 +7,9 @@ import time
 
 from mantatail import Listener
 
+# Tests that are known to fail can be decorated with:
+# @pytest.mark.xfail(strict=True)
+
 # fmt: off
 motd_dict_test = {
     "motd": [
@@ -106,6 +109,25 @@ def user_bob(run_server):
     bob_socket.close()
 
 
+@pytest.fixture
+def user_charlie(run_server):
+    charlie_socket = socket.socket()
+    charlie_socket.connect(("localhost", 6667))
+    charlie_socket.sendall(b"NICK Charlie\r\n")
+    charlie_socket.sendall(b"USER CharlieUsr 0 * :Charlie's real name\r\n")
+
+    # Receiving everything the server is going to send helps prevent errors.
+    # Otherwise it might not be fully started yet when the client quits.
+    while receive_line(charlie_socket) != b":mantatail 376 Charlie :End of /MOTD command\r\n":
+        pass
+
+    yield charlie_socket
+    charlie_socket.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(charlie_socket):
+        pass
+    charlie_socket.close()
+
+
 ##############
 #    UTILS   #
 ##############
@@ -128,8 +150,7 @@ def test_join_before_registering(run_server):
     user_socket = socket.socket()
     user_socket.connect(("localhost", 6667))
     user_socket.sendall(b"JOIN #foo\r\n")
-    received = receive_line(user_socket)
-    assert received == b":mantatail 451 * :You have not registered\r\n"
+    assert receive_line(user_socket) == b":mantatail 451 * :You have not registered\r\n"
 
 
 def test_join_channel(user_alice, user_bob):
@@ -137,9 +158,9 @@ def test_join_channel(user_alice, user_bob):
     time.sleep(1)
     user_bob.sendall(b"JOIN #foo\r\n")
 
-    received = receive_line(user_bob)
-    assert received == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
-    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob Alice\r\n":
+    assert receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
+
+    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob @Alice\r\n":
         pass
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
@@ -147,8 +168,7 @@ def test_join_channel(user_alice, user_bob):
 
 def test_no_such_channel(user_alice):
     user_alice.sendall(b"PART #foo\r\n")
-    received = receive_line(user_alice)
-    assert received == b":mantatail 403 #foo :No such channel\r\n"
+    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
 
 
 def test_youre_not_on_that_channel(user_alice, user_bob):
@@ -156,8 +176,7 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     time.sleep(0.1)  # TODO: wait until server says that join is done
     user_bob.sendall(b"PART #foo\r\n")
 
-    received = receive_line(user_bob)
-    assert received == b":mantatail 442 #foo :You're not on that channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
 
 
 def test_send_privmsg(user_alice, user_bob):
@@ -167,7 +186,6 @@ def test_send_privmsg(user_alice, user_bob):
 
     while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
         pass
-
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
@@ -195,14 +213,98 @@ def test_privmsg_error_messages(user_alice, user_bob):
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
-    received = receive_line(user_alice)
-    assert received == b":mantatail 421 foo :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
     user_alice.sendall(b"FOO\r\n")
-    received = receive_line(user_alice)
-    assert received == b":mantatail 421 foo :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
     user_alice.sendall(b"FOO\r\n")
-    received = receive_line(user_alice)
-    assert received == b":mantatail 421 foo :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
+
+
+def test_unknown_mode(user_alice):
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +g Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 472 g :is unknown mode char to me\r\n"
+
+
+def test_op_deop_user(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail MODE #foo +o Bob\r\n"
+    assert receive_line(user_bob) == b":mantatail MODE #foo +o Bob\r\n"
+
+    user_alice.sendall(b"MODE #foo -o Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail MODE #foo -o Bob\r\n"
+    assert receive_line(user_bob) == b":mantatail MODE #foo -o Bob\r\n"
+
+
+def test_operator_prefix(user_alice, user_bob, user_charlie):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
+        pass
+
+    user_charlie.sendall(b"PART #foo\r\n")
+    user_alice.sendall(b"MODE #foo -o Bob\r\n")
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n":
+        pass
+
+    user_charlie.sendall(b"PART #foo\r\n")
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
+        pass
+
+
+def test_operator_no_such_channel(user_alice):
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
+
+
+def test_operator_no_privileges(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"MODE #foo +o Alice\r\n")
+    assert receive_line(user_bob) == b":mantatail 482 #foo :You're not channel operator\r\n"
+
+
+def test_operator_user_not_in_channel(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 441 Bob #foo :They aren't on that channel\r\n"
 
 
 # netcat sends \n line endings, but is fine receiving \r\n

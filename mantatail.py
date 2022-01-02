@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import threading
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 
 import command
 
@@ -108,11 +108,21 @@ class UserConnection:
 
 
 class Channel:
-    def __init__(self, channel_name: str, channel_creator: str) -> None:
+    def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
-        self.creator = channel_creator
+        self.founder = user.user_name
         self.topic = None
+        self.modes: List[str] = []
+        self.operators: Set[str] = set()
         self.user_dict: Dict[Optional[str], UserConnection] = {}
+
+        self.set_operator(user.nick.lower())
+
+    def set_operator(self, user_nick_lower: str) -> None:
+        self.operators.add(user_nick_lower)
+
+    def remove_operator(self, user_nick_lower: str) -> None:
+        self.operators.discard(user_nick_lower)
 
 
 def split_on_new_line(string: str) -> List[str]:
