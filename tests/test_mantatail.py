@@ -269,27 +269,15 @@ def test_operator_prefix(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     time.sleep(0.1)
     user_charlie.sendall(b"JOIN #foo\r\n")
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-
-    # print(received)
 
     while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
         pass
-    # while receive_line(user_charlie) != b":mantatail 366 Charlie #foo :End of /NAMES list.\r\n":
-    #     pass
 
     user_charlie.sendall(b"PART #foo\r\n")
     user_alice.sendall(b"MODE #foo -o Bob\r\n")
     time.sleep(0.1)
     user_charlie.sendall(b"JOIN #foo\r\n")
 
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-
-    # print(received)
     while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n":
         pass
 
@@ -300,14 +288,6 @@ def test_operator_prefix(user_alice, user_bob, user_charlie):
 
     while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n":
         pass
-
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # received = receive_line(user_charlie)
-    # print(received)
 
 
 def test_operator_no_such_channel(user_alice):
