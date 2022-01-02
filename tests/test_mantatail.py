@@ -288,7 +288,7 @@ def test_operator_prefix(user_alice, user_bob, user_charlie):
     received = receive_line(user_charlie)
     received = receive_line(user_charlie)
     received = receive_line(user_charlie)
-    received = receive_line(user_charlie)
+
     print(received)
     # while receive_line(user_charlie) != b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n":
     #     pass
