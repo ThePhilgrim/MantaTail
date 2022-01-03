@@ -105,7 +105,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick}\r\n"
         elif len(args) >= 3:
             if not args[2].startswith(":"):
-                reason = f':{" ".join(args[2:])}'
+                reason = f":{args[2]}"
             else:
                 reason = " ".join(args[2:])
             message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} {reason}\r\n"

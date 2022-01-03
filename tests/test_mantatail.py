@@ -386,8 +386,8 @@ def test_kick_user(user_alice, user_bob):
 
     user_alice.sendall(b"KICK #foo Bob Bye bye\r\n")
 
-    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye bye\r\n"
-    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye bye\r\n"
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
 
@@ -396,10 +396,10 @@ def test_kick_user(user_alice, user_bob):
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
-    user_alice.sendall(b"KICK #foo Bob :Reason\r\n")
+    user_alice.sendall(b"KICK #foo Bob :Reason with many words\r\n")
 
-    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason\r\n"
-    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason\r\n"
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason with many words\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason with many words\r\n"
 
 
 # netcat sends \n line endings, but is fine receiving \r\n
