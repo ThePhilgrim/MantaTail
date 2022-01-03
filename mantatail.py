@@ -2,7 +2,7 @@ from __future__ import annotations
 import socket
 import threading
 import json
-from typing import Dict, Optional, List, Set, Any
+from typing import Dict, Optional, List, Set
 
 import command
 
