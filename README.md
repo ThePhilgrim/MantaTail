@@ -10,6 +10,8 @@ It is still at an early stage of production, and is therefore missing several cr
 - Join channel
 - Part from channel
 - Send message to channel
+- Set / Remove channel operator
+- Kick user from channel
 - Quit from server
 
 ### Connect to MantaTail
