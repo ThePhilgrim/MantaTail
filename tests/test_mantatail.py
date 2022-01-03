@@ -273,7 +273,7 @@ def test_channel_owner(user_alice, user_bob):
 
     user_alice.sendall(b"PART #foo\r\n")
     user_bob.sendall(b"PART #foo\r\n")
-
+    time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_alice.sendall(b"JOIN #foo\r\n")
