@@ -87,7 +87,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     args = arg.split()
 
     if len(args) == 1:
-        error_not_enough_params(user, user.nick, "KICK")
+        error_not_enough_params(user, "KICK")
     elif args[0].lower() not in state.channels.keys():
         error_no_such_channel(user, args[0])
     elif user.nick.lower() not in state.channels[args[0].lower()].operators:
@@ -210,7 +210,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
             message = f'{irc_responses.RPL_CHANNELMODEIS} {args[0]} {" ".join(state.channels[args[0].lower()].modes)}'
             user.send_string_to_client(message)
         elif len(args) == 2:
-            error_not_enough_params(user, args[0], "MODE")
+            error_not_enough_params(user, "MODE")
         else:
             channel = state.channels[args[0].lower()]
             mode_command, flags = args[1][0], args[1][1:]
@@ -318,7 +318,7 @@ def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> 
     user.send_string_to_client(message)
 
 
-def error_not_enough_params(user: mantatail.UserConnection, target_chan_nick: str, command: str) -> None:
+def error_not_enough_params(user: mantatail.UserConnection, command: str) -> None:
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
-    message = f"{not_enough_params_num} {target_chan_nick} {command} {not_enough_params_info}"
+    message = f"{not_enough_params_num} {user.nick} {command} {not_enough_params_info}"
     user.send_string_to_client(message)
