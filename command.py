@@ -23,7 +23,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             if user not in channel.users:
                 channel_users_str = ""
                 for usr in channel.users:
-                    if usr.nick.lower() in channel.operators:
+                    if usr.user_name == channel.founder:
+                        nick = f"~{usr.nick}"
+                    elif usr.nick.lower() in channel.operators:
                         nick = f"@{usr.nick}"
                     else:
                         nick = usr.nick
