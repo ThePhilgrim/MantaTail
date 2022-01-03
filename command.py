@@ -170,12 +170,12 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
 
 
 def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if args[1][0] not in ["+", "-"]:
+        error_unknown_mode(user, args[1][0])
+        return
     supported_modes = ["o"]
     for mode in args[1][1:]:
-        if args[1][0] not in ["+", "-"]:
-            error_unknown_mode(user, args[1][0])
-            return
-        elif mode not in supported_modes:
+        if mode not in supported_modes:
             error_unknown_mode(user, mode)
             return
 
