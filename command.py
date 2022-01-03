@@ -102,7 +102,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_user_not_in_channel(user, state.connected_users[args[1].lower()], state.channels[args[0].lower()])
     else:
         if len(args) == 2:
-            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick}\r\n"
+            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} :{state.connected_users[args[1].lower()].nick}\r\n"
         elif len(args) >= 3:
             if not args[2].startswith(":"):
                 reason = f":{args[2]}"

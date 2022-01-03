@@ -131,7 +131,6 @@ class Channel:
         self.operators.discard(user_nick_lower)
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
-        # TODO: Can an operator kick founder/another operator?
         for usr in self.users:
             usr.send_string_to_client(message, kicker.user_mask)
 
