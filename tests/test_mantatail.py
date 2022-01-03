@@ -160,7 +160,7 @@ def test_join_before_registering(run_server):
 
 def test_join_channel(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
-    time.sleep(1)
+    time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
 
     assert receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
@@ -273,7 +273,7 @@ def test_channel_owner(user_alice, user_bob):
 
     user_alice.sendall(b"PART #foo\r\n")
     user_bob.sendall(b"PART #foo\r\n")
-    time.sleep(1)
+    time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_alice.sendall(b"JOIN #foo\r\n")
