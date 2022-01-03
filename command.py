@@ -71,7 +71,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
             channel.users.discard(user)
             if len(channel.users) == 0:
-                del state.channels[channel_name.lower()]
+                state.delete_channel(channel_name)
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
@@ -88,28 +88,36 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     if len(args) == 1:
         error_not_enough_params(user, "KICK")
-    elif args[0].lower() not in state.channels.keys():
+        return
+    try:
+        channel = state.find_channel(args[0])
+    except KeyError:
         error_no_such_channel(user, args[0])
-    elif user.nick.lower() not in state.channels[args[0].lower()].operators:
-        error_no_operator_privileges(user, state.channels[args[0].lower()])
-    elif len(args) >= 2 and args[1].lower() not in state.connected_users.keys():
-        error_no_such_nick_channel(user, args[-1])
-    elif (
-        len(args) >= 2
-        and args[1].lower() in state.connected_users.keys()
-        and state.connected_users[args[1].lower()] not in state.channels[args[0].lower()].users
-    ):
-        error_user_not_in_channel(user, state.connected_users[args[1].lower()], state.channels[args[0].lower()])
-    else:
-        if len(args) == 2:
-            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} :{state.connected_users[args[1].lower()].nick}\r\n"
-        elif len(args) >= 3:
-            if not args[2].startswith(":"):
-                reason = f":{args[2]}"
-            else:
-                reason = " ".join(args[2:])
-            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} {reason}\r\n"
-        state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
+        return
+
+    try:
+        usr = state.find_user(args[1])
+    except KeyError:
+        error_no_such_nick_channel(user, args[1])
+        return
+
+    if user.nick.lower() not in channel.operators:
+        error_no_operator_privileges(user, state.find_channel(args[0]))
+        return
+
+    if len(args) >= 2 and usr in state.connected_users.values() and usr not in channel.users:
+        error_user_not_in_channel(user, usr, channel)
+        return
+
+    if len(args) == 2:
+        message = f"KICK {channel.name} {usr.nick} :{usr.nick}\r\n"
+    elif len(args) >= 3:
+        if not args[2].startswith(":"):
+            reason = f":{args[2]}"
+        else:
+            reason = " ".join(args[2:])
+        message = f"KICK {channel.name} {usr.nick} {reason}\r\n"
+    channel.kick_user(user, usr, message)
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
