@@ -23,7 +23,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             if user not in channel.users:
                 channel_users_str = ""
                 for usr in channel.users:
-                    if usr.nick.lower() in channel.operators:
+                    if usr.user_name == channel.founder:
+                        nick = f"~{usr.nick}"
+                    elif usr.nick.lower() in channel.operators:
                         nick = f"@{usr.nick}"
                     else:
                         nick = usr.nick
@@ -50,13 +52,13 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
-    try:
-        channel = state.channels[channel_name.lower()]
-    except KeyError:
-        error_no_such_channel(user, channel_name)
-        return
-
     with state.lock:
+        try:
+            channel = state.channels[channel_name.lower()]
+        except KeyError:
+            error_no_such_channel(user, channel_name)
+            return
+
         if user not in channel.users:
             error_not_on_channel(user, channel_name)
         else:
@@ -69,7 +71,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
             channel.users.discard(user)
             if len(channel.users) == 0:
-                del channel
+                del state.channels[channel_name.lower()]
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
@@ -186,9 +188,12 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
 
 
 def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    supported_modes = ["+", "-", "o"]
-    for mode in args[1]:
-        if mode not in supported_modes:
+    supported_modes = ["o"]
+    for mode in args[1][1:]:
+        if args[1][0] not in ["+", "-"]:
+            error_unknown_mode(user, args[1][0])
+            return
+        elif mode not in supported_modes:
             error_unknown_mode(user, mode)
             return
 
