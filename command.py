@@ -81,9 +81,27 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mo
         process_user_modes()
 
 
-# !Not implemented
-def _handle_kick(message: str) -> None:
-    pass
+def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, arg: str) -> None:
+    args = arg.split()
+
+    if len(args) == 1:
+        error_not_enough_params(user, user.nick, "KICK")
+    elif args[0].lower() not in state.channels.keys():
+        error_no_such_channel(user, args[0])
+    elif user.nick not in state.channels[args[0].lower()].operators:
+        error_no_operator_privileges(user, state.channels[args[0].lower()])
+    elif len(args) >= 2 and args[1].lower() not in state.connected_users.keys():
+        error_no_such_nick_channel(user, args[-1])
+    elif (
+        len(args) >= 2
+        and args[1].lower() in state.connected_users.keys()
+        and state.connected_users[args[1].lower()] not in state.channels[args[0].lower()].users
+    ):
+        error_user_not_in_channel(user, state.connected_users[args[1].lower()], state.channels[args[0].lower()])
+    else:
+        if len(args) == 2:
+            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick}\r\n"
+            state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
@@ -181,7 +199,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
             message = f'{irc_responses.RPL_CHANNELMODEIS} {args[0]} {" ".join(state.channels[args[0].lower()].modes)}'
             user.send_string_to_client(message)
         elif len(args) == 2:
-            error_not_enough_params(user, args[0])
+            error_not_enough_params(user, args[0], "MODE")
         else:
             channel = state.channels[args[0].lower()]
             mode_command, flags = args[1][0], args[1][1:]
@@ -242,10 +260,10 @@ def error_nick_in_use(nick: str) -> bytes:
     return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="utf-8")
 
 
-def error_no_such_nick_channel(user: mantatail.UserConnection, channel_name: str) -> None:
+def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: str) -> None:
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
-    message = f"{no_nick_num} {channel_name} {no_nick_info}"
+    message = f"{no_nick_num} {channel_or_nick} {no_nick_info}"
     user.send_string_to_client(message)
 
 
@@ -289,7 +307,7 @@ def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> 
     user.send_string_to_client(message)
 
 
-def error_not_enough_params(user: mantatail.UserConnection, target_chan: str) -> None:
+def error_not_enough_params(user: mantatail.UserConnection, target_chan_nick: str, command: str) -> None:
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
-    message = f"{not_enough_params_num} {target_chan} MODE {not_enough_params_info}"
+    message = f"{not_enough_params_num} {target_chan_nick} {command} {not_enough_params_info}"
     user.send_string_to_client(message)

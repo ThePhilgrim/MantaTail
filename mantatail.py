@@ -130,6 +130,13 @@ class Channel:
     def remove_operator(self, user_nick_lower: str) -> None:
         self.operators.discard(user_nick_lower)
 
+    def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
+        # TODO: Can an operator kick founder/another operator?
+        for usr in self.users:
+            usr.send_string_to_client(message, kicker.user_mask)
+
+        self.users.discard(user_to_kick)
+
 
 def split_on_new_line(string: str) -> List[str]:
     if string.endswith("\r\n"):
