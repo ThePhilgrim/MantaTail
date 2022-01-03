@@ -209,7 +209,7 @@ def test_privmsg_error_messages(user_alice, user_bob):
     time.sleep(0.1)
     user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
 
-    assert receive_line(user_bob) == b":mantatail 404 #foo :Cannot send to channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
 
@@ -356,6 +356,50 @@ def test_operator_user_not_in_channel(user_alice, user_bob):
 
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     assert receive_line(user_alice) == b":mantatail 441 Bob #foo :They aren't on that channel\r\n"
+
+
+def test_kick_user(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"KICK #foo Bob\r\n")
+
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
+    while receive_line(user_bob) != b":mantatail 442 #foo :You're not on that channel\r\n":
+        pass
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"KICK #foo Bob Bye bye\r\n")
+
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye bye\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bye bye\r\n"
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"KICK #foo Bob :Reason\r\n")
+
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Reason\r\n"
 
 
 # netcat sends \n line endings, but is fine receiving \r\n

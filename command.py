@@ -90,7 +90,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_not_enough_params(user, user.nick, "KICK")
     elif args[0].lower() not in state.channels.keys():
         error_no_such_channel(user, args[0])
-    elif user.nick not in state.channels[args[0].lower()].operators:
+    elif user.nick.lower() not in state.channels[args[0].lower()].operators:
         error_no_operator_privileges(user, state.channels[args[0].lower()])
     elif len(args) >= 2 and args[1].lower() not in state.connected_users.keys():
         error_no_such_nick_channel(user, args[-1])
@@ -104,10 +104,10 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         if len(args) == 2:
             message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick}\r\n"
         elif len(args) >= 3:
-            if not args[3].startswith(":"):
-                reason = f":{args[3:]}"
+            if not args[2].startswith(":"):
+                reason = f':{" ".join(args[2:])}'
             else:
-                reason = args[3:]
+                reason = " ".join(args[2:])
             message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} {reason}\r\n"
         state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
 
@@ -154,7 +154,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
             return
 
         if user not in channel.users:
-            error_cannot_send_to_channel(user, receiver)
+            error_not_on_channel(user, receiver)
         else:
             for usr in channel.users:
                 if usr.nick != user.nick:
