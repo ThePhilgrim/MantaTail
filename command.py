@@ -103,7 +103,13 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     else:
         if len(args) == 2:
             message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick}\r\n"
-            state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
+        elif len(args) >= 3:
+            if not args[3].startswith(":"):
+                reason = f":{args[3:]}"
+            else:
+                reason = args[3:]
+            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} {reason}\r\n"
+        state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
