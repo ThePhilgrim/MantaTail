@@ -143,8 +143,6 @@ def receive_line(sock):
 
 # Makes it easier to assert bytes received from Sets
 def compare_if_word_match_in_any_order(received_bytes, compare_with):
-    print("REC: ", received_bytes)
-    print("COMP: ", compare_with)
     return set(received_bytes.split()) == set(compare_with.split())
 
 
@@ -264,6 +262,9 @@ def test_channel_owner(user_alice, user_bob):
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
 
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
     while True:
         received = receive_line(user_bob)
         if b"353" in received:
@@ -272,7 +273,7 @@ def test_channel_owner(user_alice, user_bob):
 
     user_alice.sendall(b"PART #foo\r\n")
     user_bob.sendall(b"PART #foo\r\n")
-
+    time.sleep(1)
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_alice.sendall(b"JOIN #foo\r\n")

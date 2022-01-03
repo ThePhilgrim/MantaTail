@@ -71,7 +71,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
             channel.users.discard(user)
             if len(channel.users) == 0:
-                del state
+                del state.channels[channel_name.lower()]
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
