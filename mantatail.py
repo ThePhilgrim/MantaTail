@@ -11,6 +11,7 @@ class ServerState:
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
+        self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
 
@@ -51,6 +52,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     if user is not None:
                         print(f"{user.nick} has disconnected.")
+                        del state.connected_users[user.nick.lower()]
                     else:
                         print("Disconnected.")
                     return
@@ -70,12 +72,16 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     if verb_lower == "user":
                         _user_message = message
                     elif verb_lower == "nick":
-                        _nick = message
+                        if message.lower() in state.connected_users.keys():
+                            user_socket.sendall(command.error_nick_in_use(message))
+                        else:
+                            _nick = message
                     else:
                         user_socket.sendall(command.error_not_registered())
 
                     if _user_message and _nick:
                         user = UserConnection(user_host, user_socket, _user_message, _nick)
+                        state.connected_users[_nick.lower()] = user
                         command.motd(state.motd_content, user)
 
                 else:
@@ -114,7 +120,7 @@ class Channel:
         self.topic = None
         self.modes: List[str] = []
         self.operators: Set[str] = set()
-        self.user_dict: Dict[Optional[str], UserConnection] = {}
+        self.users: Set[UserConnection] = set()
 
         self.set_operator(user.nick.lower())
 
