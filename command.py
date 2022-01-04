@@ -105,7 +105,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_no_operator_privileges(user, state.find_channel(args[0]))
         return
 
-    if len(args) >= 2 and target_usr in state.connected_users.values() and target_usr not in channel.users:
+    if target_usr not in channel.users:
         error_user_not_in_channel(user, target_usr, channel)
         return
 
