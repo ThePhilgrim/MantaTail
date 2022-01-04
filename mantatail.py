@@ -20,18 +20,7 @@ class ServerState:
     def find_channel(self, channel_name: str) -> Channel:
         return self.channels[channel_name.lower()]
 
-    def get_lowercase_user_nick(self, user: UserConnection) -> str:
-        return user.nick.lower()
-
-    def get_lowercase_channel_name(self, channel: Channel) -> str:
-        return channel.name.lower()
-
     def delete_user(self, nick: str) -> None:
-        user = self.connected_users[nick.lower()]
-        for channel in self.channels.values():
-            if user in channel.users:
-                channel.users.discard(user)
-
         del self.connected_users[nick.lower()]
 
     def delete_channel(self, channel_name: str) -> None:

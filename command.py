@@ -9,24 +9,23 @@ from typing import Optional, Dict, List
 ### Handlers
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
-    chan_name_low = channel_name.lower()
+    lower_channel_name = channel_name.lower()
 
     with state.lock:
-        if not re.match(channel_regex, chan_name_low):
+        if not re.match(channel_regex, lower_channel_name):
             error_no_such_channel(user, channel_name)
         else:
-            if chan_name_low not in state.channels.keys():
-                state.channels[chan_name_low] = mantatail.Channel(channel_name, user)
+            if lower_channel_name not in state.channels.keys():
+                state.channels[lower_channel_name] = mantatail.Channel(channel_name, user)
 
-            channel = state.channels[chan_name_low]
+            channel = state.channels[lower_channel_name]
 
             if user not in channel.users:
                 channel_users_str = ""
                 for usr in channel.users:
-                    usr_nick_low = state.get_lowercase_user_nick(usr)
                     if usr.user_name == channel.founder:
                         nick = f"~{usr.nick}"
-                    elif usr_nick_low in channel.operators:
+                    elif usr.nick.lower() in channel.operators:
                         nick = f"@{usr.nick}"
                     else:
                         nick = usr.nick
@@ -63,9 +62,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         if user not in channel.users:
             error_not_on_channel(user, channel_name)
         else:
-            usr_nick_low = state.get_lowercase_user_nick(user)
-            if usr_nick_low in channel.operators:
-                channel.remove_operator(usr_nick_low)
+            if user.nick.lower() in channel.operators:
+                channel.remove_operator(user.nick.lower())
 
             for usr in channel.users:
                 message = f"PART {channel_name}"
@@ -103,8 +101,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_no_such_nick_channel(user, args[1])
         return
 
-    usr_nick_low = state.get_lowercase_user_nick(user)
-    if usr_nick_low not in channel.operators:
+    if user.nick.lower() not in channel.operators:
         error_no_operator_privileges(user, state.find_channel(args[0]))
         return
 
@@ -137,9 +134,8 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
                     receivers.add(usr)
                 channel.users.discard(user)
 
-            usr_nick_low = state.get_lowercase_user_nick(user)
-            if usr_nick_low in channel.operators:
-                channel.remove_operator(usr_nick_low)
+            if user.nick.lower() in channel.operators:
+                channel.remove_operator(user.nick.lower())
 
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
@@ -237,19 +233,17 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
             for flag in flags:
                 if flag == "o":
-                    usr_nick_low = state.get_lowercase_user_nick(user)
-                    if usr_nick_low not in channel.operators:
+                    if user.nick.lower() not in channel.operators:
                         error_no_operator_privileges(user, channel)
                         return
                     elif target_usr not in channel.users:
                         error_user_not_in_channel(user, target_usr, channel)
                         return
 
-                    target_usr_nick_low = state.get_lowercase_user_nick(target_usr)
                     if mode_command == "+":
-                        channel.set_operator(target_usr_nick_low)
+                        channel.set_operator(target_usr.nick.lower())
                     elif mode_command[0] == "-":
-                        channel.remove_operator(target_usr_nick_low)
+                        channel.remove_operator(target_usr.nick.lower())
 
                     message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
                     for usr in channel.users:
