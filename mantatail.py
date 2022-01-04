@@ -118,7 +118,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
 class UserConnection:
     def __init__(self, host: str, socket: socket.socket, user_message: str, nick: str):
-        self.send_que = queue.Queue()
+        self.send_que: queue.Queue[tuple[str, str]] = queue.Queue()
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
@@ -130,12 +130,12 @@ class UserConnection:
         self.que_thread = threading.Thread(target=self.start_queue_listener)
         self.que_thread.start()
 
-    def start_queue_listener(self):
+    def start_queue_listener(self) -> None:
         while not self.closed_connection:
             (message, prefix) = self.send_que.get()
             self.send_string_to_client(message, prefix)
 
-    def send_string_to_client(self, message: str, prefix) -> None:
+    def send_string_to_client(self, message: str, prefix: str) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
 
@@ -162,7 +162,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
-            usr.send_que.put(message, kicker.user_mask)
+            usr.send_que.put((message, kicker.user_mask))
 
         self.users.discard(user_to_kick)
 
