@@ -25,7 +25,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
                 for usr in channel.users:
                     if usr.user_name == channel.founder:
                         nick = f"~{usr.nick}"
-                    elif usr.nick.lower() in channel.operators:
+                    elif channel.is_operator(usr):
                         nick = f"@{usr.nick}"
                     else:
                         nick = usr.nick
@@ -54,7 +54,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     with state.lock:
         try:
-            channel = state.channels[channel_name.lower()]
+            channel = state.find_channel(channel_name)
         except KeyError:
             error_no_such_channel(user, channel_name)
             return
@@ -62,8 +62,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         if user not in channel.users:
             error_not_on_channel(user, channel_name)
         else:
-            if user.nick.lower() in channel.operators:
-                channel.remove_operator(user.nick.lower())
+            if channel.is_operator(user):
+                channel.remove_operator(user)
 
             for usr in channel.users:
                 message = f"PART {channel_name}"
@@ -71,7 +71,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
             channel.users.discard(user)
             if len(channel.users) == 0:
-                del state.channels[channel_name.lower()]
+                state.delete_channel(channel_name)
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
@@ -88,28 +88,35 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     if len(args) == 1:
         error_not_enough_params(user, "KICK")
-    elif args[0].lower() not in state.channels.keys():
+        return
+    try:
+        channel = state.find_channel(args[0])
+    except KeyError:
         error_no_such_channel(user, args[0])
-    elif user.nick.lower() not in state.channels[args[0].lower()].operators:
-        error_no_operator_privileges(user, state.channels[args[0].lower()])
-    elif len(args) >= 2 and args[1].lower() not in state.connected_users.keys():
-        error_no_such_nick_channel(user, args[-1])
-    elif (
-        len(args) >= 2
-        and args[1].lower() in state.connected_users.keys()
-        and state.connected_users[args[1].lower()] not in state.channels[args[0].lower()].users
-    ):
-        error_user_not_in_channel(user, state.connected_users[args[1].lower()], state.channels[args[0].lower()])
-    else:
-        if len(args) == 2:
-            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} :{state.connected_users[args[1].lower()].nick}\r\n"
-        elif len(args) >= 3:
-            if not args[2].startswith(":"):
-                reason = f":{args[2]}"
-            else:
-                reason = " ".join(args[2:])
-            message = f"KICK {state.channels[args[0].lower()].name} {state.connected_users[args[1].lower()].nick} {reason}\r\n"
-        state.channels[args[0].lower()].kick_user(user, state.connected_users[args[1].lower()], message)
+        return
+    try:
+        target_usr = state.find_user(args[1])
+    except KeyError:
+        error_no_such_nick_channel(user, args[1])
+        return
+
+    if not channel.is_operator(user):
+        error_no_operator_privileges(user, state.find_channel(args[0]))
+        return
+
+    if target_usr not in channel.users:
+        error_user_not_in_channel(user, target_usr, channel)
+        return
+
+    if len(args) == 2:
+        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}\r\n"
+    elif len(args) >= 3:
+        if not args[2].startswith(":"):
+            reason = f":{args[2]}"
+        else:
+            reason = " ".join(args[2:])
+        message = f"KICK {channel.name} {target_usr.nick} {reason}\r\n"
+    channel.kick_user(user, target_usr, message)
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
@@ -126,13 +133,13 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
                     receivers.add(usr)
                 channel.users.discard(user)
 
-            if user.nick.lower() in channel.operators:
-                channel.remove_operator(user.nick.lower())
+            if channel.is_operator(user):
+                channel.remove_operator(user)
 
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
 
-        del state.connected_users[user.nick.lower()]
+        state.delete_user(user.nick)
 
         user.closed_connection = True
         user.socket.close()
@@ -145,7 +152,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
         if receiver.startswith("#"):
             try:
-                channel = state.channels[receiver.lower()]
+                channel = state.find_channel(receiver)
             except KeyError:
                 error_no_such_nick_channel(user, receiver)
                 return
@@ -203,26 +210,29 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
             error_unknown_mode(user, mode)
             return
 
+    try:
+        channel = state.find_channel(args[0])
+    except KeyError:
+        error_no_such_channel(user, args[0])
+        return
+
     with state.lock:
-        if args[0].lower() not in state.channels.keys():
-            error_no_such_channel(user, args[0])
-        elif len(args) == 1:
-            message = f'{irc_responses.RPL_CHANNELMODEIS} {args[0]} {" ".join(state.channels[args[0].lower()].modes)}'
+        if len(args) == 1:
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {channel.name} {" ".join(channel.modes)}'
             user.send_string_to_client(message)
         elif len(args) == 2:
             error_not_enough_params(user, "MODE")
         else:
-            channel = state.channels[args[0].lower()]
             mode_command, flags = args[1][0], args[1][1:]
             try:
-                target_usr = state.connected_users[args[2].lower()]
+                target_usr = state.find_user(args[2])
             except KeyError:
                 error_no_such_nick_channel(user, args[2])
                 return
 
             for flag in flags:
                 if flag == "o":
-                    if user.nick.lower() not in channel.operators:
+                    if not channel.is_operator(user):
                         error_no_operator_privileges(user, channel)
                         return
                     elif target_usr not in channel.users:
@@ -230,9 +240,9 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                         return
 
                     if mode_command == "+":
-                        channel.set_operator(target_usr.nick.lower())
+                        channel.set_operator(target_usr)
                     elif mode_command[0] == "-":
-                        channel.remove_operator(target_usr.nick.lower())
+                        channel.remove_operator(target_usr)
 
                     message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
                     for usr in channel.users:

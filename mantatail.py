@@ -14,6 +14,22 @@ class ServerState:
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
+    def find_user(self, nick: str) -> UserConnection:
+        return self.connected_users[nick.lower()]
+
+    def find_channel(self, channel_name: str) -> Channel:
+        return self.channels[channel_name.lower()]
+
+    def delete_user(self, nick: str) -> None:
+        user = self.connected_users[nick.lower()]
+        for channel in self.channels.values():
+            if user in channel.users:
+                channel.users.discard(user)
+        del self.connected_users[nick.lower()]
+
+    def delete_channel(self, channel_name: str) -> None:
+        del self.channels[channel_name.lower()]
+
 
 class Listener:
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -52,7 +68,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     if user is not None:
                         print(f"{user.nick} has disconnected.")
-                        del state.connected_users[user.nick.lower()]
+                        state.delete_user(user.nick)
                     else:
                         print("Disconnected.")
                     return
@@ -122,13 +138,16 @@ class Channel:
         self.operators: Set[str] = set()
         self.users: Set[UserConnection] = set()
 
-        self.set_operator(user.nick.lower())
+        self.set_operator(user)
 
-    def set_operator(self, user_nick_lower: str) -> None:
-        self.operators.add(user_nick_lower)
+    def set_operator(self, user: UserConnection) -> None:
+        self.operators.add(user.nick.lower())
 
-    def remove_operator(self, user_nick_lower: str) -> None:
-        self.operators.discard(user_nick_lower)
+    def remove_operator(self, user: UserConnection) -> None:
+        self.operators.discard(user.nick.lower())
+
+    def is_operator(self, user: UserConnection) -> bool:
+        return user.nick.lower() in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
