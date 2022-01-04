@@ -107,7 +107,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     except AttributeError:
                         command.error_unknown_command(user, verb_lower)
                     else:
-                        call_handler_function(state, user, message)
+                        with state.lock:
+                            call_handler_function(state, user, message)
 
                     if user.closed_connection:
                         return
