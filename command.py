@@ -136,10 +136,7 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
     for receiver in receivers:
         receiver.send_que.put((message, user.user_mask))
 
-    state.delete_user(user.nick)
-
-    user.closed_connection = True
-    user.socket.close()
+    user.send_que.put((None, None))
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
