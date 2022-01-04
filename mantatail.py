@@ -1,6 +1,7 @@
 from __future__ import annotations
 import socket
 import threading
+import queue
 import json
 from typing import Dict, Optional, List, Set
 
@@ -111,11 +112,13 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, message)
 
                     if user.closed_connection:
+                        user.send_que.put("Connection Closed")
                         return
 
 
 class UserConnection:
     def __init__(self, host: str, socket: socket.socket, user_message: str, nick: str):
+        self.send_que = queue.Queue()
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
@@ -124,8 +127,15 @@ class UserConnection:
         self.user_name = user_message.split(" ", 1)[0]
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.closed_connection = False
+        self.que_thread = threading.Thread(target=self.start_queue_listener)
+        self.que_thread.start()
 
-    def send_string_to_client(self, message: str, prefix: str = "mantatail") -> None:
+    def start_queue_listener(self):
+        while not self.closed_connection:
+            (message, prefix) = self.send_que.get()
+            self.send_string_to_client(message, prefix)
+
+    def send_string_to_client(self, message: str, prefix) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
 
@@ -152,7 +162,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
-            usr.send_string_to_client(message, kicker.user_mask)
+            usr.send_que.put(message, kicker.user_mask)
 
         self.users.discard(user_to_kick)
 
