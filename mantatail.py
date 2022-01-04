@@ -112,7 +112,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, message)
 
                     if user.closed_connection:
-                        user.send_que.put("Connection Closed")
+                        user.send_que.put(("Connection", "Closed"))
                         return
 
 
@@ -131,9 +131,12 @@ class UserConnection:
         self.que_thread.start()
 
     def start_queue_listener(self) -> None:
-        while not self.closed_connection:
+        while True:
             (message, prefix) = self.send_que.get()
-            self.send_string_to_client(message, prefix)
+            if not self.closed_connection:
+                self.send_string_to_client(message, prefix)
+            else:
+                break
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
