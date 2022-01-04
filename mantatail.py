@@ -97,7 +97,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         user_socket.sendall(command.error_not_registered())
 
                     if _user_message and _nick:
-                        user = UserConnection(user_host, user_socket, _user_message, _nick)
+                        user = UserConnection(state, user_host, user_socket, _user_message, _nick)
                         state.connected_users[_nick.lower()] = user
                         command.motd(state.motd_content, user)
 
@@ -117,7 +117,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
 
 class UserConnection:
-    def __init__(self, host: str, socket: socket.socket, user_message: str, nick: str):
+    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
+        self.state = state
         self.send_que: queue.Queue[tuple[str, str]] = queue.Queue()
         self.socket = socket
         self.host = host
@@ -133,10 +134,14 @@ class UserConnection:
     def start_queue_listener(self) -> None:
         while True:
             (message, prefix) = self.send_que.get()
-            if not self.closed_connection:
+
+            if message is None and prefix is None:
+                self.state.delete_user(self.nick)
+                self.closed_connection = True
+                self.socket.close()
+                return
+            elif not self.closed_connection:
                 self.send_string_to_client(message, prefix)
-            else:
-                break
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
