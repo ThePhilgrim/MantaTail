@@ -21,6 +21,10 @@ class ServerState:
         return self.channels[channel_name.lower()]
 
     def delete_user(self, nick: str) -> None:
+        user = self.connected_users[nick.lower()]
+        for channel in self.channels.values():
+            if user in channel.users:
+                channel.users.discard(user)
         del self.connected_users[nick.lower()]
 
     def delete_channel(self, channel_name: str) -> None:
@@ -134,13 +138,16 @@ class Channel:
         self.operators: Set[str] = set()
         self.users: Set[UserConnection] = set()
 
-        self.set_operator(user.nick.lower())
+        self.set_operator(user)
 
-    def set_operator(self, user_nick_lower: str) -> None:
-        self.operators.add(user_nick_lower)
+    def set_operator(self, user: UserConnection) -> None:
+        self.operators.add(user.nick.lower())
 
-    def remove_operator(self, user_nick_lower: str) -> None:
-        self.operators.discard(user_nick_lower)
+    def remove_operator(self, user: UserConnection) -> None:
+        self.operators.discard(user.nick.lower())
+
+    def is_operator(self, user: UserConnection) -> bool:
+        return user.nick.lower() in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:

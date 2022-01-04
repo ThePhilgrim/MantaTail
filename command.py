@@ -25,7 +25,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
                 for usr in channel.users:
                     if usr.user_name == channel.founder:
                         nick = f"~{usr.nick}"
-                    elif usr.nick.lower() in channel.operators:
+                    elif channel.is_operator(usr):
                         nick = f"@{usr.nick}"
                     else:
                         nick = usr.nick
@@ -54,7 +54,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
     with state.lock:
         try:
-            channel = state.channels[channel_name.lower()]
+            channel = state.find_channel(channel_name)
         except KeyError:
             error_no_such_channel(user, channel_name)
             return
@@ -62,8 +62,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         if user not in channel.users:
             error_not_on_channel(user, channel_name)
         else:
-            if user.nick.lower() in channel.operators:
-                channel.remove_operator(user.nick.lower())
+            if channel.is_operator(user):
+                channel.remove_operator(user)
 
             for usr in channel.users:
                 message = f"PART {channel_name}"
@@ -94,14 +94,13 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     except KeyError:
         error_no_such_channel(user, args[0])
         return
-
     try:
         target_usr = state.find_user(args[1])
     except KeyError:
         error_no_such_nick_channel(user, args[1])
         return
 
-    if user.nick.lower() not in channel.operators:
+    if not channel.is_operator(user):
         error_no_operator_privileges(user, state.find_channel(args[0]))
         return
 
@@ -134,8 +133,8 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
                     receivers.add(usr)
                 channel.users.discard(user)
 
-            if user.nick.lower() in channel.operators:
-                channel.remove_operator(user.nick.lower())
+            if channel.is_operator(user):
+                channel.remove_operator(user)
 
         for receiver in receivers:
             receiver.send_string_to_client(message, prefix=user.user_mask)
@@ -233,7 +232,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
             for flag in flags:
                 if flag == "o":
-                    if user.nick.lower() not in channel.operators:
+                    if not channel.is_operator(user):
                         error_no_operator_privileges(user, channel)
                         return
                     elif target_usr not in channel.users:
@@ -241,9 +240,9 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                         return
 
                     if mode_command == "+":
-                        channel.set_operator(target_usr.nick.lower())
+                        channel.set_operator(target_usr)
                     elif mode_command[0] == "-":
-                        channel.remove_operator(target_usr.nick.lower())
+                        channel.remove_operator(target_usr)
 
                     message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
                     for usr in channel.users:
