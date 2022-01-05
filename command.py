@@ -128,7 +128,6 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
         if user in channel.users:
             for usr in channel.users:
                 receivers.add(usr)
-            channel.users.discard(user)
 
         if channel.is_operator(user):
             channel.remove_operator(user)
