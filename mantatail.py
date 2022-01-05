@@ -71,6 +71,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
+                    user.send_que.put((None, None))  # type: ignore
                     return
 
             decoded_message = request.decode("utf-8")
@@ -147,18 +148,24 @@ class UserConnection:
         reason = "(Remote host closed the connection)"
         message = f"QUIT :Quit: {reason}"
 
-        receivers = set()
-        receivers.add(self)
-        for channel in self.state.channels.values():
-            if self in channel.users:
-                for usr in channel.users:
-                    receivers.add(usr)
+        with self.state.lock:
+            receivers = set()
+            # receivers.add(self)
+            for channel in self.state.channels.values():
+                if self in channel.users:
+                    for usr in channel.users:
+                        receivers.add(usr)
 
-            if channel.is_operator(self):
-                channel.remove_operator(self)
+                if channel.is_operator(self):
+                    channel.remove_operator(self)
 
-        for receiver in receivers:
-            receiver.send_string_to_client(message, self.user_mask)
+            for receiver in receivers:
+                receiver.send_que.put((message, self.user_mask))
+
+            try:
+                self.send_string_to_client(message, self.user_mask)
+            except:
+                print("HELLO NO")
 
 
 class Channel:
