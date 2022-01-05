@@ -133,7 +133,8 @@ class UserConnection:
                 self.send_quit_message()
                 self.state.delete_user(self.nick)
                 self.socket.close()
-                return print(f"{self.nick} has disconnected.")
+                print(f"{self.nick} has disconnected.")
+                return
             else:
                 self.send_string_to_client(message, prefix)
 
