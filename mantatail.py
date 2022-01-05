@@ -63,15 +63,14 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
-                request_chunk = user_socket.recv(4096)
+                try:
+                    request_chunk = user_socket.recv(4096)
+                except OSError:
+                    user.send_que.put((None, None))
+                    return
                 if request_chunk:
                     request += request_chunk
                 else:
-                    if user is not None:
-                        print(f"{user.nick} has disconnected.")
-                        state.delete_user(user.nick)
-                    else:
-                        print("Disconnected.")
                     return
 
             decoded_message = request.decode("utf-8")
@@ -111,10 +110,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, message)
 
-                    if user.closed_connection:
-                        user.send_que.put(("Connection", "Closed"))
-                        return
-
 
 class UserConnection:
     def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
@@ -127,7 +122,6 @@ class UserConnection:
         self.user_message = user_message
         self.user_name = user_message.split(" ", 1)[0]
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
-        self.closed_connection = False
         self.que_thread = threading.Thread(target=self.start_queue_listener)
         self.que_thread.start()
 
@@ -136,16 +130,34 @@ class UserConnection:
             (message, prefix) = self.send_que.get()
 
             if message is None and prefix is None:
+                self.send_quit_message()
                 self.state.delete_user(self.nick)
-                self.closed_connection = True
                 self.socket.close()
-                return
-            elif not self.closed_connection:
+                return print(f"{self.nick} has disconnected.")
+            else:
                 self.send_string_to_client(message, prefix)
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
         self.socket.sendall(message_as_bytes)
+
+    def send_quit_message(self) -> None:
+        # TODO: Implement logic for different reasons & disconnects.
+        reason = "(Remote host closed the connection)"
+        message = f"QUIT :Quit: {reason}"
+
+        receivers = set()
+        receivers.add(self)
+        for channel in self.state.channels.values():
+            if self in channel.users:
+                for usr in channel.users:
+                    receivers.add(usr)
+
+            if channel.is_operator(self):
+                channel.remove_operator(self)
+
+        for receiver in receivers:
+            receiver.send_string_to_client(message, self.user_mask)
 
 
 class Channel:

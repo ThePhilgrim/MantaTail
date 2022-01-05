@@ -118,23 +118,6 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
-    # TODO: Implement logic for different reasons & disconnects.
-    reason = "(Remote host closed the connection)"
-    message = f"QUIT :Quit: {reason}"
-
-    receivers = set()
-    receivers.add(user)
-    for channel in state.channels.values():
-        if user in channel.users:
-            for usr in channel.users:
-                receivers.add(usr)
-
-        if channel.is_operator(user):
-            channel.remove_operator(user)
-
-    for receiver in receivers:
-        receiver.send_que.put((message, user.user_mask))
-
     user.send_que.put((None, None))
 
 
