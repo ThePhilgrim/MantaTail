@@ -69,7 +69,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     user.send_que.put((None, None))  # type: ignore
                     return
 
-                print(_nick, request_chunk)
                 if request_chunk:
                     request += request_chunk
                 else:
