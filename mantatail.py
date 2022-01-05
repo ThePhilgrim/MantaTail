@@ -3,7 +3,7 @@ import socket
 import threading
 import queue
 import json
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, List, Set, Tuple
 
 import command
 
@@ -66,7 +66,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
-                    user.send_que.put((None, None))
+                    user.send_que.put((None, None))  # type: ignore
                     return
                 if request_chunk:
                     request += request_chunk
@@ -114,7 +114,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 class UserConnection:
     def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
         self.state = state
-        self.send_que: queue.Queue[tuple[str, str]] = queue.Queue()
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
@@ -129,7 +129,7 @@ class UserConnection:
         while True:
             (message, prefix) = self.send_que.get()
 
-            if message is None and prefix is None:
+            if message is None or prefix is None:
                 self.send_quit_message()
                 self.state.delete_user(self.nick)
                 self.socket.close()
