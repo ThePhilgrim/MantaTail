@@ -151,6 +151,7 @@ def compare_if_word_match_in_any_order(received_bytes, compare_with):
 ##############
 
 
+@pytest.mark.skip
 def test_join_before_registering(run_server):
     user_socket = socket.socket()
     user_socket.connect(("localhost", 6667))

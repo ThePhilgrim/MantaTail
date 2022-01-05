@@ -137,11 +137,19 @@ class UserConnection:
                 print(f"{self.nick} has disconnected.")
                 return
             else:
-                self.send_string_to_client(message, prefix)
+                try:
+                    self.send_string_to_client(message, prefix)
+                except:
+                    self.send_que.put((None, None))
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
-        message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
-        self.socket.sendall(message_as_bytes)
+        try:
+            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+
+            self.socket.sendall(message_as_bytes)
+        except OSError as err:
+            print(err)
+            return
 
     def send_quit_message(self) -> None:
         # TODO: Implement logic for different reasons & disconnects.
@@ -164,8 +172,8 @@ class UserConnection:
 
             try:
                 self.send_string_to_client(message, self.user_mask)
-            except OSError as err:
-                print(err)
+            except OSError:
+                return
 
 
 class Channel:
