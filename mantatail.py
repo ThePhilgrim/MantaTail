@@ -1,8 +1,9 @@
 from __future__ import annotations
 import socket
 import threading
+import queue
 import json
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, List, Set, Tuple
 
 import command
 
@@ -62,15 +63,16 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
-                request_chunk = user_socket.recv(4096)
+                try:
+                    request_chunk = user_socket.recv(4096)
+                except OSError:
+                    user.send_que.put((None, None))  # type: ignore
+                    return
+
                 if request_chunk:
                     request += request_chunk
                 else:
-                    if user is not None:
-                        print(f"{user.nick} has disconnected.")
-                        state.delete_user(user.nick)
-                    else:
-                        print("Disconnected.")
+                    user.send_que.put((None, None))  # type: ignore
                     return
 
             decoded_message = request.decode("utf-8")
@@ -96,7 +98,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         user_socket.sendall(command.error_not_registered())
 
                     if _user_message and _nick:
-                        user = UserConnection(user_host, user_socket, _user_message, _nick)
+                        user = UserConnection(state, user_host, user_socket, _user_message, _nick)
                         state.connected_users[_nick.lower()] = user
                         command.motd(state.motd_content, user)
 
@@ -110,12 +112,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, message)
 
-                    if user.closed_connection:
-                        return
-
 
 class UserConnection:
-    def __init__(self, host: str, socket: socket.socket, user_message: str, nick: str):
+    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
+        self.state = state
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
         # Nick is shown in user lists etc, user_name is not
@@ -123,11 +124,57 @@ class UserConnection:
         self.user_message = user_message
         self.user_name = user_message.split(" ", 1)[0]
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
-        self.closed_connection = False
+        self.que_thread = threading.Thread(target=self.start_queue_listener)
+        self.que_thread.start()
 
-    def send_string_to_client(self, message: str, prefix: str = "mantatail") -> None:
-        message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
-        self.socket.sendall(message_as_bytes)
+    def start_queue_listener(self) -> None:
+        while True:
+            (message, prefix) = self.send_que.get()
+
+            if message is None or prefix is None:
+                self.send_quit_message()
+                self.state.delete_user(self.nick)
+                self.socket.close()
+                print(f"{self.nick} has disconnected.")
+                return
+            else:
+                try:
+                    self.send_string_to_client(message, prefix)
+                except:
+                    self.send_que.put((None, None))
+
+    def send_string_to_client(self, message: str, prefix: str) -> None:
+        try:
+            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+
+            self.socket.sendall(message_as_bytes)
+        except OSError as err:
+            print(err)
+            return
+
+    def send_quit_message(self) -> None:
+        # TODO: Implement logic for different reasons & disconnects.
+        reason = "(Remote host closed the connection)"
+        message = f"QUIT :Quit: {reason}"
+
+        with self.state.lock:
+            receivers = set()
+            # receivers.add(self)
+            for channel in self.state.channels.values():
+                if self in channel.users:
+                    for usr in channel.users:
+                        receivers.add(usr)
+
+                if channel.is_operator(self):
+                    channel.remove_operator(self)
+
+            for receiver in receivers:
+                receiver.send_que.put((message, self.user_mask))
+
+            try:
+                self.send_string_to_client(message, self.user_mask)
+            except OSError:
+                return
 
 
 class Channel:
@@ -152,7 +199,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
-            usr.send_string_to_client(message, kicker.user_mask)
+            usr.send_que.put((message, kicker.user_mask))
 
         self.users.discard(user_to_kick)
 

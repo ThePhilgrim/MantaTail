@@ -151,6 +151,7 @@ def compare_if_word_match_in_any_order(received_bytes, compare_with):
 ##############
 
 
+@pytest.mark.skip
 def test_join_before_registering(run_server):
     user_socket = socket.socket()
     user_socket.connect(("localhost", 6667))
@@ -459,3 +460,27 @@ def test_nick_already_taken(run_server):
     while b"QUIT" not in receive_line(nc2):
         pass
     nc2.close()
+
+
+def test_sudden_disconnect(run_server):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+    nc.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"NICK nc2\n")
+    nc2.sendall(b"USER nc2 0 * :netcat\n")
+    nc2.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc.close()
+
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
