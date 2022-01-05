@@ -164,8 +164,8 @@ class UserConnection:
 
             try:
                 self.send_string_to_client(message, self.user_mask)
-            except:
-                print("HELLO NO")
+            except OSError as err:
+                print(err)
 
 
 class Channel:
