@@ -1,6 +1,7 @@
 from __future__ import annotations
 import socket
 import threading
+import time
 import queue
 import json
 from typing import Dict, Optional, List, Set, Tuple
@@ -111,6 +112,19 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     else:
                         with state.lock:
                             call_handler_function(state, user, message)
+
+
+def ping_message_countdown(user: UserConnection, ping_que: queue.Queue) -> None:
+    ping_countdown = 60
+    while ping_countdown:
+        try:
+            stop_command = ping_que.get()
+            if stop_command:
+                return
+        except queue.Empty:
+            pass
+        time.sleep(1)
+        ping_countdown -= 1
 
 
 class UserConnection:
