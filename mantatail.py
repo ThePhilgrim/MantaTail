@@ -139,6 +139,7 @@ class UserConnection:
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
+                    # Can be slow, if user has bad internet. Don't do this while holding the lock.
                     self.send_string_to_client(quit_message, self.user_mask)
                 except OSError:
                     pass
