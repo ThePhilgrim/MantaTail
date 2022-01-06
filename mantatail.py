@@ -165,7 +165,6 @@ class UserConnection:
                 for usr in channel.users:
                     receivers.add(usr)
 
-
             if channel.is_operator(self):
                 channel.remove_operator(self)
 
