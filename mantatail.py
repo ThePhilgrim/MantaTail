@@ -132,9 +132,10 @@ class UserConnection:
             (message, prefix) = self.send_que.get()
 
             if message is None or prefix is None:
-                self.send_quit_message()
-                self.state.delete_user(self.nick)
-                self.socket.close()
+                with self.state.lock:
+                    self.send_quit_message()
+                    self.state.delete_user(self.nick)
+                    self.socket.close()
                 print(f"{self.nick} has disconnected.")
                 return
             else:
