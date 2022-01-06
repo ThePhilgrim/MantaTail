@@ -124,18 +124,26 @@ class UserConnection:
         self.user_message = user_message
         self.user_name = user_message.split(" ", 1)[0]
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
-        self.que_thread = threading.Thread(target=self.start_queue_listener)
+        self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
 
-    def start_queue_listener(self) -> None:
+    def send_queue_thread(self) -> None:
         while True:
             (message, prefix) = self.send_que.get()
 
             if message is None or prefix is None:
                 with self.state.lock:
-                    self.send_quit_message()
+                    self.queue_quit_message_for_other_users()
                     self.state.delete_user(self.nick)
-                    self.socket.close()
+
+                try:
+                    reason = "(Remote host closed the connection)"
+                    quit_message = f"QUIT :Quit: {reason}"
+                    self.send_string_to_client(quit_message, self.user_mask)
+                except OSError:
+                    pass
+
+                self.socket.close()
                 print(f"{self.nick} has disconnected.")
                 return
             else:
@@ -144,26 +152,17 @@ class UserConnection:
                 except:
                     self.send_que.put((None, None))
 
-    def send_string_to_client(self, message: str, prefix: str) -> None:
-        try:
-            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
-
-            self.socket.sendall(message_as_bytes)
-        except OSError as err:
-            print(err)
-            return
-
-    def send_quit_message(self) -> None:
+    def queue_quit_message_for_other_users(self) -> None:
         # TODO: Implement logic for different reasons & disconnects.
         reason = "(Remote host closed the connection)"
         message = f"QUIT :Quit: {reason}"
 
         receivers = set()
-        # receivers.add(self)
         for channel in self.state.channels.values():
             if self in channel.users:
                 for usr in channel.users:
-                    receivers.add(usr)
+                    if usr != self:
+                        receivers.add(usr)
 
             if channel.is_operator(self):
                 channel.remove_operator(self)
@@ -171,9 +170,13 @@ class UserConnection:
         for receiver in receivers:
             receiver.send_que.put((message, self.user_mask))
 
+    def send_string_to_client(self, message: str, prefix: str) -> None:
         try:
-            self.send_string_to_client(message, self.user_mask)
-        except OSError:
+            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+
+            self.socket.sendall(message_as_bytes)
+        except OSError as err:
+            print(err)
             return
 
 
