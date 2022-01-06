@@ -158,24 +158,23 @@ class UserConnection:
         reason = "(Remote host closed the connection)"
         message = f"QUIT :Quit: {reason}"
 
-        with self.state.lock:
-            receivers = set()
-            # receivers.add(self)
-            for channel in self.state.channels.values():
-                if self in channel.users:
-                    for usr in channel.users:
-                        receivers.add(usr)
+        receivers = set()
+        # receivers.add(self)
+        for channel in self.state.channels.values():
+            if self in channel.users:
+                for usr in channel.users:
+                    receivers.add(usr)
 
-                if channel.is_operator(self):
-                    channel.remove_operator(self)
+            if channel.is_operator(self):
+                channel.remove_operator(self)
 
-            for receiver in receivers:
-                receiver.send_que.put((message, self.user_mask))
+        for receiver in receivers:
+            receiver.send_que.put((message, self.user_mask))
 
-            try:
-                self.send_string_to_client(message, self.user_mask)
-            except OSError:
-                return
+        try:
+            self.send_string_to_client(message, self.user_mask)
+        except OSError:
+            return
 
 
 class Channel:
