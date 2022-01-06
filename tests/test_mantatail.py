@@ -137,7 +137,10 @@ def receive_line(sock):
     sock.settimeout(1)
     received = b""
     while not received.endswith(b"\r\n"):
-        received += sock.recv(1)
+        try:
+            received += sock.recv(1)
+        except OSError:
+            return
     return received
 
 

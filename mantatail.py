@@ -159,7 +159,6 @@ class UserConnection:
 
         with self.state.lock:
             receivers = set()
-            # receivers.add(self)
             for channel in self.state.channels.values():
                 if self in channel.users:
                     for usr in channel.users:
