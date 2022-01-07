@@ -65,6 +65,12 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
                 try:
+                    # Temporary check until these actions can be done before user registration
+                    if user:
+                        ping_que = queue.Queue()
+                        ping_message_thread = threading.Thread(target=ping_message_countdown, args=[user, ping_que])
+                        print("starting", ping_message_thread.name)
+                        ping_message_thread.start()
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
@@ -75,6 +81,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     user.send_que.put((None, None))  # type: ignore
                     return
+
+                # Temporary check until these actions can be done before user registration
+                if user:
+                    ping_que.put(True)
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
@@ -114,17 +124,20 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, message)
 
 
-def ping_message_countdown(user: UserConnection, ping_que: queue.Queue) -> None:
-    ping_countdown = 60
+def ping_message_countdown(user: UserConnection, ping_que: queue.Queue[bool]) -> None:
+    ping_countdown = 10
     while ping_countdown:
         try:
-            stop_command = ping_que.get()
+            stop_command = ping_que.get(block=False)
             if stop_command:
+                print(threading.current_thread().name, "got stop")
                 return
         except queue.Empty:
             pass
         time.sleep(1)
         ping_countdown -= 1
+        print(threading.current_thread().name, " PING IN: ", ping_countdown)
+    user.send_que.put(("PING :mantatail", "mantatail"))
 
 
 class UserConnection:
