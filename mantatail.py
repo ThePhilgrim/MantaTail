@@ -64,6 +64,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
                 try:
+                    # Temporary check until these actions can be done before user registration
+                    if user:
+                        ping_timer = threading.Timer(600, user.queue_ping_message)
+                        ping_timer.start()
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
@@ -74,6 +78,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     user.send_que.put((None, None))  # type: ignore
                     return
+
+                # Temporary check until these actions can be done before user registration
+                if user:
+                    ping_timer.cancel()
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
@@ -116,6 +124,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 class UserConnection:
     def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
         self.state = state
+        # (None, None) disconnects the user
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
@@ -126,6 +135,7 @@ class UserConnection:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
+        self.pong_received = False
 
     def send_queue_thread(self) -> None:
         while True:
@@ -170,6 +180,16 @@ class UserConnection:
 
         for receiver in receivers:
             receiver.send_que.put((message, self.user_mask))
+
+    def queue_ping_message(self) -> None:
+        self.send_que.put(("PING :mantatail", "mantatail"))
+        threading.Timer(5, self.assert_pong_received).start()
+
+    def assert_pong_received(self) -> None:
+        if not self.pong_received:
+            self.send_que.put((None, None))
+        else:
+            self.pong_received = False
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         try:
