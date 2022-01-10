@@ -8,7 +8,7 @@ from typing import Dict, Optional, List, Set, Tuple
 import command
 
 # Global so that it can be accessed from pytest
-TIMER_SECONDS = 600
+TIMER_SECONDS = 10
 
 
 class ServerState:
@@ -74,6 +74,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
                     return
+                finally:
+                    if user:
+                        user.ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
@@ -133,7 +136,6 @@ class UserConnection:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
-        self.pong_received = False
 
     def send_queue_thread(self) -> None:
         while True:
@@ -193,13 +195,10 @@ class UserConnection:
 
     def queue_ping_message(self) -> None:
         self.send_que.put(("PING :mantatail", "mantatail"))
-        threading.Timer(5, self.assert_pong_received).start()
+        self.pong_timer = threading.Timer(5, self.on_no_pong_received).start()
 
-    def assert_pong_received(self) -> None:
-        if not self.pong_received:
-            self.send_que.put((None, None))
-        else:
-            self.pong_received = False
+    def on_no_pong_received(self) -> None:
+        self.send_que.put((None, None))
 
 
 class Channel:
