@@ -8,7 +8,7 @@ from typing import Dict, Optional, List, Set, Tuple
 import command
 
 # Global so that it can be accessed from pytest
-TIMER_SECONDS = 10
+TIMER_SECONDS = 600
 
 
 class ServerState:
