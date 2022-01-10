@@ -123,7 +123,10 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
     (receiver, colon_privmsg) = msg.split(" ", 1)
-    assert colon_privmsg.startswith(":")
+    try:
+        assert colon_privmsg.startswith(":")
+    except AssertionError:
+        print("Error: PRIVMSG Invalid format (Hint: Message should start with ':')")
 
     if receiver.startswith("#"):
         try:
