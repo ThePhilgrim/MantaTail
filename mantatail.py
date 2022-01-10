@@ -187,7 +187,7 @@ class UserConnection:
         except OSError:
             return
 
-    def start_ping_timer(self):
+    def start_ping_timer(self) -> None:
         self.ping_timer = threading.Timer(TIMER_SECONDS, self.queue_ping_message)
         self.ping_timer.start()
 
