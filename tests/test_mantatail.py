@@ -163,7 +163,7 @@ def test_join_before_registering(run_server):
 def test_ping_message(monkeypatch, user_alice):
     monkeypatch.setattr(mantatail, "TIMER_SECONDS", 3)
     user_alice.sendall(b"JOIN #foo\r\n")
-    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 JOIN #foo\r\n"
+
     while receive_line(user_alice) == b":mantatail PING :mantatail\r\n":
         pass
 

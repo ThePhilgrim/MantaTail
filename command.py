@@ -146,7 +146,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
     if msg == ":mantatail":
-        user.pong_timer.cancel()
+        user.pong_received = True
 
 
 # Private functions
