@@ -66,19 +66,14 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
+                # Temporary check until these actions can be done before user registration
+                if user:
+                    user.start_ping_timer()
                 try:
-                    # Temporary check until these actions can be done before user registration
-                    if user:
-                        ping_timer = threading.Timer(TIMER_SECONDS, user.queue_ping_message)
-                        ping_timer.start()
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
                     return
-                finally:
-                    # Temporary check until these actions can be done before user registration
-                    if user:
-                        ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
@@ -184,6 +179,18 @@ class UserConnection:
         for receiver in receivers:
             receiver.send_que.put((message, self.user_mask))
 
+    def send_string_to_client(self, message: str, prefix: str) -> None:
+        try:
+            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+
+            self.socket.sendall(message_as_bytes)
+        except OSError:
+            return
+
+    def start_ping_timer(self):
+        self.ping_timer = threading.Timer(TIMER_SECONDS, self.queue_ping_message)
+        self.ping_timer.start()
+
     def queue_ping_message(self) -> None:
         self.send_que.put(("PING :mantatail", "mantatail"))
         threading.Timer(5, self.assert_pong_received).start()
@@ -193,14 +200,6 @@ class UserConnection:
             self.send_que.put((None, None))
         else:
             self.pong_received = False
-
-    def send_string_to_client(self, message: str, prefix: str) -> None:
-        try:
-            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
-
-            self.socket.sendall(message_as_bytes)
-        except OSError:
-            return
 
 
 class Channel:
