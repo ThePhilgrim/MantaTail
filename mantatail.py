@@ -7,6 +7,9 @@ from typing import Dict, Optional, List, Set, Tuple
 
 import command
 
+# Global so that it can be accessed from pytest
+TIMER_SECONDS = 600
+
 
 class ServerState:
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -66,22 +69,22 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 try:
                     # Temporary check until these actions can be done before user registration
                     if user:
-                        ping_timer = threading.Timer(600, user.queue_ping_message)
+                        ping_timer = threading.Timer(TIMER_SECONDS, user.queue_ping_message)
                         ping_timer.start()
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
                     return
+                finally:
+                    # Temporary check until these actions can be done before user registration
+                    if user:
+                        ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
                 else:
                     user.send_que.put((None, None))  # type: ignore
                     return
-
-                # Temporary check until these actions can be done before user registration
-                if user:
-                    ping_timer.cancel()
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
@@ -196,8 +199,7 @@ class UserConnection:
             message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
 
             self.socket.sendall(message_as_bytes)
-        except OSError as err:
-            print(err)
+        except OSError:
             return
 
 
