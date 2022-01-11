@@ -134,8 +134,8 @@ def user_charlie(run_server):
 ##############
 
 
-def receive_line(sock):
-    sock.settimeout(1)
+def receive_line(sock, timeout=1):
+    sock.settimeout(timeout)
     received = b""
     while not received.endswith(b"\r\n"):
         received += sock.recv(1)
@@ -161,10 +161,10 @@ def test_join_before_registering(run_server):
 
 
 def test_ping_message(monkeypatch, user_alice):
-    monkeypatch.setattr(mantatail, "TIMER_SECONDS", 3)
+    monkeypatch.setattr(mantatail, "TIMER_SECONDS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
-    while receive_line(user_alice) == b":mantatail PING :mantatail\r\n":
+    while receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":
         pass
 
     user_alice.sendall(b"PONG :mantatail\r\n")
