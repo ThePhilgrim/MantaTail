@@ -209,11 +209,14 @@ def test_send_privmsg(user_alice, user_bob):
     user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
     assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
-    user_alice.sendall(b"PRIVMSG #foo :Bar\r\n")
+    user_alice.sendall(b"PRIVMSG #foo Bar\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Bar\r\n"
 
-    user_bob.sendall(b"PRIVMSG #foo :Hello world\r\n")
-    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Hello world\r\n"
+    user_bob.sendall(b"PRIVMSG #foo :Foo Bar\r\n")
+    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Foo Bar\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo Foo Bar\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
 def test_privmsg_error_messages(user_alice, user_bob):

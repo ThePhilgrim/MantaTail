@@ -8,6 +8,10 @@ from typing import Optional, Dict, List
 
 ### Handlers
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+    if channel_name.lower() == "join":
+        # TODO: Handle not enough params error & return
+        pass
+
     channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     lower_channel_name = channel_name.lower()
 
@@ -51,6 +55,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+    if channel_name.lower() == "part":
+        # TODO: Handle not enough params error & return
+        pass
+
     try:
         channel = state.find_channel(channel_name)
     except KeyError:
@@ -73,46 +81,51 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
-    args = mode_args.split(" ")
+    if mode_args.lower() == "mode":
+        # TODO: Handle not enough params error & return
+        pass
 
-    if args[0].startswith("#"):
-        process_channel_modes(state, user, args)
+    parsed_args = parse_received_args(mode_args)
+
+    if parsed_args[0].startswith("#"):
+        process_channel_modes(state, user, parsed_args)
     else:
         process_user_modes()
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, arg: str) -> None:
-    args = arg.split(" ")
+    if arg.lower() == "kick":
+        # TODO: Handle not enough params error & return
+        pass
 
-    if len(args) == 1:
-        error_not_enough_params(user, "KICK")
+    parsed_args = parse_received_args(arg)
+
+    try:
+        channel = state.find_channel(parsed_args[0])
+    except KeyError:
+        error_no_such_channel(user, parsed_args[0])
         return
     try:
-        channel = state.find_channel(args[0])
+        target_usr = state.find_user(parsed_args[1])
     except KeyError:
-        error_no_such_channel(user, args[0])
-        return
-    try:
-        target_usr = state.find_user(args[1])
-    except KeyError:
-        error_no_such_nick_channel(user, args[1])
+        error_no_such_nick_channel(user, parsed_args[1])
         return
 
     if not channel.is_operator(user):
-        error_no_operator_privileges(user, state.find_channel(args[0]))
+        error_no_operator_privileges(user, state.find_channel(parsed_args[0]))
         return
 
     if target_usr not in channel.users:
         error_user_not_in_channel(user, target_usr, channel)
         return
 
-    if len(args) == 2:
+    if len(parsed_args) == 2:
         message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}\r\n"
-    elif len(args) >= 3:
-        if not args[2].startswith(":"):
-            reason = f":{args[2]}"
+    elif len(parsed_args) >= 3:
+        if not parsed_args[2].startswith(":"):
+            reason = f":{parsed_args[2]}"
         else:
-            reason = " ".join(args[2:])
+            reason = " ".join(parsed_args[2:])
         message = f"KICK {channel.name} {target_usr.nick} {reason}\r\n"
     channel.kick_user(user, target_usr, message)
 
@@ -122,8 +135,17 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, co
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
-    (receiver, colon_privmsg) = msg.split(" ", 1)
-    assert colon_privmsg.startswith(":")
+    if msg.lower() == "privmsg":
+        # TODO: Handle Error 411 (No recipient given) & return
+        pass
+
+    parsed_args = parse_received_args(msg)
+
+    if len(parsed_args) == 1:
+        # TODO: Handle Error 412 (No text to send) & return
+        pass
+
+    (receiver, colon_privmsg) = parsed_args[0], parsed_args[1]
 
     if receiver.startswith("#"):
         try:
@@ -140,7 +162,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     else:
         for usr in channel.users:
             if usr.nick != user.nick:
-                message = f"PRIVMSG {receiver} {colon_privmsg}"
+                message = f"PRIVMSG {receiver} :{colon_privmsg}"
                 usr.send_que.put((message, user.user_mask))
 
 
@@ -152,7 +174,7 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ms
 # Private functions
 
 # !Not implemented
-def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
+def privmsg_to_user(receiver: str, privmsg: str) -> None:
     pass
 
 
@@ -231,6 +253,18 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 # !Not implemented
 def process_user_modes() -> None:
     pass
+
+
+def parse_received_args(msg: str) -> List[str]:
+    split_msg = msg.split(" ")
+
+    for num, arg in enumerate(split_msg):
+        if arg.startswith(":"):
+            parsed_msg = split_msg[:num]
+            parsed_msg.append(" ".join(split_msg[num:]).lstrip(":"))
+            return parsed_msg
+
+    return split_msg
 
 
 ### Error Messages
