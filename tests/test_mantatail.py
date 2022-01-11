@@ -5,6 +5,7 @@ import traceback
 import threading
 import time
 
+import mantatail
 from mantatail import Listener
 
 # Tests that are known to fail can be decorated with:
@@ -133,8 +134,8 @@ def user_charlie(run_server):
 ##############
 
 
-def receive_line(sock):
-    sock.settimeout(1)
+def receive_line(sock, timeout=1):
+    sock.settimeout(timeout)
     received = b""
     while not received.endswith(b"\r\n"):
         received += sock.recv(1)
@@ -157,6 +158,16 @@ def test_join_before_registering(run_server):
     user_socket.connect(("localhost", 6667))
     user_socket.sendall(b"JOIN #foo\r\n")
     assert receive_line(user_socket) == b":mantatail 451 * :You have not registered\r\n"
+
+
+def test_ping_message(monkeypatch, user_alice):
+    monkeypatch.setattr(mantatail, "TIMER_SECONDS", 2)
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":
+        pass
+
+    user_alice.sendall(b"PONG :mantatail\r\n")
 
 
 def test_join_channel(user_alice, user_bob):

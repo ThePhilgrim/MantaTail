@@ -144,6 +144,11 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
                 usr.send_que.put((message, user.user_mask))
 
 
+def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
+    if msg == ":mantatail":
+        user.pong_received = True
+
+
 # Private functions
 
 # !Not implemented

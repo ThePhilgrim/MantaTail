@@ -7,6 +7,9 @@ from typing import Dict, Optional, List, Set, Tuple
 
 import command
 
+# Global so that it can be accessed from pytest
+TIMER_SECONDS = 600
+
 
 class ServerState:
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -63,11 +66,17 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
+                # Temporary check until these actions can be done before user registration
+                if user:
+                    user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     user.send_que.put((None, None))  # type: ignore
                     return
+                finally:
+                    if user:
+                        user.ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
@@ -116,6 +125,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 class UserConnection:
     def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
         self.state = state
+        # (None, None) disconnects the user
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
@@ -126,6 +136,7 @@ class UserConnection:
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
+        self.pong_received = False
 
     def send_queue_thread(self) -> None:
         while True:
@@ -176,9 +187,22 @@ class UserConnection:
             message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
 
             self.socket.sendall(message_as_bytes)
-        except OSError as err:
-            print(err)
+        except OSError:
             return
+
+    def start_ping_timer(self) -> None:
+        self.ping_timer = threading.Timer(TIMER_SECONDS, self.queue_ping_message)
+        self.ping_timer.start()
+
+    def queue_ping_message(self) -> None:
+        self.send_que.put(("PING :mantatail", "mantatail"))
+        threading.Timer(5, self.assert_pong_received).start()
+
+    def assert_pong_received(self) -> None:
+        if not self.pong_received:
+            self.send_que.put((None, None))
+        else:
+            self.pong_received = False
 
 
 class Channel:
