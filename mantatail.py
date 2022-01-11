@@ -116,7 +116,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         # ex. "command.handle_nick" or "command.handle_join"
                         call_handler_function = getattr(command, parsed_command)
                     except AttributeError:
-                        command.error_unknown_command(user, verb_lower)
+                        command.error_unknown_command(user, verb)
                     else:
                         with state.lock:
                             call_handler_function(state, user, message)
