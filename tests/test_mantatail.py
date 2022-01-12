@@ -261,6 +261,8 @@ def test_send_unknown_commands(user_alice):
     assert receive_line(user_alice) == b":mantatail 421 FOO :Unknown command\r\n"
     user_alice.sendall(b"Bar\r\n")
     assert receive_line(user_alice) == b":mantatail 421 Bar :Unknown command\r\n"
+    user_alice.sendall(b"baz\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 baz :Unknown command\r\n"
     user_alice.sendall(b"&/!\r\n")
     assert receive_line(user_alice) == b":mantatail 421 &/! :Unknown command\r\n"
 
