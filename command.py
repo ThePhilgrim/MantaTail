@@ -145,7 +145,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         error_no_text_to_send(user)
         return
 
-    (receiver, colon_privmsg) = parsed_args[0], parsed_args[1]
+    (receiver, privmsg) = parsed_args[0], parsed_args[1]
 
     if receiver.startswith("#"):
         try:
@@ -154,7 +154,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
             error_no_such_nick_channel(user, receiver)
             return
     else:
-        privmsg_to_user(receiver, colon_privmsg)
+        privmsg_to_user(receiver, privmsg)
         return
 
     if user not in channel.users:
@@ -162,7 +162,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     else:
         for usr in channel.users:
             if usr.nick != user.nick:
-                message = f"PRIVMSG {receiver} :{colon_privmsg}"
+                message = f"PRIVMSG {receiver} :{privmsg}"
                 usr.send_que.put((message, user.user_mask))
 
 
