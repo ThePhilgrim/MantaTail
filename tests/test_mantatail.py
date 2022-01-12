@@ -233,11 +233,11 @@ def test_privmsg_error_messages(user_alice, user_bob):
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 FOO :Unknown command\r\n"
+    user_alice.sendall(b"foo\r\n")
     assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
-    user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
-    user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
+    user_alice.sendall(b"Foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 Foo :Unknown command\r\n"
 
 
 def test_unknown_mode(user_alice):
