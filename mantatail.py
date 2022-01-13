@@ -61,7 +61,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
     user = None
 
-    with user_socket:
+    try:
         while True:
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
@@ -72,7 +72,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
-                    user.send_que.put((None, None))  # type: ignore
                     return
                 finally:
                     if user:
@@ -81,7 +80,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
-                    user.send_que.put((None, None))  # type: ignore
                     return
 
             decoded_message = request.decode("utf-8")
@@ -120,6 +118,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     else:
                         with state.lock:
                             call_handler_function(state, user, message)
+    finally:
+        if user is None:
+            user_socket.close()
+        else:
+            user.send_que.put((None, None))
 
 
 class UserConnection:
