@@ -73,25 +73,18 @@ def close_socket_cleanly(sock: socket.socket) -> None:
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     user = UserConnection(state, user_host, user_socket)
-    # _user_message = None
-    # _nick = None
-
-    # user = None
 
     try:
         while True:
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
-                # Temporary check until these actions can be done before user registration
-                # if user:
                 user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     return  # go to "finally:"
                 finally:
-                    # if user:
                     user.ping_timer.cancel()
 
                 if request_chunk:
@@ -112,11 +105,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         user.generate_user_mask()
                     elif command_lower == "nick":
                         if args[0].lower() in state.connected_users.keys():
-                            user.send_que.put((commands.error_nick_in_use(args[0]), "mantatail"))
+                            commands.error_nick_in_use(user, args[0])
                         else:
                             user.nick = args[0]
                     else:
-                        user.send_que.put((commands.error_not_registered()), "mantatail")
+                        commands.error_not_registered(user)
 
                     if user.user_message and user.nick:
                         state.connected_users[user.nick.lower()] = user
@@ -132,10 +125,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, args)
     finally:
-        # if user is None:
         close_socket_cleanly(user_socket)
-        # else:
-        #     user.send_que.put((None, None))
 
 
 class UserConnection:
