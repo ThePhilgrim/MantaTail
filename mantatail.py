@@ -126,6 +126,21 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             user.send_que.put((None, None))
 
 
+def wait_for_all_data_to_be_sent_and_then_close_socket(sock: socket.socket) -> None:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+    try:
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
+    except OSError:
+        # Possible causes:
+        #   - Client decided to keep its connection open for more than 10sec.
+        #   - Client was already disconnected.
+        #   - Probably something else too that I didn't think of...
+        pass
+    sock.close()
+
+
 class UserConnection:
     def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
         self.state = state
@@ -162,9 +177,7 @@ class UserConnection:
                     print("  mantatail.py send_queue_thread send to self failure")
                     pass
 
-                print("mantatail.py send_queue_thread quit 3")
-                self.socket.close()
-                print(f"{self.nick} has disconnected.")
+                wait_for_all_data_to_be_sent_and_then_close_socket(self.socket)
                 return
             else:
                 try:
