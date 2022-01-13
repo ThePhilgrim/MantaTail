@@ -87,7 +87,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
-                    return
+                    return  # go to "finally:"
                 finally:
                     if user:
                         user.ping_timer.cancel()
@@ -95,7 +95,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
-                    return
+                    return  # go to "finally:"
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
