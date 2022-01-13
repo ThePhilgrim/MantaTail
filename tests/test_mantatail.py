@@ -255,6 +255,9 @@ def test_not_enough_params_error(user_alice):
     user_alice.sendall(b"KICK\r\n")
     assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
 
+    user_alice.sendall(b"KICK Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
+
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")

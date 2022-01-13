@@ -95,7 +95,7 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    if not args:
+    if not args or len(args) == 1:
         error_not_enough_params(user, "KICK")
         return
 
