@@ -5,7 +5,7 @@ import queue
 import json
 from typing import Dict, Optional, List, Set, Tuple
 
-import command
+import commands
 
 # Global so that it can be accessed from pytest
 TIMER_SECONDS = 600
@@ -86,53 +86,46 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
-                if " " in line:
-                    (verb, message) = line.split(" ", 1)
-                else:
-                    verb = line
-                    message = verb
-
-                verb_lower = verb.lower()
-                parsed_command = "handle_" + verb_lower
+                command, args = commands.parse_received_args(line)
+                command_lower = command.lower()
+                parsed_command = "handle_" + command_lower
 
                 if user is None:
-                    if verb_lower == "user":
-                        _user_message = message
-                    elif verb_lower == "nick":
-                        if message.lower() in state.connected_users.keys():
-                            user_socket.sendall(command.error_nick_in_use(message))
+                    if command_lower == "user":
+                        _user_message = args
+                    elif command_lower == "nick":
+                        if args[0].lower() in state.connected_users.keys():
+                            user_socket.sendall(commands.error_nick_in_use(args[0]))
                         else:
-                            _nick = message
+                            _nick = args[0]
                     else:
-                        user_socket.sendall(command.error_not_registered())
+                        user_socket.sendall(commands.error_not_registered())
 
                     if _user_message and _nick:
                         user = UserConnection(state, user_host, user_socket, _user_message, _nick)
                         state.connected_users[_nick.lower()] = user
-                        command.motd(state.motd_content, user)
+                        commands.motd(state.motd_content, user)
 
                 else:
                     try:
                         # ex. "command.handle_nick" or "command.handle_join"
-                        call_handler_function = getattr(command, parsed_command)
+                        call_handler_function = getattr(commands, parsed_command)
                     except AttributeError:
-                        command.error_unknown_command(user, verb_lower)
+                        commands.error_unknown_command(user, command)
                     else:
                         with state.lock:
-                            call_handler_function(state, user, message)
+                            call_handler_function(state, user, args)
 
 
 class UserConnection:
-    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: str, nick: str):
+    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: List[str], nick: str):
         self.state = state
-        # (None, None) disconnects the user
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
-        # Nick is shown in user lists etc, user_name is not
-        self.nick = nick
-        self.user_message = user_message
-        self.user_name = user_message.split(" ", 1)[0]
+        self.nick = nick  # Nick is shown in user lists etc, user_name is not
+        self.user_message = " ".join(user_message)  # Ex. AliceUsr 0 * Alice
+        self.user_name = user_message[0]
         self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
@@ -142,6 +135,7 @@ class UserConnection:
         while True:
             (message, prefix) = self.send_que.get()
 
+            # (None, None) disconnects the user
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()

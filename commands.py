@@ -3,12 +3,17 @@ import re
 import mantatail
 import irc_responses
 
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 
 
 ### Handlers
-def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if not args:
+        error_not_enough_params(user, "JOIN")
+        return
+
     channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
+    channel_name = args[0]
     lower_channel_name = channel_name.lower()
 
     if not re.match(channel_regex, lower_channel_name):
@@ -50,7 +55,13 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ch
         #   * Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, channel_name: str) -> None:
+def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if not args:
+        error_not_enough_params(user, "PART")
+        return
+
+    channel_name = args[0]
+
     try:
         channel = state.find_channel(channel_name)
     except KeyError:
@@ -72,8 +83,10 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ch
             state.delete_channel(channel_name)
 
 
-def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mode_args: str) -> None:
-    args = mode_args.split(" ")
+def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if not args:
+        error_not_enough_params(user, "MODE")
+        return
 
     if args[0].startswith("#"):
         process_channel_modes(state, user, args)
@@ -81,12 +94,11 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, mo
         process_user_modes()
 
 
-def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, arg: str) -> None:
-    args = arg.split(" ")
-
-    if len(args) == 1:
+def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if not args or len(args) == 1:
         error_not_enough_params(user, "KICK")
         return
+
     try:
         channel = state.find_channel(args[0])
     except KeyError:
@@ -99,7 +111,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         return
 
     if not channel.is_operator(user):
-        error_no_operator_privileges(user, state.find_channel(args[0]))
+        error_no_operator_privileges(user, channel)
         return
 
     if target_usr not in channel.users:
@@ -109,21 +121,27 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if len(args) == 2:
         message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}\r\n"
     elif len(args) >= 3:
-        if not args[2].startswith(":"):
-            reason = f":{args[2]}"
-        else:
-            reason = " ".join(args[2:])
-        message = f"KICK {channel.name} {target_usr.nick} {reason}\r\n"
+        reason = args[2]
+        message = f"KICK {channel.name} {target_usr.nick} :{reason}\r\n"
+
     channel.kick_user(user, target_usr, message)
 
 
-def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, command: str) -> None:
+def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    # TODO "if args: set args to reason"
     user.send_que.put((None, None))
 
 
-def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
-    (receiver, colon_privmsg) = msg.split(" ", 1)
-    assert colon_privmsg.startswith(":")
+def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    # msg str
+    if not args:
+        error_no_recipient(user, "PRIVMSG")
+        return
+    elif len(args) == 1:
+        error_no_text_to_send(user)
+        return
+
+    (receiver, privmsg) = args[0], args[1]
 
     if receiver.startswith("#"):
         try:
@@ -132,7 +150,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
             error_no_such_nick_channel(user, receiver)
             return
     else:
-        privmsg_to_user(receiver, colon_privmsg)
+        privmsg_to_user(receiver, privmsg)
         return
 
     if user not in channel.users:
@@ -140,19 +158,21 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     else:
         for usr in channel.users:
             if usr.nick != user.nick:
-                message = f"PRIVMSG {receiver} {colon_privmsg}"
+                message = f"PRIVMSG {receiver} :{privmsg}"
                 usr.send_que.put((message, user.user_mask))
 
 
-def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, msg: str) -> None:
-    if msg == ":mantatail":
+def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    if args[0] == ":mantatail":
         user.pong_received = True
+    else:
+        error_no_origin(user)
 
 
 # Private functions
 
 # !Not implemented
-def privmsg_to_user(receiver: str, colon_privmsg: str) -> None:
+def privmsg_to_user(receiver: str, privmsg: str) -> None:
     pass
 
 
@@ -233,6 +253,20 @@ def process_user_modes() -> None:
     pass
 
 
+def parse_received_args(msg: str) -> Tuple[str, List[str]]:
+    split_msg = msg.split(" ")
+
+    for num, arg in enumerate(split_msg):
+        if arg.startswith(":"):
+            parsed_msg = split_msg[:num]
+            parsed_msg.append(" ".join(split_msg[num:]).lstrip(":"))
+            command = parsed_msg[0]
+            return command, parsed_msg[1:]
+
+    command = split_msg[0]
+    return command, split_msg[1:]
+
+
 ### Error Messages
 def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
@@ -301,13 +335,34 @@ def error_no_operator_privileges(user: mantatail.UserConnection, channel: mantat
     user.send_que.put((message, "mantatail"))
 
 
+def error_no_recipient(user: mantatail.UserConnection, command: str) -> None:
+    (no_recipient_num, no_recipient_info) = irc_responses.ERR_NORECIPIENT
+
+    message = f"{no_recipient_num} {no_recipient_info} ({command.upper()})"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_no_text_to_send(user: mantatail.UserConnection) -> None:
+    (no_text_num, no_text_info) = irc_responses.ERR_NOTEXTTOSEND
+
+    message = f"{no_text_num} {no_text_info}"
+    user.send_que.put((message, "mantatail"))
+
+
 def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> None:
     (unknown_mode_num, unknown_mode_info) = irc_responses.ERR_UNKNOWNMODE
     message = f"{unknown_mode_num} {unknown_command} {unknown_mode_info}"
     user.send_que.put((message, "mantatail"))
 
 
+def error_no_origin(user: mantatail.UserConnection) -> None:
+    (no_origin_num, no_origin_info) = irc_responses.ERR_NOORIGIN
+
+    message = f"{no_origin_num} {no_origin_info}"
+    user.send_que.put((message, "mantatail"))
+
+
 def error_not_enough_params(user: mantatail.UserConnection, command: str) -> None:
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
-    message = f"{not_enough_params_num} {user.nick} {command} {not_enough_params_info}"
+    message = f"{not_enough_params_num} {command} {not_enough_params_info}"
     user.send_que.put((message, "mantatail"))

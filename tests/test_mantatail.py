@@ -209,32 +209,65 @@ def test_send_privmsg(user_alice, user_bob):
     user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
     assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
-    user_alice.sendall(b"PRIVMSG #foo :Bar\r\n")
+    user_alice.sendall(b"PRIVMSG #foo Bar\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Bar\r\n"
 
-    user_bob.sendall(b"PRIVMSG #foo :Hello world\r\n")
-    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Hello world\r\n"
+    user_bob.sendall(b"PRIVMSG #foo :Foo Bar\r\n")
+    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG #foo :Foo Bar\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo Foo Bar\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
 def test_privmsg_error_messages(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
     time.sleep(0.1)
-    user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
 
+    user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
     assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
-
     assert receive_line(user_bob) == b":mantatail 401 #bar :No such nick/channel\r\n"
+
+    user_alice.sendall(b"PRIVMSG\r\n")
+    assert receive_line(user_alice) == b":mantatail 411 :No recipient given (PRIVMSG)\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 412 :No text to send\r\n"
+
+
+def test_not_enough_params_error(user_alice):
+    user_alice.sendall(b"JOIN\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 JOIN :Not enough parameters\r\n"
+
+    user_alice.sendall(b"JOIN #foo\r\n")
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"part\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 PART :Not enough parameters\r\n"
+
+    user_alice.sendall(b"Mode\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 MODE :Not enough parameters\r\n"
+
+    user_alice.sendall(b"KICK\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
+
+    user_alice.sendall(b"KICK Bob\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
 
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
-    user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
-    user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 foo :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 FOO :Unknown command\r\n"
+    user_alice.sendall(b"Bar\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 Bar :Unknown command\r\n"
+    user_alice.sendall(b"baz\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 baz :Unknown command\r\n"
+    user_alice.sendall(b"&/!\r\n")
+    assert receive_line(user_alice) == b":mantatail 421 &/! :Unknown command\r\n"
 
 
 def test_unknown_mode(user_alice):
