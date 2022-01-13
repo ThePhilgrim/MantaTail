@@ -109,7 +109,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             user.nick = args[0]
                     else:
-                        commands.error_not_registered(user)
+                        if command_lower == "quit":
+                            user.send_que.put((None, None))
+                        else:
+                            commands.error_not_registered(user)
 
                     if user.user_message and user.nick:
                         state.connected_users[user.nick.lower()] = user
@@ -133,10 +136,10 @@ class UserConnection:
         self.state = state
         self.socket = socket
         self.host = host
-        self.nick = None  # Nick is shown in user lists etc, user_name is not
-        self.user_message = None  # Ex. AliceUsr 0 * Alice
-        self.user_name = None  # Ex. AliceUsr
-        self.user_mask = None  # Ex. Alice!AliceUsr@127.0.0.1
+        self.nick: Optional[str] = None  # Nick is shown in user lists etc, user_name is not
+        self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
+        self.user_name: Optional[str] = None  # Ex. AliceUsr
+        self.user_mask: Optional[str] = None  # Ex. Alice!AliceUsr@127.0.0.1
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
@@ -153,22 +156,21 @@ class UserConnection:
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
-                    self.state.delete_user(self.nick)
+                    if self.nick:
+                        self.state.delete_user(self.nick)
 
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
-                    self.send_string_to_client(
-                        quit_message, self.user_mask
-                    )  # TODO: Handle self.user_mask here when user not registered
+                    if not self.user_mask:
+                        self.send_string_to_client(quit_message, "unregistered_user")
+                    else:
+                        self.send_string_to_client(quit_message, self.user_mask)
                 except OSError:
                     pass
 
                 close_socket_cleanly(self.socket)
-                print(
-                    f"{self.nick} has disconnected."
-                )  # TODO: Handle self.nick for when not registered. Also, print needed?
                 return
             else:
                 try:
@@ -196,7 +198,10 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         try:
-            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+            if prefix == "unregistered_user":
+                message_as_bytes = bytes(f":{message}\r\n", encoding="utf-8")
+            else:
+                message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
 
             self.socket.sendall(message_as_bytes)
         except OSError:
