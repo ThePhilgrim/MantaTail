@@ -9,8 +9,8 @@ from typing import Optional, Dict, List, Tuple
 ### Handlers
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     if not args:
-        # TODO: Handle not enough params error & return
-        pass
+        error_not_enough_params(user, "JOIN")
+        return
 
     channel_regex = r"#[^ \x07,]{1,49}"  # TODO: Make more restrictive (currently valid: ###, #ö?!~ etc)
     channel_name = args[0]
@@ -57,8 +57,8 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     if not args:
-        # TODO: Handle not enough params error & return
-        pass
+        error_not_enough_params(user, "PART")
+        return
 
     channel_name = args[0]
 
@@ -85,8 +85,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     if not args:
-        # TODO: Handle not enough params error & return
-        pass
+        error_not_enough_params(user, "MODE")
+        return
 
     if args[0].startswith("#"):
         process_channel_modes(state, user, args)
@@ -96,8 +96,8 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     if not args:
-        # TODO: Handle not enough params error & return
-        pass
+        error_not_enough_params(user, "KICK")
+        return
 
     try:
         channel = state.find_channel(args[0])
@@ -135,11 +135,11 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     # msg str
     if not args:
-        # TODO: Handle Error 411 (No recipient given) & return
-        pass
+        error_no_recipient(user, "PRIVMSG")
+        return
     elif len(args) == 1:
-        # TODO: Handle Error 412 (No text to send) & return
-        pass
+        error_no_text_to_send(user)
+        return
 
     (receiver, privmsg) = args[0], args[1]
 
@@ -165,6 +165,8 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     if args[0] == ":mantatail":
         user.pong_received = True
+    else:
+        error_no_origin(user)
 
 
 # Private functions
@@ -333,9 +335,30 @@ def error_no_operator_privileges(user: mantatail.UserConnection, channel: mantat
     user.send_que.put((message, "mantatail"))
 
 
+def error_no_recipient(user: mantatail.UserConnection, command: str) -> None:
+    (no_recipient_num, no_recipient_info) = irc_responses.ERR_NORECIPIENT
+
+    message = f"{no_recipient_num} {no_recipient_info} ({command.upper()})"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_no_text_to_send(user: mantatail.UserConnection) -> None:
+    (no_text_num, no_text_info) = irc_responses.ERR_NOTEXTTOSEND
+
+    message = f"{no_text_num} {no_text_info}"
+    user.send_que.put((message, "mantatail"))
+
+
 def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> None:
     (unknown_mode_num, unknown_mode_info) = irc_responses.ERR_UNKNOWNMODE
     message = f"{unknown_mode_num} {unknown_command} {unknown_mode_info}"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_no_origin(user: mantatail.UserConnection) -> None:
+    (no_origin_num, no_origin_info) = irc_responses.ERR_NOORIGIN
+
+    message = f"{no_origin_num} {no_origin_info}"
     user.send_que.put((message, "mantatail"))
 
 
