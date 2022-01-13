@@ -55,12 +55,12 @@ class Listener:
             client_thread.start()
 
 
-def close_socket_cleanly(sock: socket.socket) -> None:
+def close_socket_cleanly(user: UserConnection) -> None:
     # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
     try:
-        sock.shutdown(socket.SHUT_WR)
-        sock.settimeout(10)
-        sock.recv(1)  # Wait for client to close the connection
+        user.socket.shutdown(socket.SHUT_WR)
+        user.socket.settimeout(10)
+        user.socket.recv(1)  # Wait for client to close the connection
     except OSError:
         # Possible causes:
         #   - Client decided to keep its connection open for more than 10sec.
@@ -68,14 +68,15 @@ def close_socket_cleanly(sock: socket.socket) -> None:
         #   - Probably something else too that I didn't think of...
         pass
 
-    sock.close()
+    user.socket.close()
 
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
-    _user_message = None
-    _nick = None
+    user = UserConnection(state, user_host, user_socket)
+    # _user_message = None
+    # _nick = None
 
-    user = None
+    # user = None
 
     try:
         while True:
@@ -83,15 +84,15 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
                 # Temporary check until these actions can be done before user registration
-                if user:
-                    user.start_ping_timer()
+                # if user:
+                user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     return  # go to "finally:"
                 finally:
-                    if user:
-                        user.ping_timer.cancel()
+                    # if user:
+                    user.ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
@@ -104,20 +105,21 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if user is None:
+                if not user.nick or not user.user_message:
                     if command_lower == "user":
-                        _user_message = args
+                        user.user_message = args
+                        user.user_name = args[0]
+                        user.generate_user_mask()
                     elif command_lower == "nick":
                         if args[0].lower() in state.connected_users.keys():
-                            user_socket.sendall(commands.error_nick_in_use(args[0]))
+                            user.send_que.put((commands.error_nick_in_use(args[0]), "mantatail"))
                         else:
-                            _nick = args[0]
+                            user.nick = args[0]
                     else:
-                        user_socket.sendall(commands.error_not_registered())
+                        user.send_que.put((commands.error_not_registered()), "mantatail")
 
-                    if _user_message and _nick:
-                        user = UserConnection(state, user_host, user_socket, _user_message, _nick)
-                        state.connected_users[_nick.lower()] = user
+                    if user.user_message and user.nick:
+                        state.connected_users[user.nick.lower()] = user
                         commands.motd(state.motd_content, user)
 
                 else:
@@ -130,25 +132,28 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, args)
     finally:
-        if user is None:
-            close_socket_cleanly(user_socket)
-        else:
-            user.send_que.put((None, None))
+        # if user is None:
+        close_socket_cleanly(user)
+        # else:
+        #     user.send_que.put((None, None))
 
 
 class UserConnection:
-    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: List[str], nick: str):
+    def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
-        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
-        self.nick = nick  # Nick is shown in user lists etc, user_name is not
-        self.user_message = " ".join(user_message)  # Ex. AliceUsr 0 * Alice
-        self.user_name = user_message[0]
-        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
+        self.nick = None  # Nick is shown in user lists etc, user_name is not
+        self.user_message = None  # Ex. AliceUsr 0 * Alice
+        self.user_name = None  # Ex. AliceUsr
+        self.user_mask = None  # Ex. Alice!AliceUsr@127.0.0.1
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.pong_received = False
+
+    def generate_user_mask(self) -> None:
+        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
         while True:
@@ -164,12 +169,16 @@ class UserConnection:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
-                    self.send_string_to_client(quit_message, self.user_mask)
+                    self.send_string_to_client(
+                        quit_message, self.user_mask
+                    )  # TODO: Handle self.user_mask here when user not registered
                 except OSError:
                     pass
 
                 close_socket_cleanly(self.socket)
-                print(f"{self.nick} has disconnected.")
+                print(
+                    f"{self.nick} has disconnected."
+                )  # TODO: Handle self.nick for when not registered. Also, print needed?
                 return
             else:
                 try:
