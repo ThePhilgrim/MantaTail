@@ -55,6 +55,21 @@ class Listener:
             client_thread.start()
 
 
+def wait_for_all_data_to_be_sent_and_then_close_socket(sock: socket.socket) -> None:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+    try:
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
+    except OSError:
+        # Possible causes:
+        #   - Client decided to keep its connection open for more than 10sec.
+        #   - Client was already disconnected.
+        #   - Probably something else too that I didn't think of...
+        pass
+    sock.close()
+
+
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     _user_message = None
     _nick = None
@@ -120,24 +135,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, message)
     finally:
         if user is None:
-            user_socket.close()
+            wait_for_all_data_to_be_sent_and_then_close_socket(user_socket)
         else:
             user.send_que.put((None, None))
-
-
-def wait_for_all_data_to_be_sent_and_then_close_socket(sock: socket.socket) -> None:
-    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
-    try:
-        sock.shutdown(socket.SHUT_WR)
-        sock.settimeout(10)
-        sock.recv(1)  # Wait for client to close the connection
-    except OSError:
-        # Possible causes:
-        #   - Client decided to keep its connection open for more than 10sec.
-        #   - Client was already disconnected.
-        #   - Probably something else too that I didn't think of...
-        pass
-    sock.close()
 
 
 class UserConnection:
