@@ -125,7 +125,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, args)
     finally:
-        close_socket_cleanly(user_socket)
+        user.send_que.put((None, None))
 
 
 class UserConnection:

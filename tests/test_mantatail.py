@@ -515,17 +515,16 @@ def test_sudden_disconnect(run_server):
 
     while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
         pass
-    print("A")
+
     nc2 = socket.socket()
     nc2.connect(("localhost", 6667))
     nc2.sendall(b"NICK nc2\n")
     nc2.sendall(b"USER nc2 0 * :netcat\n")
     nc2.sendall(b"JOIN #foo\n")
-    print("B")
+
     while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
         pass
-    print("C")
+
     nc.close()
-    print("D")
+
     assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
-    print("E")
