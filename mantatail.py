@@ -55,12 +55,12 @@ class Listener:
             client_thread.start()
 
 
-def close_socket_cleanly(user: UserConnection) -> None:
+def close_socket_cleanly(sock: socket.socket) -> None:
     # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
     try:
-        user.socket.shutdown(socket.SHUT_WR)
-        user.socket.settimeout(10)
-        user.socket.recv(1)  # Wait for client to close the connection
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
     except OSError:
         # Possible causes:
         #   - Client decided to keep its connection open for more than 10sec.
@@ -68,7 +68,7 @@ def close_socket_cleanly(user: UserConnection) -> None:
         #   - Probably something else too that I didn't think of...
         pass
 
-    user.socket.close()
+    sock.close()
 
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
@@ -133,7 +133,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, args)
     finally:
         # if user is None:
-        close_socket_cleanly(user)
+        close_socket_cleanly(user_socket)
         # else:
         #     user.send_que.put((None, None))
 
