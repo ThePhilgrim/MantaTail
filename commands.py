@@ -364,5 +364,5 @@ def error_no_origin(user: mantatail.UserConnection) -> None:
 
 def error_not_enough_params(user: mantatail.UserConnection, command: str) -> None:
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
-    message = f"{not_enough_params_num} {user.nick} {command} {not_enough_params_info}"
+    message = f"{not_enough_params_num} {command} {not_enough_params_info}"
     user.send_que.put((message, "mantatail"))
