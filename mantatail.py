@@ -55,7 +55,7 @@ class Listener:
             client_thread.start()
 
 
-def wait_for_all_data_to_be_sent_and_then_close_socket(sock: socket.socket) -> None:
+def wait_until_data_is_sent(sock: socket.socket) -> None:
     # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
     try:
         sock.shutdown(socket.SHUT_WR)
@@ -67,7 +67,6 @@ def wait_for_all_data_to_be_sent_and_then_close_socket(sock: socket.socket) -> N
         #   - Client was already disconnected.
         #   - Probably something else too that I didn't think of...
         pass
-    sock.close()
 
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
@@ -135,7 +134,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             call_handler_function(state, user, message)
     finally:
         if user is None:
-            wait_for_all_data_to_be_sent_and_then_close_socket(user_socket)
+            wait_until_data_is_sent(user_socket)
+            user_socket.close()
         else:
             user.send_que.put((None, None))
 
@@ -173,7 +173,8 @@ class UserConnection:
                 except OSError:
                     pass
 
-                wait_for_all_data_to_be_sent_and_then_close_socket(self.socket)
+                wait_until_data_is_sent(self.socket)
+                self.socket.close()
                 print(f"{self.nick} has disconnected.")
                 return
             else:
