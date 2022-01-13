@@ -104,9 +104,17 @@ def user_bob(run_server):
         pass
 
     yield bob_socket
+    print("test_mantatail.py send QUIT")
     bob_socket.sendall(b"QUIT\r\n")
-    while b"QUIT" not in receive_line(bob_socket):
-        pass
+    print("test_mantatail.py recv QUIT")
+    try:
+        while b"QUIT" not in receive_line(bob_socket):
+            pass
+    except ConnectionResetError as e:
+        print("test_mantatail.py recv error", e)
+        raise e
+    else:
+        print("test_mantatail.py recv success")
     bob_socket.close()
 
 
