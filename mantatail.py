@@ -55,13 +55,29 @@ class Listener:
             client_thread.start()
 
 
+def close_socket_cleanly(sock: socket.socket) -> None:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+    try:
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
+    except OSError:
+        # Possible causes:
+        #   - Client decided to keep its connection open for more than 10sec.
+        #   - Client was already disconnected.
+        #   - Probably something else too that I didn't think of...
+        pass
+
+    sock.close()
+
+
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     _user_message = None
     _nick = None
 
     user = None
 
-    with user_socket:
+    try:
         while True:
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
@@ -72,8 +88,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
-                    user.send_que.put((None, None))  # type: ignore
-                    return
+                    return  # go to "finally:"
                 finally:
                     if user:
                         user.ping_timer.cancel()
@@ -81,8 +96,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
-                    user.send_que.put((None, None))  # type: ignore
-                    return
+                    return  # go to "finally:"
 
             decoded_message = request.decode("utf-8")
             for line in split_on_new_line(decoded_message)[:-1]:
@@ -115,6 +129,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     else:
                         with state.lock:
                             call_handler_function(state, user, args)
+    finally:
+        if user is None:
+            close_socket_cleanly(user_socket)
+        else:
+            user.send_que.put((None, None))
 
 
 class UserConnection:
@@ -149,7 +168,7 @@ class UserConnection:
                 except OSError:
                     pass
 
-                self.socket.close()
+                close_socket_cleanly(self.socket)
                 print(f"{self.nick} has disconnected.")
                 return
             else:
