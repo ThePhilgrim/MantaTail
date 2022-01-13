@@ -122,7 +122,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
         if user is None:
             user_socket.close()
         else:
-            print("mantatail.py put to send_que")
             user.send_que.put((None, None))
 
 
@@ -162,28 +161,25 @@ class UserConnection:
             (message, prefix) = self.send_que.get()
 
             if message is None or prefix is None:
-                print("mantatail.py send_queue_thread quit 1")
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
                     self.state.delete_user(self.nick)
 
-                print("mantatail.py send_queue_thread quit 2")
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
                     self.send_string_to_client(quit_message, self.user_mask)
                 except OSError:
-                    print("  mantatail.py send_queue_thread send to self failure")
                     pass
 
                 wait_for_all_data_to_be_sent_and_then_close_socket(self.socket)
+                print(f"{self.nick} has disconnected.")
                 return
             else:
                 try:
                     self.send_string_to_client(message, prefix)
                 except:
-                    print("mantatail.py send_queue_thread self-queueing (None,None)")
                     self.send_que.put((None, None))
 
     def queue_quit_message_for_other_users(self) -> None:
