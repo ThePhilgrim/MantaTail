@@ -98,7 +98,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     return  # go to "finally:"
 
-            decoded_message = request.decode("utf-8")
+            decoded_message = request.decode("latin-1")
             for line in split_on_new_line(decoded_message)[:-1]:
                 command, args = commands.parse_received_args(line)
                 command_lower = command.lower()
@@ -197,7 +197,7 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: str) -> None:
         try:
-            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="latin-1")
 
             self.socket.sendall(message_as_bytes)
         except OSError:
