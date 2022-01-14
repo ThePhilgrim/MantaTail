@@ -193,6 +193,9 @@ class UserConnection:
             if channel.is_operator(self):
                 channel.remove_operator(self)
 
+        assert (
+            self.user_mask
+        )  # To satisfy mypy ('Argument 1 to "put" of "Queue" has incompatible type "Tuple[str, Optional[str]]"; expected "Union[Tuple[str, str], Tuple[None, None]]"')
         for receiver in receivers:
             receiver.send_que.put((message, self.user_mask))
 
@@ -234,15 +237,21 @@ class Channel:
         self.set_operator(user)
 
     def set_operator(self, user: UserConnection) -> None:
+        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         self.operators.add(user.nick.lower())
 
     def remove_operator(self, user: UserConnection) -> None:
+        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         self.operators.discard(user.nick.lower())
 
     def is_operator(self, user: UserConnection) -> bool:
+        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         return user.nick.lower() in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
+        assert (
+            kicker.user_mask
+        )  # To satisfy mypy ('Argument 1 to "put" of "Queue" has incompatible type "Tuple[str, Optional[str]]"; expected "Union[Tuple[str, str], Tuple[None, None]]"')
         for usr in self.users:
             usr.send_que.put((message, kicker.user_mask))
 
