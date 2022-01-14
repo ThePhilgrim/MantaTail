@@ -21,7 +21,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Dict of connected users.
     If the channel does not exist, the channel is created by instantiating mantatail.Channel.
 
-    Finally, puts a message to all already connected users' Send Queues, notifying them that
+    Finally, sends a message to all users on the channel, notifying them that
     User has joined the channel.
     """
     if not args:
@@ -75,6 +75,9 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     """
     Handles clien't command to disconnect from a channel on the server.
     Command format: "PART #foo"
+
+    Finally, sends a message to all users on the channel, notifying them that
+    User has left the channel.
     """
     if not args:
         error_not_enough_params(user, "PART")
@@ -106,7 +109,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Handles clien't command to set a channel/user mode.
-    Command format: "MODE #channel/user +/-flag <args>" """
+    Command format: "MODE #channel/user.nick +/-flag <args>"
+    """
     if not args:
         error_not_enough_params(user, "MODE")
         return
@@ -118,6 +122,16 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles client's command to kick a user from a channel.
+    Command format: "KICK #foo user_to_kick (:Reason for kicking)"
+
+    The user kicking somebody must be an operator on that channel
+    (see mantatail.Channel.operators)
+
+    Fnally, sends a message to all users on the channel,
+    notifying them that an operator has kicked a user.
+    """
     if not args or len(args) == 1:
         error_not_enough_params(user, "KICK")
         return
@@ -151,12 +165,25 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles a user's command to disconnect from the server.
+    Command format: "QUIT"
+
+    Puts a tuple (None, None) to the user's send_que, which the server
+    interprets as the user wanting to disconnect
+    (see mantatail.UserConection.send_queue_thread).
+    """
     # TODO "if args: set args to reason"
     user.send_que.put((None, None))
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    # msg str
+    """
+    Handles client's command to send a message to a channel or a private message to a user.
+    Command format: "PRIVMSG #channel/user.nick :This is a message"
+
+    Private message's to users are handled in privmsg_to_user().
+    """
     if not args:
         error_no_recipient(user, "PRIVMSG")
         return
@@ -186,6 +213,11 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles client's PONG resonse to a PING message sent from the server.
+
+    The PONG message notifies the server that the client still has an open connection to it.
+    """
     if args[0] == ":mantatail":
         user.pong_received = True
     else:
@@ -292,6 +324,7 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
 
 ### Error Messages
 def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
+    """Sent when server does not recognize a command user sent to server."""
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
 
     message = f"{unknown_cmd_num} {command} {unknown_cmd_info}"
@@ -299,12 +332,14 @@ def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
 
 
 def error_not_registered() -> bytes:
+    """Sent when a user sends a command before establishing a Nick and User."""
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
     return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="utf-8")
 
 
 def error_no_motd(user: mantatail.UserConnection) -> None:
+    """Sent when server cannot find the Message of the Day."""
     (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
 
     message = f"{no_motd_num} {no_motd_info}"
@@ -312,12 +347,14 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
 
 
 def error_nick_in_use(nick: str) -> bytes:
+    """Sent when a Nick that a user tries to establish is already in use."""
     (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
 
     return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="utf-8")
 
 
 def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: str) -> None:
+    """Sent when a user provides a non-existing user or channel as an argument in a command."""
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
     message = f"{no_nick_num} {channel_or_nick} {no_nick_info}"
@@ -325,6 +362,7 @@ def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: 
 
 
 def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> None:
+    """Sent when a user tries to send a message to, or part from a channel that they are not connected to."""
     (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
     message = f"{not_on_channel_num} {channel_name} {not_on_channel_info}"
@@ -334,12 +372,17 @@ def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> N
 def error_user_not_in_channel(
     user: mantatail.UserConnection, target_usr: mantatail.UserConnection, channel: mantatail.Channel
 ) -> None:
+    """
+    Sent when a user sends a channel-specific command with a user as an argument,
+    and this user is connected to the server but not to the channel.
+    """
     (not_in_chan_num, not_in_chan_info) = irc_responses.ERR_USERNOTINCHANNEL
     message = f"{not_in_chan_num} {target_usr.nick} {channel.name} {not_in_chan_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: str) -> None:
+    # TODO: Figure out when this is sent and make docstring
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {channel_name} {cant_send_info}"
@@ -347,18 +390,24 @@ def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: s
 
 
 def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> None:
+    """Sent when a user provides a non-existing channel as an argument in a command."""
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
     message = f"{no_channel_num} {channel_name} {no_channel_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_no_operator_privileges(user: mantatail.UserConnection, channel: mantatail.Channel) -> None:
+    """
+    Sent when a user is trying to perform an action reserved to channel operators,
+    but is not an operator on that channel.
+    """
     (not_operator_num, not_operator_info) = irc_responses.ERR_CHANOPRIVSNEEDED
     message = f"{not_operator_num} {channel.name} {not_operator_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_no_recipient(user: mantatail.UserConnection, command: str) -> None:
+    """Sent when a user sends a PRIVMSG but without providing a recipient."""
     (no_recipient_num, no_recipient_info) = irc_responses.ERR_NORECIPIENT
 
     message = f"{no_recipient_num} {no_recipient_info} ({command.upper()})"
@@ -366,6 +415,10 @@ def error_no_recipient(user: mantatail.UserConnection, command: str) -> None:
 
 
 def error_no_text_to_send(user: mantatail.UserConnection) -> None:
+    """
+    Sent when a user tries to send a PRIVMSG but without providing any message to send.
+    Ex. "PRIVMSG #foo"
+    """
     (no_text_num, no_text_info) = irc_responses.ERR_NOTEXTTOSEND
 
     message = f"{no_text_num} {no_text_info}"
@@ -373,12 +426,17 @@ def error_no_text_to_send(user: mantatail.UserConnection) -> None:
 
 
 def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> None:
+    """Sent when a user tries to set a channel/user mode that the server does not recognize."""
     (unknown_mode_num, unknown_mode_info) = irc_responses.ERR_UNKNOWNMODE
     message = f"{unknown_mode_num} {unknown_command} {unknown_mode_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_no_origin(user: mantatail.UserConnection) -> None:
+    """
+    Sent when the argument of a PONG message sent as a response to the server's
+    PING message does not correspond to the argument sent in the PING message.
+    """
     (no_origin_num, no_origin_info) = irc_responses.ERR_NOORIGIN
 
     message = f"{no_origin_num} {no_origin_info}"
@@ -386,6 +444,7 @@ def error_no_origin(user: mantatail.UserConnection) -> None:
 
 
 def error_not_enough_params(user: mantatail.UserConnection, command: str) -> None:
+    """Sent when a user sends a command to the server that does not contain all required arguments."""
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
     message = f"{not_enough_params_num} {command} {not_enough_params_info}"
     user.send_que.put((message, "mantatail"))

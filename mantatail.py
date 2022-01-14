@@ -1,3 +1,7 @@
+"""
+Represents the core of the server, with its main functionality and classes.
+"""
+
 from __future__ import annotations
 import socket
 import threading
@@ -81,10 +85,15 @@ def close_socket_cleanly(sock: socket.socket) -> None:
     The code is based on this blog post:
     https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
 
-    Potentially raises OSError. Possible causes:
-    - Client decided to keep its connection open for more than 10sec.
-    - Client was already disconnected.
-    - Probably something else too that I didn't think of...
+    Args:
+        sock: Client socket
+
+    Raises:
+        OSError:
+            Possible causes:
+            - Client decided to keep its connection open for more than 10sec.
+            - Client was already disconnected.
+            - Probably something else too that I didn't think of...
     """
     try:
         sock.shutdown(socket.SHUT_WR)
@@ -107,7 +116,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
     Note that netcat uses "\n" in place of "\r\n".
 
-    Currently only UTF-8 is supported.
+    Args:
+        user_host: Client IP address
+        user_socket: Client socket
     """
     _user_message = None
     _nick = None
@@ -337,7 +348,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         """
-        Puts KICK message in the channel users' Queues notifying them that
+        Puts a KICK message in the channel users' Queues notifying them that
         an operator has kicked a user from the channel.
 
         Thereafter removes the kicked user from the channel's user Set.

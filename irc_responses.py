@@ -1,3 +1,14 @@
+"""
+Contains IRC-specific server replies that are sent to clients based on their actions.
+
+These include:
+    - Command Responses: Responses to certain commands, such as joining channel or setting channel mode.
+
+    - Error Replies: Responses to invalid actions by the user, for example,leaving a channel that
+    does not exist or not providing enough parameters in their commands.
+"""
+# TODO: Link to RFC irc resonse section in docstring
+
 # Error Replies
 ERR_NOSUCHNICK = ("401", ":No such nick/channel")
 ERR_NOSUCHSERVER = ("402", ":No such server")
