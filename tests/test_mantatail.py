@@ -540,7 +540,6 @@ def test_invalid_utf8(user_alice, user_bob):
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
-    random_message = random.randbytes(100)
-    random_message = random_message.replace(b"\n", b"")
+    random_message = random.randbytes(100).replace(b"\n", b"")
     user_alice.sendall(b"PRIVMSG #foo :" + random_message + b"\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :" + random_message + b"\r\n"
