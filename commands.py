@@ -1,3 +1,8 @@
+"""
+Contains handler functions that handle commands received from a client, as well as appropriate errors.
+
+All public functions must start with "handle_"
+"""
 from __future__ import annotations
 import re
 import mantatail
@@ -8,6 +13,17 @@ from typing import Optional, Dict, List, Tuple
 
 ### Handlers
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles clien't command to join a channel on the server.
+    Command format: "JOIN #foo"
+
+    If the channel already exists, the user is put to the appropriate channel's
+    Dict of connected users.
+    If the channel does not exist, the channel is created by instantiating mantatail.Channel.
+
+    Finally, puts a message to all already connected users' Send Queues, notifying them that
+    User has joined the channel.
+    """
     if not args:
         error_not_enough_params(user, "JOIN")
         return
@@ -56,6 +72,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles clien't command to disconnect from a channel on the server.
+    Command format: "PART #foo"
+    """
     if not args:
         error_not_enough_params(user, "PART")
         return
@@ -84,6 +104,9 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Handles clien't command to set a channel/user mode.
+    Command format: "MODE #channel/user +/-flag <args>" """
     if not args:
         error_not_enough_params(user, "MODE")
         return
