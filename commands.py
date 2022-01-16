@@ -39,7 +39,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             for usr in channel.users:
                 message = f"JOIN {channel_name}"
-                usr.send_que.put((message, user.user_mask))
+                usr.send_que.put((message, user.get_user_mask()))
 
             # TODO: Implement topic functionality for existing channels & MODE for new ones
 
@@ -76,7 +76,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         for usr in channel.users:
             message = f"PART {channel_name}"
-            usr.send_que.put((message, user.user_mask))
+            usr.send_que.put((message, user.get_user_mask()))
 
         channel.users.discard(user)
         if len(channel.users) == 0:
@@ -159,7 +159,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         for usr in channel.users:
             if usr.nick != user.nick:
                 message = f"PRIVMSG {receiver} :{privmsg}"
-                usr.send_que.put((message, user.user_mask))
+                usr.send_que.put((message, user.get_user_mask()))
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:

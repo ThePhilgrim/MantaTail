@@ -98,11 +98,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if not user.nick or not user.user_message:
+                if not hasattr(user, "nick") or not user.user_message:
                     if command_lower == "user":
                         user.user_message = args
                         user.user_name = args[0]
-                        user.generate_user_mask()
                     elif command_lower == "nick":
                         if args[0].lower() in state.connected_users.keys():
                             commands.error_nick_in_use(user, args[0])
@@ -114,7 +113,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             commands.error_not_registered(user)
 
-                    if user.user_message and user.nick:
+                    if hasattr(user, "nick") and user.user_message:
                         state.connected_users[user.nick.lower()] = user
                         commands.motd(state.motd_content, user)
 
@@ -148,8 +147,8 @@ class UserConnection:
         self.que_thread.start()
         self.pong_received = False
 
-    def generate_user_mask(self) -> None:
-        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
+    def get_user_mask(self) -> str:
+        return f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
         while True:
@@ -159,17 +158,17 @@ class UserConnection:
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
-                    if self.nick:
+                    if hasattr(self, "nick"):
                         self.state.delete_user(self.nick)
 
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
-                    if not self.user_mask:
-                        self.send_string_to_client(quit_message, "unregistered_user")
+                    if not hasattr(self, "nick") or not self.user_message:
+                        self.send_string_to_client(quit_message, None)
                     else:
-                        self.send_string_to_client(quit_message, self.user_mask)
+                        self.send_string_to_client(quit_message, self.get_user_mask())
                 except OSError:
                     pass
 
@@ -197,11 +196,11 @@ class UserConnection:
                 channel.remove_operator(self)
 
         for receiver in receivers:
-            receiver.send_que.put((message, self.user_mask))
+            receiver.send_que.put((message, self.get_user_mask()))
 
-    def send_string_to_client(self, message: str, prefix: str) -> None:
+    def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         try:
-            if prefix == "unregistered_user":
+            if prefix is None:
                 message_as_bytes = bytes(f":{message}\r\n", encoding="utf-8")
             else:
                 message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
@@ -247,7 +246,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
-            usr.send_que.put((message, kicker.user_mask))
+            usr.send_que.put((message, kicker.get_user_mask()))
 
         self.users.discard(user_to_kick)
 
