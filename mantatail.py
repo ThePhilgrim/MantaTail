@@ -132,14 +132,17 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
 
 class UserConnection:
+    # self.nick is defined in recv_loop()
+    # It is not set in __init__ to keep mypy happy.
+    nick: str  # Nick is shown in user lists etc, user_name is not
+    user_mask: str  # Ex. Alice!AliceUsr@127.0.0.1
+
     def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
         self.socket = socket
         self.host = host
-        self.nick: Optional[str] = None  # Nick is shown in user lists etc, user_name is not
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
-        self.user_mask: Optional[str] = None  # Ex. Alice!AliceUsr@127.0.0.1
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
@@ -193,9 +196,6 @@ class UserConnection:
             if channel.is_operator(self):
                 channel.remove_operator(self)
 
-        assert (
-            self.user_mask
-        )  # To satisfy mypy ('Argument 1 to "put" of "Queue" has incompatible type "Tuple[str, Optional[str]]"; expected "Union[Tuple[str, str], Tuple[None, None]]"')
         for receiver in receivers:
             receiver.send_que.put((message, self.user_mask))
 
@@ -237,21 +237,15 @@ class Channel:
         self.set_operator(user)
 
     def set_operator(self, user: UserConnection) -> None:
-        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         self.operators.add(user.nick.lower())
 
     def remove_operator(self, user: UserConnection) -> None:
-        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         self.operators.discard(user.nick.lower())
 
     def is_operator(self, user: UserConnection) -> bool:
-        assert user.nick  # To satisfy mypy ('Item "None" of "Optional[str]" has no attribute "lower"')
         return user.nick.lower() in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
-        assert (
-            kicker.user_mask
-        )  # To satisfy mypy ('Argument 1 to "put" of "Queue" has incompatible type "Tuple[str, Optional[str]]"; expected "Union[Tuple[str, str], Tuple[None, None]]"')
         for usr in self.users:
             usr.send_que.put((message, kicker.user_mask))
 
