@@ -278,7 +278,7 @@ def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
 def error_not_registered() -> bytes:
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
-    return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="utf-8")
+    return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="latin-1")
 
 
 def error_no_motd(user: mantatail.UserConnection) -> None:
@@ -291,7 +291,7 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
 def error_nick_in_use(nick: str) -> bytes:
     (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
 
-    return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="utf-8")
+    return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="latin-1")
 
 
 def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: str) -> None:
