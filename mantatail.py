@@ -92,7 +92,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 else:
                     return  # go to "finally:"
 
-            decoded_message = request.decode("utf-8")
+            decoded_message = request.decode("latin-1")
             for line in split_on_new_line(decoded_message)[:-1]:
                 command, args = commands.parse_received_args(line)
                 command_lower = command.lower()
@@ -136,7 +136,6 @@ class UserConnection:
     # self.nick is defined in recv_loop()
     # It is not set in __init__ to keep mypy happy.
     nick: str  # Nick is shown in user lists etc, user_name is not
-    user_mask: str  # Ex. Alice!AliceUsr@127.0.0.1
 
     def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
@@ -203,9 +202,9 @@ class UserConnection:
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         try:
             if prefix is None:
-                message_as_bytes = bytes(f":{message}\r\n", encoding="utf-8")
+                message_as_bytes = bytes(f":{message}\r\n", encoding="latin-1")
             else:
-                message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="utf-8")
+                message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="latin-1")
 
             self.socket.sendall(message_as_bytes)
         except OSError:
