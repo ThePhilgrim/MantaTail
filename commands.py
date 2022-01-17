@@ -39,7 +39,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             for usr in channel.users:
                 message = f"JOIN {channel_name}"
-                usr.send_que.put((message, user.user_mask))
+                usr.send_que.put((message, user.get_user_mask()))
 
             # TODO: Implement topic functionality for existing channels & MODE for new ones
 
@@ -76,7 +76,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         for usr in channel.users:
             message = f"PART {channel_name}"
-            usr.send_que.put((message, user.user_mask))
+            usr.send_que.put((message, user.get_user_mask()))
 
         channel.users.discard(user)
         if len(channel.users) == 0:
@@ -159,11 +159,11 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         for usr in channel.users:
             if usr.nick != user.nick:
                 message = f"PRIVMSG {receiver} :{privmsg}"
-                usr.send_que.put((message, user.user_mask))
+                usr.send_que.put((message, user.get_user_mask()))
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    if args[0] == ":mantatail":
+    if args and args[0] == "mantatail":
         user.pong_received = True
     else:
         error_no_origin(user)
@@ -275,10 +275,11 @@ def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     user.send_que.put((message, "mantatail"))
 
 
-def error_not_registered() -> bytes:
+def error_not_registered(user: mantatail.UserConnection) -> None:
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
-    return bytes(f":mantatail {not_registered_num} * {not_registered_info}\r\n", encoding="latin-1")
+    message = f":mantatail {not_registered_num} * {not_registered_info}"
+    user.send_que.put((message, "mantatail"))
 
 
 def error_no_motd(user: mantatail.UserConnection) -> None:
@@ -288,10 +289,11 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
     user.send_que.put((message, "mantatail"))
 
 
-def error_nick_in_use(nick: str) -> bytes:
+def error_nick_in_use(user: mantatail.UserConnection, nick: str) -> None:
     (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
 
-    return bytes(f":mantatail {nick_in_use_num} {nick} {nick_in_use_info}\r\n", encoding="latin-1")
+    message = f"{nick_in_use_num} {nick} {nick_in_use_info}"
+    user.send_que.put((message, "mantatail"))
 
 
 def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: str) -> None:

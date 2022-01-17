@@ -72,26 +72,20 @@ def close_socket_cleanly(sock: socket.socket) -> None:
 
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
-    _user_message = None
-    _nick = None
-
-    user = None
+    user = UserConnection(state, user_host, user_socket)
 
     try:
         while True:
             request = b""
             # IRC messages always end with b"\r\n" (netcat uses "\n")
             while not request.endswith(b"\n"):
-                # Temporary check until these actions can be done before user registration
-                if user:
-                    user.start_ping_timer()
+                user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
                 except OSError:
                     return  # go to "finally:"
                 finally:
-                    if user:
-                        user.ping_timer.cancel()
+                    user.ping_timer.cancel()
 
                 if request_chunk:
                     request += request_chunk
@@ -104,20 +98,25 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if user is None:
+                if not hasattr(user, "nick") or not user.user_message:
                     if command_lower == "user":
-                        _user_message = args
+                        user.user_message = args
+                        user.user_name = args[0]
                     elif command_lower == "nick":
                         if args[0].lower() in state.connected_users.keys():
-                            user_socket.sendall(commands.error_nick_in_use(args[0]))
+                            commands.error_nick_in_use(user, args[0])
                         else:
-                            _nick = args[0]
+                            user.nick = args[0]
+                            state.connected_users[user.nick.lower()] = user
+                    elif command_lower == "pong":
+                        commands.handle_pong(state, user, args)
                     else:
-                        user_socket.sendall(commands.error_not_registered())
+                        if command_lower == "quit":
+                            user.send_que.put((None, None))
+                        else:
+                            commands.error_not_registered(user)
 
-                    if _user_message and _nick:
-                        user = UserConnection(state, user_host, user_socket, _user_message, _nick)
-                        state.connected_users[_nick.lower()] = user
+                    if hasattr(user, "nick") and user.user_message:
                         commands.motd(state.motd_content, user)
 
                 else:
@@ -130,25 +129,27 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         with state.lock:
                             call_handler_function(state, user, args)
     finally:
-        if user is None:
-            close_socket_cleanly(user_socket)
-        else:
-            user.send_que.put((None, None))
+        user.send_que.put((None, None))
 
 
 class UserConnection:
-    def __init__(self, state: ServerState, host: str, socket: socket.socket, user_message: List[str], nick: str):
+    # self.nick is defined in recv_loop()
+    # It is not set in __init__ to keep mypy happy.
+    nick: str  # Nick is shown in user lists etc, user_name is not
+
+    def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
-        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.socket = socket
         self.host = host
-        self.nick = nick  # Nick is shown in user lists etc, user_name is not
-        self.user_message = " ".join(user_message)  # Ex. AliceUsr 0 * Alice
-        self.user_name = user_message[0]
-        self.user_mask = f"{self.nick}!{self.user_name}@{self.host}"
+        self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
+        self.user_name: Optional[str] = None  # Ex. AliceUsr
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.pong_received = False
+
+    def get_user_mask(self) -> str:
+        return f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
         while True:
@@ -158,18 +159,21 @@ class UserConnection:
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
-                    self.state.delete_user(self.nick)
+                    if hasattr(self, "nick"):
+                        self.state.delete_user(self.nick)
 
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
-                    self.send_string_to_client(quit_message, self.user_mask)
+                    if not hasattr(self, "nick") or not self.user_message:
+                        self.send_string_to_client(quit_message, None)
+                    else:
+                        self.send_string_to_client(quit_message, self.get_user_mask())
                 except OSError:
                     pass
 
                 close_socket_cleanly(self.socket)
-                print(f"{self.nick} has disconnected.")
                 return
             else:
                 try:
@@ -193,11 +197,14 @@ class UserConnection:
                 channel.remove_operator(self)
 
         for receiver in receivers:
-            receiver.send_que.put((message, self.user_mask))
+            receiver.send_que.put((message, self.get_user_mask()))
 
-    def send_string_to_client(self, message: str, prefix: str) -> None:
+    def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         try:
-            message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="latin-1")
+            if prefix is None:
+                message_as_bytes = bytes(f":{message}\r\n", encoding="latin-1")
+            else:
+                message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="latin-1")
 
             self.socket.sendall(message_as_bytes)
         except OSError:
@@ -240,7 +247,7 @@ class Channel:
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         for usr in self.users:
-            usr.send_que.put((message, kicker.user_mask))
+            usr.send_que.put((message, kicker.get_user_mask()))
 
         self.users.discard(user_to_kick)
 
