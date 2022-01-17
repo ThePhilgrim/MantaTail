@@ -513,6 +513,26 @@ def test_nick_already_taken(run_server):
         pass
     nc2.close()
 
+    nc3 = socket.socket()
+    nc3.connect(("localhost", 6667))
+    nc3.sendall(b"NICK nc3\n")
+
+    nc4 = socket.socket()
+    nc4.connect(("localhost", 6667))
+    nc4.sendall(b"NICK nc3\n")
+
+    assert receive_line(nc4) == b":mantatail 433 nc3 :Nickname is already in use\r\n"
+
+    nc3.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc3):
+        pass
+    nc3.close()
+
+    nc4.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc4):
+        pass
+    nc4.close()
+
 
 def test_sudden_disconnect(run_server):
     nc = socket.socket()

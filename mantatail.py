@@ -107,6 +107,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             commands.error_nick_in_use(user, args[0])
                         else:
                             user.nick = args[0]
+                            state.connected_users[user.nick.lower()] = user
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
                     else:
@@ -116,7 +117,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             commands.error_not_registered(user)
 
                     if hasattr(user, "nick") and user.user_message:
-                        state.connected_users[user.nick.lower()] = user
                         commands.motd(state.motd_content, user)
 
                 else:
