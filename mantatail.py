@@ -134,7 +134,6 @@ class UserConnection:
     # self.nick is defined in recv_loop()
     # It is not set in __init__ to keep mypy happy.
     nick: str  # Nick is shown in user lists etc, user_name is not
-    user_mask: str  # Ex. Alice!AliceUsr@127.0.0.1
 
     def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
