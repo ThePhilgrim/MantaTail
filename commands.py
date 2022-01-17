@@ -163,7 +163,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    if args[0] == ":mantatail":
+    if args and args[0] == "mantatail":
         user.pong_received = True
     else:
         error_no_origin(user)

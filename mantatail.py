@@ -107,6 +107,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             commands.error_nick_in_use(user, args[0])
                         else:
                             user.nick = args[0]
+                    elif command_lower == "pong":
+                        commands.handle_pong(state, user, args)
                     else:
                         if command_lower == "quit":
                             user.send_que.put((None, None))
