@@ -523,6 +523,8 @@ def test_nick_already_taken(run_server):
     nc3.connect(("localhost", 6667))
     nc3.sendall(b"NICK nc3\n")
 
+    time.sleep(0.1)
+
     nc4 = socket.socket()
     nc4.connect(("localhost", 6667))
     nc4.sendall(b"NICK nc3\n")
