@@ -1,5 +1,12 @@
 """
 Represents the core of the server, with its main functionality and classes.
+
+All communication between server and client is encoded with latin-1.
+This ensures compatibility regardless of what encoding is used client-side.
+
+IRC Documentation:
+    - https://modern.ircdocs.horse/
+    - https://datatracker.ietf.org/doc/html/rfc1459
 """
 
 from __future__ import annotations
@@ -210,13 +217,14 @@ class UserConnection:
         self.pong_received = False
 
     def get_user_mask(self) -> str:
+        """Generates and returns a user mask as string. See class documentation for format."""
         return f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
         """
         Queue on which the client receives messages from server.
 
-        All messages are a Tuple formatted as (message, prefix).
+        All messages are a tuple formatted as (message, prefix).
         Prefixes are either ":mantatail" or "sender.user_mask"
 
         A Tuple containing (None, None) indicates a QUIT and closes the connection to the client.
@@ -224,7 +232,6 @@ class UserConnection:
         while True:
             (message, prefix) = self.send_que.get()
 
-            # (None, None) disconnects the user
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
@@ -286,7 +293,7 @@ class UserConnection:
 
     def start_ping_timer(self) -> None:
         """
-        Starts a timer on a separate thread that when finished sends a PING message to the client
+        Starts a timer on a separate thread that, when finished, sends a PING message to the client
         to establish that the client still has an open connection to the server.
         """
         self.ping_timer = threading.Timer(TIMER_SECONDS, self.queue_ping_message)

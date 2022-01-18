@@ -6,8 +6,11 @@ These include:
 
     - Error Replies: Responses to invalid actions by the user, for example,leaving a channel that
     does not exist or not providing enough parameters in their commands.
+
+For a collection of all valid IRC responses:
+    - https://datatracker.ietf.org/doc/html/rfc1459#section-6
 """
-# TODO: Link to RFC irc resonse section in docstring
+
 
 # Error Replies
 ERR_NOSUCHNICK = ("401", ":No such nick/channel")
