@@ -1,3 +1,4 @@
+import os
 import pytest
 import random
 import socket
@@ -463,6 +464,13 @@ def test_connect_via_netcat(run_server):
             pass
 
 
+def test_quit_before_registering():
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))  # nc localhost 6667
+        nc.sendall(b"QUIT\n")
+        assert receive_line(nc) == b":QUIT :Quit: (Remote host closed the connection)\r\n"
+
+
 def test_join_part_race_condition(user_alice, user_bob):
     for i in range(100):
         user_alice.sendall(b"JOIN #foo\r\n")
@@ -505,6 +513,26 @@ def test_nick_already_taken(run_server):
         pass
     nc2.close()
 
+    nc3 = socket.socket()
+    nc3.connect(("localhost", 6667))
+    nc3.sendall(b"NICK nc3\n")
+
+    nc4 = socket.socket()
+    nc4.connect(("localhost", 6667))
+    nc4.sendall(b"NICK nc3\n")
+
+    assert receive_line(nc4) == b":mantatail 433 nc3 :Nickname is already in use\r\n"
+
+    nc3.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc3):
+        pass
+    nc3.close()
+
+    nc4.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc4):
+        pass
+    nc4.close()
+
 
 def test_sudden_disconnect(run_server):
     nc = socket.socket()
@@ -528,3 +556,18 @@ def test_sudden_disconnect(run_server):
     nc.close()
 
     assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
+
+
+def test_invalid_utf8(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    random_message = os.urandom(100).replace(b"\n", b"")
+    user_alice.sendall(b"PRIVMSG #foo :" + random_message + b"\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :" + random_message + b"\r\n"
