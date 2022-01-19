@@ -243,12 +243,7 @@ class Channel:
         self.operators.discard(user.nick.lower())
 
     def is_founder(self, user: UserConnection) -> bool:
-        """
-        Takes a UserConnection object as an argument and checks if the user
-        is the channel founder.
-
-        Returns a Boolean.
-        """
+        """Checks if the user is the channel founder."""
         return user.user_name == self.founder
 
     def is_operator(self, user: UserConnection) -> bool:
