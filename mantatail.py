@@ -23,29 +23,32 @@ TIMER_SECONDS = 600
 
 
 class ServerState:
-    """
-    Represents the current state of the Server.
-    Keeps track of existing channels & connected users.
-    """
+    """Keeps track of existing channels & connected users."""
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
+        """
+        Attributes:
+            lock: Locks the state of the server to avoid modifications to iterables during iteration.
+            channels: The currently existing channels on the server.
+            connected_users: The currently connected users on the server.
+        """
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
     def find_user(self, nick: str) -> UserConnection:
-        """Looks for a connected user and returns the UserConnection object corresponding to that user."""
+        """Looks for a connected user and returns its user object."""
         return self.connected_users[nick.lower()]
 
     def find_channel(self, channel_name: str) -> Channel:
-        """Looks for an existing channel and returns the Channel object corresponding to that channel."""
+        """Looks for an existing channel and returns its channel object."""
         return self.channels[channel_name.lower()]
 
     def delete_user(self, nick: str) -> None:
         """
-        Removes a user from all channels of which the user is connected to,
-        thereafter removes user from dict of connected users.
+        Removes a user from all channels they are connected to,
+        thereafter removes user from connected users.
         """
         user = self.connected_users[nick.lower()]
         for channel in self.channels.values():
@@ -54,7 +57,7 @@ class ServerState:
         del self.connected_users[nick.lower()]
 
     def delete_channel(self, channel_name: str) -> None:
-        """Removes channel from dict of existing channels."""
+        """Removes a channel from server."""
         del self.channels[channel_name.lower()]
 
 
@@ -86,27 +89,18 @@ class Listener:
 
 
 def close_socket_cleanly(sock: socket.socket) -> None:
-    """
-    Ensures that the connection to a client is closed cleanly without errors.
-
-    The code is based on this blog post:
-    https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
-
-    Args:
-        sock: Client socket
-
-    Raises:
-        OSError:
-            Possible causes:
-            - Client decided to keep its connection open for more than 10sec.
-            - Client was already disconnected.
-            - Probably something else too that I didn't think of...
-    """
+    """Ensures that the connection to a client is closed cleanly without errors."""
+    # The code is based on this blog post:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
     try:
         sock.shutdown(socket.SHUT_WR)
         sock.settimeout(10)
         sock.recv(1)  # Wait for client to close the connection
     except OSError:
+        # Possible causes:
+        # - Client decided to keep its connection open for more than 10sec.
+        # - Client was already disconnected.
+        # - Probably something else too that I didn't think of...
         pass
 
     sock.close()
@@ -118,14 +112,16 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     parses them and sends them to appropriate "handle_" function in "commands".
 
     IRC Messages are formatted "bytes(COMMAND args\r\n)"
+    Note that netcat uses "\n" in place of "\r\n".
+
     Ex: b"JOIN #foo\r\n"
     Ex: b"PRIVMSG #foo :This is a message\r\n"
 
-    Note that netcat uses "\n" in place of "\r\n".
-
-    Args:
-        user_host: Client IP address
-        user_socket: Client socket
+    COMMAND is parsed to "handle_command", ex. "handle_join".
+    "getattr(commands, "handle_join")" checks if there is an appropriate handler function
+    in commands.py.
+    If there is, the handler function is called. Otherwise, an unknown command error is
+    sent to the client.
     """
 
     user = UserConnection(state, user_host, user_socket)
@@ -217,7 +213,7 @@ class UserConnection:
         self.pong_received = False
 
     def get_user_mask(self) -> str:
-        """Generates and returns a user mask as string. See class documentation for format."""
+        """Generates and returns a user mask (Nick!Username@Host)."""
         return f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
@@ -278,8 +274,8 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         """
-        Takes the message and prefix sent from the server through self.send_que as strings,
-        converts the formatted message to bytes and sends it to the client.
+        Formats a message taken from the user's send queue, converts it to bytes and
+        sends it to the client.
         """
         try:
             if prefix is None:
@@ -313,7 +309,7 @@ class UserConnection:
 
     def assert_pong_received(self) -> None:
         """
-        Uses self.pong_received to assert if the client has sent an appropriate
+        Asserts if the client has sent an appropriate
         PONG response to the server's PING message.
 
         If no PONG response has been received, the server closes the connection to the client.
@@ -325,9 +321,7 @@ class UserConnection:
 
 
 class Channel:
-    """
-    Represents an existing channel on the server.
-    """
+    """Creates a channel on the server"""
 
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
@@ -340,34 +334,21 @@ class Channel:
         self.set_operator(user)
 
     def set_operator(self, user: UserConnection) -> None:
-        """
-        Takes a UserConnection object as an argument and adds the user's
-        Nick to the channel's operators.
-        """
+        """Adds a user to the channel's operators."""
         self.operators.add(user.nick.lower())
 
     def remove_operator(self, user: UserConnection) -> None:
-        """
-        Takes a UserConnection object as an argument and removes the user's
-        Nick from the channel's operators.
-        """
+        """Removes a user from the channel's operators."""
         self.operators.discard(user.nick.lower())
 
     def is_operator(self, user: UserConnection) -> bool:
-        """
-        Takes a UserConnection object as an argument and checks if the user's
-        Nick is a channel operator.
-
-        Returns a Boolean.
-        """
+        """Checks if a user is an operator on the channel."""
         return user.nick.lower() in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         """
-        Puts a KICK message in the channel users' Queues notifying them that
-        an operator has kicked a user from the channel.
-
-        Thereafter removes the kicked user from the channel's user Set.
+        Notifies all users on the channel that a user has been kicked.
+        Thereafter removes the kicked user from the channel.
         """
         for usr in self.users:
             usr.send_que.put((message, kicker.get_user_mask()))
@@ -376,11 +357,7 @@ class Channel:
 
 
 def split_on_new_line(string: str) -> List[str]:
-    """
-    Takes string as an argument and splits it on "\r\n" or "\n".
-
-    Returns a List of strings.
-    """
+    """Splits a message received by a client on "\r\n" (IRC) or "\n" (Netcat)."""
     if string.endswith("\r\n"):
         return string.split("\r\n")
     else:
@@ -388,11 +365,7 @@ def split_on_new_line(string: str) -> List[str]:
 
 
 def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
-    """
-    Fetches the server's Message of the Day from 'motd.json'.
-
-    Returns Dict ("String": List)
-    """
+    """Fetches the server's Message of the Day."""
     try:
         with open("./resources/motd.json", "r") as file:
             motd_content: Dict[str, List[str]] = json.load(file)

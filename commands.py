@@ -2,6 +2,8 @@
 Contains handler functions that handle commands received from a client, as well as appropriate errors.
 
 All public functions must start with "handle_"
+
+To read how handler functions are called: see mantatail.recv_loop() documentation.
 """
 from __future__ import annotations
 import re
@@ -17,9 +19,8 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Handles clien't command to join a channel on the server.
     Command format: "JOIN #foo"
 
-    If the channel already exists, the user is put to the appropriate channel's
-    Dict of connected users.
-    If the channel does not exist, the channel is created by instantiating mantatail.Channel.
+    If the channel already exists, the user is added to the channel.
+    If the channel does not exist, the channel is created with the user as founder.
 
     Finally, sends a message to all users on the channel, notifying them that
     User has joined the channel.
@@ -126,10 +127,9 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Handles client's command to kick a user from a channel.
     Command format: "KICK #foo user_to_kick (:Reason for kicking)"
 
-    The user kicking somebody must be an operator on that channel
-    (see mantatail.Channel.operators)
+    The kicker must be an operator on that channel.
 
-    Fnally, sends a message to all users on the channel,
+    Finally, sends a message to all users on the channel,
     notifying them that an operator has kicked a user.
     """
     if not args or len(args) == 1:
@@ -168,10 +168,6 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     """
     Handles a user's command to disconnect from the server.
     Command format: "QUIT"
-
-    Puts a tuple (None, None) to the user's send_que, which the server
-    interprets as the user wanting to disconnect
-    (see mantatail.UserConection.send_queue_thread).
     """
     # TODO "if args: set args to reason"
     user.send_que.put((None, None))
