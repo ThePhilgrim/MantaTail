@@ -119,11 +119,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     Ex: b"JOIN #foo\r\n"
     Ex: b"PRIVMSG #foo :This is a message\r\n"
 
-    COMMAND is parsed to "handle_command", ex. "handle_join".
-    "getattr(commands, "handle_join")" checks if there is an appropriate handler function
-    in commands.py.
-    If there is, the handler function is called. Otherwise, an unknown command error is
-    sent to the client.
+    To handle a command FOO, a function named handle_foo() in commands.py is called.
+    For example, "PRIVMSG #foo :this is a message\r\n" results in a call like this:
+
+        commands.handle_privmsg(state, user, ["#foo", "this is a message"])
     """
 
     user = UserConnection(state, user_host, user_socket)
