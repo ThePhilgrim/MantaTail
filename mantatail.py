@@ -88,7 +88,10 @@ class Listener:
 
 
 def close_socket_cleanly(sock: socket.socket) -> None:
-    """Ensures that the connection to a client is closed cleanly without errors."""
+    """Ensures that the connection to a client is closed cleanly without errors and with no data loss.
+
+    Use this instead of the .close() method.
+    """
     # The code is based on this blog post:
     # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
     try:
