@@ -37,9 +37,11 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             # TODO: Implement topic functionality for existing channels & MODE for new ones
 
-            message = (
-                f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)} {channel_users_str.strip()}"
-            )
+            message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}"
+
+            if channel_users_str:
+                message += f" {channel_users_str.strip()}"
+
             user.send_que.put((message, "mantatail"))
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
