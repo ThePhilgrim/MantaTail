@@ -195,7 +195,7 @@ class UserConnection:
     - Username: AliceUsr
     - User Mask Alice!AliceUsr@127.0.0.1 (Nick!Username@Host)
 
-    All references to UserConnection (lists, dicts, etc.) are based on Nick.
+    Usually the nick is used when referring to the user.
     """
 
     # self.nick is defined in recv_loop()
