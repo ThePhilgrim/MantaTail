@@ -359,7 +359,7 @@ class Channel:
 
 
 def split_on_new_line(string: str) -> List[str]:
-    """Splits a message received by a client on "\r\n" (IRC) or "\n" (Netcat)."""
+    """Splits a message received by a client on "\r\n" (most IRC clients) or "\n" (e.g. Netcat)."""
     if string.endswith("\r\n"):
         return string.split("\r\n")
     else:
