@@ -367,7 +367,10 @@ def split_on_new_line(string: str) -> List[str]:
 
 
 def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
-    """Fetches the server's Message of the Day."""
+    """Loads the Message of the Day file.
+
+    Returns None if the file is not found.
+    """
     try:
         with open("./resources/motd.json", "r") as file:
             motd_content: Dict[str, List[str]] = json.load(file)
