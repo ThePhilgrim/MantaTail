@@ -335,7 +335,7 @@ def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
     receive_line(user_alice)  # JOIN message from server
 
-    assert compare_if_word_match_in_any_order(receive_line(user_alice), b":mantatail 353 Alice = #foo :~Alice\r\n")
+    assert receive_line(user_alice) == b":mantatail 353 Alice = #foo :~Alice\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
