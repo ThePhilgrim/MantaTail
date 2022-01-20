@@ -27,13 +27,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         if user not in channel.users:
             channel_users_str = ""
             for usr in channel.users:
-                if usr.user_name == channel.founder:
-                    nick = f"~{usr.nick}"
-                elif channel.is_operator(usr):
-                    nick = f"@{usr.nick}"
-                else:
-                    nick = usr.nick
-                channel_users_str += f" {nick}"
+                channel_users_str += f" {usr.get_nick_with_prefix(channel)}"
 
             channel.users.add(user)
 
@@ -42,14 +36,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
                 usr.send_que.put((message, user.get_user_mask()))
 
             # TODO: Implement topic functionality for existing channels & MODE for new ones
-            if channel.is_founder(user):
-                own_prefix = "~"
-            elif channel.is_operator(user):
-                own_prefix = "@"
-            else:
-                own_prefix = ""
 
-            message = f"353 {user.nick} = {channel_name} :{own_prefix}{user.nick} {channel_users_str.strip()}"
+            message = (
+                f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)} {channel_users_str.strip()}"
+            )
             user.send_que.put((message, "mantatail"))
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
