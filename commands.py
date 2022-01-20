@@ -1,7 +1,16 @@
 """
 Contains handler functions that handle commands received from a client, as well as appropriate errors.
 
-All public functions must start with "handle_"
+Each command can include:
+    - Tags: Optional metadata on a message, starting with '@'.
+    - Source: Optional note of where the message came from, starting with ':'.
+        * This is usually the server name or the user mask
+    - Command: The specific command this message represents.
+    - Parameters: Optional data relevant to this specific command – a series of values
+        separated by one or more spaces. Parameters have different meanings for every single message.
+
+
+All public functions start with "handle_".
 
 To read how handler functions are called: see mantatail.recv_loop() documentation.
 """
@@ -16,7 +25,6 @@ from typing import Optional, Dict, List, Tuple
 ### Handlers
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles clien't command to join a channel on the server.
     Command format: "JOIN #foo"
 
     If the channel already exists, the user is added to the channel.
@@ -74,10 +82,11 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles clien't command to disconnect from a channel on the server.
     Command format: "PART #foo"
 
-    Finally, sends a message to all users on the channel, notifying them that
+    Removes user from a channel.
+
+    Thereafter, sends a message to all users on the channel, notifying them that
     User has left the channel.
     """
     if not args:
@@ -109,8 +118,13 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles clien't command to set a channel/user mode.
     Command format: "MODE #channel/user.nick +/-flag <args>"
+
+    Sets a user/channel mode.
+
+    Ex:
+        - User mode "+i" makes user invisible
+        - Channel mode "+i" makes channel invite-only.
     """
     if not args:
         error_not_enough_params(user, "MODE")
@@ -124,13 +138,13 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles client's command to kick a user from a channel.
     Command format: "KICK #foo user_to_kick (:Reason for kicking)"
 
-    The kicker must be an operator on that channel.
+    Kicks a user from a channel. The kicker must be an operator on that channel.
 
-    Finally, sends a message to all users on the channel,
-    notifying them that an operator has kicked a user.
+    Notifies the kicked user that they have been kicked and the reason for it.
+    Thereafter, sends a message to all users on the channel, notifying them
+    that an operator has kicked a user.
     """
     if not args or len(args) == 1:
         error_not_enough_params(user, "KICK")
@@ -166,8 +180,9 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles a user's command to disconnect from the server.
     Command format: "QUIT"
+
+    Disconnects a user from the server by putting tuple (None, None) to their send queue.
     """
     # TODO "if args: set args to reason"
     user.send_que.put((None, None))
@@ -175,8 +190,9 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles client's command to send a message to a channel or a private message to a user.
     Command format: "PRIVMSG #channel/user.nick :This is a message"
+
+    Depending on the command, sends a message to all users on a channel or a private message to a user.
     """
     if not args:
         error_no_recipient(user, "PRIVMSG")
@@ -208,7 +224,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
-    Handles client's PONG resonse to a PING message sent from the server.
+    Handles client's PONG response to a PING message sent from the server.
 
     The PONG message notifies the server that the client still has an open connection to it.
     """
@@ -226,6 +242,11 @@ def privmsg_to_user(receiver: str, privmsg: str) -> None:
 
 
 def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:
+    """
+    Sends the server's Message of the Day to the user.
+
+    This is sent to a user when they have registered a nick and a username on the server.
+    """
     (start_num, start_info) = irc_responses.RPL_MOTDSTART
     motd_num = irc_responses.RPL_MOTD
     (end_num, end_info) = irc_responses.RPL_ENDOFMOTD
@@ -250,6 +271,13 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
 
 
 def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Given that the user has the required privileges, sets the requested channel mode.
+
+    Ex. Make a channel invite-only, or set a channel operator.
+
+    Finally sends a message to all users on the channel, notifying them about the new channel mode.
+    """
     if args[1][0] not in ["+", "-"]:
         error_unknown_mode(user, args[1][0])
         return
@@ -303,6 +331,18 @@ def process_user_modes() -> None:
 
 
 def parse_received_args(msg: str) -> Tuple[str, List[str]]:
+    """
+    Parses the user command by separating the command (e.g "join", "privmsg", etc.) from the
+    arguments.
+
+    If the optional "data portion" of the parameters contains one or more spaces and starts with ':',
+    the parameters will be combined to one. If it does not start with ':', the final parameter will be
+    cut off on the first space.
+
+    Ex:
+        - "PRIVMSG #foo :This is a message\r\n" - The data portion is parsed to "This is a message".
+        - "PRIVMSG #foo This is a message\r\n" - The data portion is parsed to "This".
+    """
     split_msg = msg.split(" ")
 
     for num, arg in enumerate(split_msg):
@@ -378,7 +418,13 @@ def error_user_not_in_channel(
 
 
 def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: str) -> None:
-    # TODO: Figure out when this is sent and make docstring
+    """
+    Sent when privmsg/notice cannot be sent to channel.
+
+    This is generally sent in response to channel modes, such as a channel being moderated
+    and the client not having permission to speak on the channel, or not being joined to
+    a channel with the no external messages mode set.
+    """
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {channel_name} {cant_send_info}"
