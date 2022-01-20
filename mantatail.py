@@ -152,6 +152,10 @@ class UserConnection:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
     def get_nick_with_prefix(self, channel: Channel) -> str:
+        """
+        Returns user nick with appropriate prefix for a specific channel.
+        ("~" for channel founder, "@" for channel operator).
+        """
         if channel.is_founder(self):
             return f"~{self.nick}"
         elif channel.is_operator(self):
