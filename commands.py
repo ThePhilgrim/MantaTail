@@ -177,8 +177,6 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     """
     Handles client's command to send a message to a channel or a private message to a user.
     Command format: "PRIVMSG #channel/user.nick :This is a message"
-
-    Private message's to users are handled in privmsg_to_user().
     """
     if not args:
         error_no_recipient(user, "PRIVMSG")
