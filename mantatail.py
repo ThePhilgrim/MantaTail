@@ -76,8 +76,7 @@ class Listener:
     def run_server_forever(self) -> None:
         """
         Accepts incoming connections from clients.
-        Starts a receive loop on a separate thread,
-        listening for incoming commands from client.
+        Starts a separate thread to handle each connection.
         """
         print(f"Mantatail running ({self.host}:{self.port})")
         while True:
