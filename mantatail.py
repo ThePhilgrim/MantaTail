@@ -114,7 +114,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     parses them and sends them to appropriate "handle_" function in "commands".
 
     IRC Messages are formatted "bytes(COMMAND args\r\n)"
-    Note that netcat uses "\n" in place of "\r\n".
+    Most IRC clients use "\r\n" line endings, but "\n" is accepted as well (used by e.g. netcat).
 
     Ex: b"JOIN #foo\r\n"
     Ex: b"PRIVMSG #foo :This is a message\r\n"
