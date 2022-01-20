@@ -187,7 +187,10 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 class UserConnection:
     """
     Represents the connection between server & client.
-    Starts a Queue on a separate thread on which the client receives all messages from the server.
+
+    A send queue and a separate thread are used for sending.
+    This helps with error handling, and even if someone has a slow internet connection,
+    other people don't have to wait when a message is sent to several users with a loop.
 
     Format examples:
     - Nick: Alice
