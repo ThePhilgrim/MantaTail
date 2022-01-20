@@ -331,9 +331,12 @@ def test_channel_owner(user_alice, user_bob):
             break
 
 
-def test_operator_prefix(user_alice, user_bob, user_charlie):
+def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
-    time.sleep(0.1)
+    receive_line(user_alice)  # JOIN message from server
+
+    assert receive_line(user_alice) == b":mantatail 353 Alice = #foo :~Alice\r\n"
+
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
@@ -516,6 +519,8 @@ def test_nick_already_taken(run_server):
     nc3 = socket.socket()
     nc3.connect(("localhost", 6667))
     nc3.sendall(b"NICK nc3\n")
+
+    time.sleep(0.1)
 
     nc4 = socket.socket()
     nc4.connect(("localhost", 6667))

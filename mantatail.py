@@ -151,6 +151,18 @@ class UserConnection:
     def get_user_mask(self) -> str:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
+    def get_nick_with_prefix(self, channel: Channel) -> str:
+        """
+        Returns user nick with appropriate prefix for a specific channel.
+        ("~" for channel founder, "@" for channel operator).
+        """
+        if channel.is_founder(self):
+            return f"~{self.nick}"
+        elif channel.is_operator(self):
+            return f"@{self.nick}"
+        else:
+            return self.nick
+
     def send_queue_thread(self) -> None:
         while True:
             (message, prefix) = self.send_que.get()
@@ -241,6 +253,10 @@ class Channel:
 
     def remove_operator(self, user: UserConnection) -> None:
         self.operators.discard(user.nick.lower())
+
+    def is_founder(self, user: UserConnection) -> bool:
+        """Checks if the user is the channel founder."""
+        return user.user_name == self.founder
 
     def is_operator(self, user: UserConnection) -> bool:
         return user.nick.lower() in self.operators
