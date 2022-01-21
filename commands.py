@@ -148,7 +148,7 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         return
 
     new_nick = args[0]
-    if not re.match(nick_regex, new_nick):
+    if not re.fullmatch(nick_regex, new_nick):
         error_erroneus_nickname(user, new_nick)
         return
     elif new_nick in state.connected_users.keys():
