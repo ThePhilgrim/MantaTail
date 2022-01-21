@@ -184,11 +184,6 @@ def test_join_channel(user_alice, user_bob):
         pass
 
 
-def test_no_nickname_given(user_alice):
-    user_alice.sendall(b"NICK\r\n")
-    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
-
-
 def test_no_such_channel(user_alice):
     user_alice.sendall(b"PART #foo\r\n")
     assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
@@ -485,9 +480,16 @@ def test_connect_via_netcat(run_server):
 
 def test_quit_before_registering():
     with socket.socket() as nc:
-        nc.connect(("localhost", 6667))  # nc localhost 6667
+        nc.connect(("localhost", 6667))
         nc.sendall(b"QUIT\n")
         assert receive_line(nc) == b":QUIT :Quit: (Remote host closed the connection)\r\n"
+
+
+def test_no_nickname_given():
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK\r\n")
+        assert receive_line(nc) == b":mantatail 431 :No nickname given\r\n"
 
 
 def test_join_part_race_condition(user_alice, user_bob):
