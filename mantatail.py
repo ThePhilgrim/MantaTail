@@ -23,10 +23,8 @@ class ServerState:
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         """
-        Attributes:
-            lock: Locks the state of the server to avoid modifications to iterables during iteration.
-            channels: The currently existing channels on the server.
-            connected_users: The currently connected users on the server.
+        The attribute "self.lock" locks the state of the server to avoid modifications
+        to iterables during iteration.
         """
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}

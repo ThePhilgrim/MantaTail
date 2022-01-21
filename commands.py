@@ -2,12 +2,16 @@
 Contains handler functions that handle commands received from a client, as well as appropriate errors.
 
 Each command can include:
-    - Tags: Optional metadata on a message, starting with '@'.
     - Source: Optional note of where the message came from, starting with ':'.
         * This is usually the server name or the user mask
     - Command: The specific command this message represents.
     - Parameters: Optional data relevant to this specific command – a series of values
         separated by one or more spaces. Parameters have different meanings for every single message.
+
+    Ex:
+        :Alice!AliceUsr@127.0.0.1  PRIVMSG  #foo :This is a message.
+
+        |_______ SOURCE ________| |COMMAND| |_____ PARAMETERS ______|
 
 
 All public functions start with "handle_".
@@ -125,6 +129,7 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Ex:
         - User mode "+i" makes user invisible
         - Channel mode "+i" makes channel invite-only.
+        (Note: "+i" is not yet supported by Mantatail)
     """
     if not args:
         error_not_enough_params(user, "MODE")
