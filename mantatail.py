@@ -110,7 +110,7 @@ def close_socket_cleanly(sock: socket.socket) -> None:
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     """
-    Instantiates UserConnection and listens for commands/messages from the client,
+    Receives commands/messages from the client,
     parses them and sends them to appropriate "handle_" function in "commands".
 
     IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
