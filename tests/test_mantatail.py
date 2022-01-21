@@ -503,6 +503,13 @@ def test_quit_before_registering():
         assert receive_line(nc) == b":QUIT :Quit: (Remote host closed the connection)\r\n"
 
 
+def test_no_nickname_given():
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK\r\n")
+        assert receive_line(nc) == b":mantatail 431 :No nickname given\r\n"
+
+
 def test_join_part_race_condition(user_alice, user_bob):
     for i in range(100):
         user_alice.sendall(b"JOIN #foo\r\n")
