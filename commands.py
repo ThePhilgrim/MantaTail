@@ -227,6 +227,11 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Handles client's PONG response to a PING message sent from the server.
 
     The PONG message notifies the server that the client still has an open connection to it.
+
+    The parameter sent in the PONG message must correspond to the parameter in the PING message.
+    Ex.
+        PING :This_is_a_parameter
+        PONG :This_is_a_parameter
     """
     if args and args[0] == "mantatail":
         user.pong_received = True
@@ -366,7 +371,10 @@ def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
 
 
 def error_not_registered(user: mantatail.UserConnection) -> None:
-    """Sent when a user sends a command before establishing a Nick and User."""
+    """
+    Sent when a user sends a command before registering to the server.
+    Registering is done with commands NICK & USER.
+    """
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
     message = f":mantatail {not_registered_num} * {not_registered_info}"

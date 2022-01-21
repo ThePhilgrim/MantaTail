@@ -3,10 +3,6 @@ Represents the core of the server, with its main functionality and classes.
 
 All communication between server and client is encoded with latin-1.
 This ensures compatibility regardless of what encoding is used client-side.
-
-IRC Documentation:
-    - https://modern.ircdocs.horse/
-    - https://datatracker.ietf.org/doc/html/rfc1459
 """
 
 from __future__ import annotations
@@ -49,6 +45,9 @@ class ServerState:
         """
         Removes a user from all channels they are connected to,
         thereafter removes user from connected users.
+
+        Note: This does not actually disconnect the user from the server.
+        To disconnect the user, a tuple (None, None) must be put in their send queue.
         """
         user = self.connected_users[nick.lower()]
         for channel in self.channels.values():
@@ -88,7 +87,8 @@ class Listener:
 
 
 def close_socket_cleanly(sock: socket.socket) -> None:
-    """Ensures that the connection to a client is closed cleanly without errors and with no data loss.
+    """
+    Ensures that the connection to a client is closed cleanly without errors and with no data loss.
 
     Use this instead of the .close() method.
     """
@@ -113,7 +113,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     Instantiates UserConnection and listens for commands/messages from the client,
     parses them and sends them to appropriate "handle_" function in "commands".
 
-    IRC Messages are formatted "bytes(COMMAND args\r\n)"
+    IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
     Most IRC clients use "\r\n" line endings, but "\n" is accepted as well (used by e.g. netcat).
 
     Ex: b"JOIN #foo\r\n"
@@ -188,10 +188,6 @@ class UserConnection:
     """
     Represents the connection between server & client.
 
-    A send queue and a separate thread are used for sending.
-    This helps with error handling, and even if someone has a slow internet connection,
-    other people don't have to wait when a message is sent to several users with a loop.
-
     Format examples:
     - Nick: Alice
     - User message: AliceUsr 0 * Alice's Real Name
@@ -199,6 +195,16 @@ class UserConnection:
     - User Mask Alice!AliceUsr@127.0.0.1 (Nick!Username@Host)
 
     Usually the nick is used when referring to the user.
+
+    Send Queue:
+        A send queue and a separate thread are used for sending messages to the client.
+        This helps with error handling, and even if someone has a slow internet connection,
+        other people don't have to wait when a message is sent to several users with a loop.
+
+        All messages are sent as a tuple formatted as (message, prefix).
+        Prefixes are either ":mantatail" or ":sender.user_mask"
+
+        A Tuple containing (None, None) indicates a QUIT command and closes the connection to the client.
     """
 
     # self.nick is defined in recv_loop()
@@ -221,14 +227,7 @@ class UserConnection:
         return f"{self.nick}!{self.user_name}@{self.host}"
 
     def send_queue_thread(self) -> None:
-        """
-        Queue on which the client receives messages from server.
-
-        All messages are a tuple formatted as (message, prefix).
-        Prefixes are either ":mantatail" or "sender.user_mask"
-
-        A Tuple containing (None, None) indicates a QUIT and closes the connection to the client.
-        """
+        """Queue on which the client receives messages from server."""
         while True:
             (message, prefix) = self.send_que.get()
 
@@ -278,8 +277,8 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         """
-        Formats a message taken from the user's send queue, converts it to bytes and
-        sends it to the client.
+        Formats a message taken from the user's send queue, converts it to
+        bytes (encoded with latin-1) and sends it to the client.
         """
         try:
             if prefix is None:
@@ -301,8 +300,10 @@ class UserConnection:
 
     def queue_ping_message(self) -> None:
         """
-        Puts PING message in the client's Queue, and starts a new timer waiting for the
+        Puts a PING message in the client's send queue, and starts a new timer waiting for the
         expected PONG response from the client.
+
+        This is done to control that the client still has an open connection to the server.
 
         Ex:
         Sends ":mantatail PING :mantatail"
@@ -313,8 +314,7 @@ class UserConnection:
 
     def assert_pong_received(self) -> None:
         """
-        Asserts if the client has sent an appropriate
-        PONG response to the server's PING message.
+        Checks if the client has sent a PONG response to the server's PING message.
 
         If no PONG response has been received, the server closes the connection to the client.
         """
@@ -325,7 +325,11 @@ class UserConnection:
 
 
 class Channel:
-    """Creates a channel on the server"""
+    """
+    An existing channel on the server.
+
+    Contains all channel-specific actions and modes.
+    """
 
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
