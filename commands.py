@@ -334,7 +334,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
                 message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
                 for usr in channel.users:
-                    usr.send_que.put((message, "mantatail"))
+                    usr.send_que.put((message, user.get_user_mask()))
 
 
 # !Not implemented

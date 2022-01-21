@@ -306,12 +306,12 @@ def test_op_deop_user(user_alice, user_bob):
         pass
 
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail MODE #foo +o Bob\r\n"
-    assert receive_line(user_bob) == b":mantatail MODE #foo +o Bob\r\n"
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n"
 
     user_alice.sendall(b"MODE #foo -o Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail MODE #foo -o Bob\r\n"
-    assert receive_line(user_bob) == b":mantatail MODE #foo -o Bob\r\n"
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -o Bob\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -o Bob\r\n"
 
 
 def test_channel_owner(user_alice, user_bob):
