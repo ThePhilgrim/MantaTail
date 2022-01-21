@@ -345,13 +345,12 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
     Parses the user command by separating the command (e.g "join", "privmsg", etc.) from the
     arguments.
 
-    If the optional "data portion" of the parameters contains one or more spaces and starts with ':',
-    the parameters will be combined to one. If it does not start with ':', the final parameter will be
-    cut off on the first space.
+    If a parameter contains spaces, it must start with ':' to be interpreted as one parameter.
+    If the parameter does not start with ':', it will be cut off at the first space.
 
     Ex:
-        - "PRIVMSG #foo :This is a message\r\n" - The data portion is parsed to "This is a message".
-        - "PRIVMSG #foo This is a message\r\n" - The data portion is parsed to "This".
+        - "PRIVMSG #foo :This is a message\r\n" will send "This is a message"
+        - "PRIVMSG #foo This is a message\r\n" will send "This"
     """
     split_msg = msg.split(" ")
 
