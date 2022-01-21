@@ -210,7 +210,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
             error_no_such_nick_channel(user, receiver)
             return
     else:
-        privmsg_to_user(receiver, privmsg)
+        privmsg_to_user(state, user, receiver, privmsg)
         return
 
     if user not in channel.users:
@@ -240,10 +240,17 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 # Private functions
+def privmsg_to_user(
+    state: mantatail.ServerState, sender: mantatail.UserConnection, receiver: str, privmsg: str
+) -> None:
+    try:
+        receiver_usr = state.find_user(receiver)
+    except KeyError:
+        error_no_such_nick_channel(sender, receiver)
+        return
 
-# !Not implemented
-def privmsg_to_user(receiver: str, privmsg: str) -> None:
-    pass
+    message = f"PRIVMSG {receiver_usr.nick} :{privmsg}"
+    receiver_usr.send_que.put((message, sender.get_user_mask()))
 
 
 def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:
