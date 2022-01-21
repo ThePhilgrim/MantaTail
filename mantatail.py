@@ -277,8 +277,9 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         """
-        Formats a message taken from the user's send queue, converts it to
-        bytes (encoded with latin-1) and sends it to the client.
+        Send a string to the client, without using the send queue.
+
+        In most cases, you should put a message to the send queue instead of using this method directly.
         """
         try:
             if prefix is None:
