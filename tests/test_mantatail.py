@@ -197,6 +197,24 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
 
 
+def test_nick_change(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"NICK :NewNick\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 NICK :NewNick\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 NICK :NewNick\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo :Alice should have a new user mask\r\n")
+    assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 PRIVMSG #foo :Alice should have a new user mask\r\n"
+
+
 def test_send_privmsg(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)

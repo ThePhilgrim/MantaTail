@@ -146,11 +146,31 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if not args:
         error_no_nickname_given(user)
         return
-    elif not re.match(nick_regex, args[0]):
-        error_erroneus_nickname(user, args[0])
+
+    new_nick = args[0]
+    if not re.match(nick_regex, new_nick):
+        error_erroneus_nickname(user, new_nick)
         return
+    elif new_nick in state.connected_users.keys():
+        error_nick_in_use(user, new_nick)
     else:
-        pass
+        if not hasattr(user, "nick"):
+            user.nick = new_nick
+            state.connected_users[user.nick.lower()] = user
+        else:
+            receivers = user.get_users_sharing_channel()
+            message = f"NICK :{new_nick}"
+
+            for receiver in receivers:
+                receiver.send_que.put((message, user.get_user_mask()))
+
+            # User doesn't get NICK message if they change their nicks before sending USER command
+            if user.user_message:
+                user.send_que.put((message, user.get_user_mask()))
+
+            del state.connected_users[user.nick.lower()]
+            user.nick = new_nick
+            state.connected_users[user.nick.lower()] = user
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
