@@ -423,7 +423,7 @@ def error_user_not_in_channel(
 ) -> None:
     """
     Sent when a user sends a channel-specific command with a user as an argument,
-    and this user is connected to the server but not to the channel.
+    and this user is connected to the server but has not joined the channel.
     """
     (not_in_chan_num, not_in_chan_info) = irc_responses.ERR_USERNOTINCHANNEL
     message = f"{not_in_chan_num} {target_usr.nick} {channel.name} {not_in_chan_info}"

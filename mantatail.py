@@ -23,8 +23,15 @@ class ServerState:
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         """
+<<<<<<< HEAD
         The attribute "self.lock" locks the state of the server to avoid modifications
         to iterables during iteration.
+=======
+        Attributes:
+            lock: Ensure that the state isn't used simultaneously in multiple places.
+            channels: The currently existing channels on the server.
+            connected_users: The currently connected users on the server.
+>>>>>>> 5d2d8175ccbc7662d3fc3b0bbf4be361a18c81c7
         """
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
@@ -108,7 +115,7 @@ def close_socket_cleanly(sock: socket.socket) -> None:
 
 def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
     """
-    Instantiates UserConnection and listens for commands/messages from the client,
+    Receives commands/messages from the client,
     parses them and sends them to appropriate "handle_" function in "commands".
 
     IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
@@ -275,8 +282,9 @@ class UserConnection:
 
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         """
-        Formats a message taken from the user's send queue, converts it to
-        bytes (encoded with latin-1) and sends it to the client.
+        Send a string to the client, without using the send queue.
+
+        In most cases, you should put a message to the send queue instead of using this method directly.
         """
         try:
             if prefix is None:
