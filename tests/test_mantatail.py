@@ -184,6 +184,11 @@ def test_join_channel(user_alice, user_bob):
         pass
 
 
+def test_no_nickname_given(user_alice):
+    user_alice.sendall(b"NICK\r\n")
+    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
+
+
 def test_no_such_channel(user_alice):
     user_alice.sendall(b"PART #foo\r\n")
     assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
