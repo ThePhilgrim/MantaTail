@@ -32,20 +32,13 @@ class ServerState:
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
-    def find_user(self, nick: str) -> Optional[UserConnection]:
+    def find_user(self, nick: str) -> UserConnection:
         """Looks for a connected user and returns its user object."""
-        try:
-            return self.connected_users[nick.lower()]
-        except KeyError:
-            return None
+        return self.connected_users[nick.lower()]
 
-    def find_channel(self, channel_name: str) -> Optional[Channel]:
+    def find_channel(self, channel_name: str) -> Channel:
         """Looks for an existing channel and returns its channel object."""
-        try:
-            return self.channels[channel_name.lower()]
-        except KeyError:
-            return None
-
+        return self.channels[channel_name.lower()]
 
     def delete_user(self, nick: str) -> None:
         """
