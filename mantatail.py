@@ -278,7 +278,7 @@ class UserConnection:
         for receiver in receivers:
             receiver.send_que.put((message, self.get_user_mask()))
 
-    def get_users_sharing_channel(self) -> set:
+    def get_users_sharing_channel(self) -> Set[UserConnection]:
         receivers = set()
         for channel in self.state.channels.values():
             if self in channel.users:
