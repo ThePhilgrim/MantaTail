@@ -128,7 +128,6 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
-    # msg str
     if not args:
         error_no_recipient(user, "PRIVMSG")
         return
@@ -145,7 +144,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
             error_no_such_nick_channel(user, receiver)
             return
     else:
-        privmsg_to_user(receiver, privmsg)
+        privmsg_to_user(state, user, receiver, privmsg)
         return
 
     if user not in channel.users:
@@ -165,10 +164,15 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 # Private functions
-
-# !Not implemented
-def privmsg_to_user(receiver: str, privmsg: str) -> None:
-    pass
+def privmsg_to_user(
+    state: mantatail.ServerState, sender: mantatail.UserConnection, receiver: str, privmsg: str
+) -> None:
+    receiver_usr = state.find_user(receiver)
+    if not receiver_usr:
+        error_no_such_nick_channel(sender, receiver)
+    else:
+        message = f"PRIVMSG {receiver_usr.nick} :{privmsg}"
+        receiver_usr.send_que.put((message, sender.get_user_mask()))
 
 
 def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:

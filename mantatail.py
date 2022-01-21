@@ -18,11 +18,17 @@ class ServerState:
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
-    def find_user(self, nick: str) -> UserConnection:
-        return self.connected_users[nick.lower()]
+    def find_user(self, nick: str) -> Optional[UserConnection]:
+        try:
+            return self.connected_users[nick.lower()]
+        except KeyError:
+            return None
 
-    def find_channel(self, channel_name: str) -> Channel:
-        return self.channels[channel_name.lower()]
+    def find_channel(self, channel_name: str) -> Optional[Channel]:
+        try:
+            return self.channels[channel_name.lower()]
+        except KeyError:
+            return None
 
     def delete_user(self, nick: str) -> None:
         user = self.connected_users[nick.lower()]

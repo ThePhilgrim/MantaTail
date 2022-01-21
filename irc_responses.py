@@ -19,6 +19,7 @@ ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
 ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")
 
 # Command Responses
+RPL_AWAY = "301"
 RPL_CHANNELMODEIS = "324"
 RPL_MOTDSTART = ("375", "Message of the day - ")
 RPL_MOTD = "372"

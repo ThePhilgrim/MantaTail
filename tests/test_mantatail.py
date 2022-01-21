@@ -220,6 +220,14 @@ def test_send_privmsg(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
+def test_send_privmsg_to_user(user_alice, user_bob):
+    user_alice.sendall(b"PRIVMSG Bob :This is a private message\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :This is a private message\r\n"
+
+    user_bob.sendall(b"PRIVMSG alice :This is a reply\r\n")
+    assert receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 PRIVMSG Alice :This is a reply\r\n"
+
+
 def test_privmsg_error_messages(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
@@ -237,6 +245,9 @@ def test_privmsg_error_messages(user_alice, user_bob):
 
     user_alice.sendall(b"PRIVMSG #foo\r\n")
     assert receive_line(user_alice) == b":mantatail 412 :No text to send\r\n"
+
+    user_alice.sendall(b"PRIVMSG Charlie :This is a private message\r\n")
+    assert receive_line(user_alice) == b":mantatail 401 Charlie :No such nick/channel\r\n"
 
 
 def test_not_enough_params_error(user_alice):
