@@ -10,10 +10,10 @@ These include:
 
 # Error Replies
 ERR_NOSUCHNICK = ("401", ":No such nick/channel")
-ERR_NOSUCHSERVER = ("402", ":No such server")
+ERR_NOSUCHSERVER = ("402", ":No such server")  #! Not implemented
 ERR_NOSUCHCHANNEL = ("403", ":No such channel")
 ERR_CANNOTSENDTOCHAN = ("404", ":Cannot send to channel")
-ERR_TOOMANYCHANNELS = ("405", ":You have joined too many channels")
+ERR_TOOMANYCHANNELS = ("405", ":You have joined too many channels")  #! Not implemented
 ERR_NOORIGIN = ("409", ":No origin specified")
 ERR_NORECIPIENT = ("411", ":No recipient given")
 ERR_NOTEXTTOSEND = ("412", ":No text to send")
@@ -28,10 +28,10 @@ ERR_NOTREGISTERED = ("451", ":You have not registered")
 ERR_NEEDMOREPARAMS = ("461", ":Not enough parameters")
 ERR_UNKNOWNMODE = ("472", ":is unknown mode char to me")
 ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
-ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")
+ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")  #! Not implemented
 
 # Command Responses
-RPL_AWAY = "301"
+RPL_AWAY = "301"  #! Not implemented
 RPL_CHANNELMODEIS = "324"
 RPL_MOTDSTART = ("375", "Message of the day - ")
 RPL_MOTD = "372"
