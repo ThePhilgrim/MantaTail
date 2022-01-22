@@ -153,7 +153,7 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     elif new_nick in state.connected_users.keys():
         error_nick_in_use(user, new_nick)
     else:
-        if not hasattr(user, "nick"):
+        if user.nick == "*":
             user.nick = new_nick
             state.connected_users[user.nick.lower()] = user
         else:
