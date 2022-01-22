@@ -158,6 +158,8 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             user.nick = new_nick
             state.connected_users[user.nick.lower()] = user
         else:
+            if new_nick == user.nick:
+                return
             receivers = user.get_users_sharing_channel()
             message = f"NICK :{new_nick}"
 

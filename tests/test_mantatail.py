@@ -214,6 +214,18 @@ def test_nick_change(user_alice, user_bob):
     user_alice.sendall(b"PRIVMSG #foo :Alice should have a new user mask\r\n")
     assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 PRIVMSG #foo :Alice should have a new user mask\r\n"
 
+    user_alice.sendall(b"NICK :NEWNICK\r\n")
+    assert receive_line(user_alice) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+    assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+
+    user_alice.sendall(b"NICK :NEWNICK\r\n")
+
+    user_alice.sendall(b"PART #foo\r\n")
+
+    # Assert instead of while receive_line() loop ensures nothing was sent from server after
+    # changing to identical nick
+    assert receive_line(user_alice) == b":NEWNICK!AliceUsr@127.0.0.1 PART #foo\r\n"
+
 
 def test_send_privmsg(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
