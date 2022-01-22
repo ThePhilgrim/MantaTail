@@ -383,7 +383,7 @@ def error_not_registered(user: mantatail.UserConnection) -> None:
     """
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
-    message = f"{not_registered_num} * {not_registered_info}"  # TODO: "*" should not be hardcoded. It's used in place of <client>
+    message = f"{not_registered_num} {user.nick} {not_registered_info}"
     user.send_que.put((message, "mantatail"))
 
 

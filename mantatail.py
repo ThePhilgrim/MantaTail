@@ -149,7 +149,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if not hasattr(user, "nick") or not user.user_message:
+                if user.nick == "*" or not user.user_message:
                     if command_lower == "user":
                         user.user_message = args
                         user.user_name = args[0]
@@ -167,7 +167,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             commands.error_not_registered(user)
 
-                    if hasattr(user, "nick") and user.user_message:
+                    if user.nick != "*" and user.user_message:
                         commands.motd(state.motd_content, user)
 
                 else:
@@ -206,14 +206,11 @@ class UserConnection:
         A Tuple containing (None, None) indicates a QUIT command and closes the connection to the client.
     """
 
-    # self.nick is defined in recv_loop()
-    # It is not set in __init__ to keep mypy happy.
-    nick: str  # Nick is shown in user lists etc, user_name is not
-
     def __init__(self, state: ServerState, host: str, socket: socket.socket):
         self.state = state
         self.socket = socket
         self.host = host
+        self.nick: str = "*"
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
@@ -245,14 +242,14 @@ class UserConnection:
             if message is None or prefix is None:
                 with self.state.lock:
                     self.queue_quit_message_for_other_users()
-                    if hasattr(self, "nick"):
+                    if self.nick != "*":
                         self.state.delete_user(self.nick)
 
                 try:
                     reason = "(Remote host closed the connection)"
                     quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
-                    if not hasattr(self, "nick") or not self.user_message:
+                    if self.nick == "*" or not self.user_message:
                         self.send_string_to_client(quit_message, None)
                     else:
                         self.send_string_to_client(quit_message, self.get_user_mask())

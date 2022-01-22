@@ -506,7 +506,7 @@ def test_nick_already_taken(run_server):
     nc2 = socket.socket()
     nc2.connect(("localhost", 6667))
     nc2.sendall(b"NICK nc\n")
-    assert receive_line(nc2) == b":mantatail 433 nc :Nickname is already in use\r\n"
+    assert receive_line(nc2) == b":mantatail 433 * nc :Nickname is already in use\r\n"
 
     nc.sendall(b"QUIT\r\n")
     while b"QUIT" not in receive_line(nc):
@@ -536,7 +536,7 @@ def test_nick_already_taken(run_server):
     nc4.connect(("localhost", 6667))
     nc4.sendall(b"NICK nc3\n")
 
-    assert receive_line(nc4) == b":mantatail 433 nc3 :Nickname is already in use\r\n"
+    assert receive_line(nc4) == b":mantatail 433 * nc3 :Nickname is already in use\r\n"
 
     nc3.sendall(b"QUIT\r\n")
     while b"QUIT" not in receive_line(nc3):
