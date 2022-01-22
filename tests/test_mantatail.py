@@ -196,6 +196,36 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
 
+def test_nick_change(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"NICK :NewNick\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 NICK :NewNick\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 NICK :NewNick\r\n"
+
+    user_alice.sendall(b"PRIVMSG #foo :Alice should have a new user mask\r\n")
+    assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 PRIVMSG #foo :Alice should have a new user mask\r\n"
+
+    user_alice.sendall(b"NICK :NEWNICK\r\n")
+    assert receive_line(user_alice) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+    assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+
+    user_alice.sendall(b"NICK :NEWNICK\r\n")
+
+    user_alice.sendall(b"PART #foo\r\n")
+
+    # Assert instead of while receive_line() loop ensures nothing was sent from server after
+    # changing to identical nick
+    assert receive_line(user_alice) == b":NEWNICK!AliceUsr@127.0.0.1 PART #foo\r\n"
+
+
 def test_send_privmsg(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
@@ -388,6 +418,26 @@ def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
             break
 
 
+def operator_nickchange_then_kick(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"NICK :NewNick\r\n")
+    receive_line(user_bob)
+    user_alice.sendall(b"KICK #foo Bob")
+
+    assert receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
+    assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
+
+
 def test_operator_no_such_channel(user_alice):
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
     assert receive_line(user_alice) == b":mantatail 403 Alice #foo :No such channel\r\n"
@@ -491,40 +541,40 @@ def test_channel_owner_kick_self():
     Thereafter, checks that channel founder keeps their operator permissions after kicking themselves,
     when another user is on the channel
     """
-    # with socket.socket() as nc:
-    #     nc.connect(("localhost", 6667))
-    #     nc.sendall(b"NICK nc\n")
-    #     nc.sendall(b"USER nc 0 * :netcat\n")
-    #     nc.sendall(b"JOIN #foo\n")
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
+        nc.sendall(b"JOIN #foo\n")
 
-    #     while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
 
-    #     nc.sendall(b"KICK #foo nc\n")
-    #     assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
 
-    #     nc.sendall(b"QUIT\n")
+        nc.sendall(b"QUIT\n")
 
-    # with socket.socket() as nc:
-    #     nc.connect(("localhost", 6667))
-    #     nc.sendall(b"NICK nc\n")
-    #     nc.sendall(b"USER nc 0 * :netcat\n")
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
 
-    #     while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+            pass
 
-    #     nc.sendall(b"PART #foo\n")
-    #     assert receive_line(nc) == b":mantatail 403 nc #foo :No such channel\r\n"
+        nc.sendall(b"PART #foo\n")
+        assert receive_line(nc) == b":mantatail 403 nc #foo :No such channel\r\n"
 
-    #     nc.sendall(b"JOIN #foo\n")
+        nc.sendall(b"JOIN #foo\n")
 
-    #     while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
 
-    #     nc.sendall(b"KICK #foo nc\n")
-    #     assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
 
-    #     nc.sendall(b"QUIT\n")
+        nc.sendall(b"QUIT\n")
 
     nc = socket.socket()
     nc.connect(("localhost", 6667))
@@ -584,6 +634,13 @@ def test_channel_owner_kick_self():
     while b"QUIT" not in receive_line(nc2):
         pass
     nc2.close()
+
+
+def test_no_nickname_given():
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK\r\n")
+        assert receive_line(nc) == b":mantatail 431 :No nickname given\r\n"
 
 
 def test_join_part_race_condition(user_alice, user_bob):
@@ -649,6 +706,20 @@ def test_nick_already_taken(run_server):
     while b"QUIT" not in receive_line(nc4):
         pass
     nc4.close()
+
+
+def test_erroneus_nick():
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+
+    nc.sendall(b"NICK 123newnick\n")
+    assert receive_line(nc) == b":mantatail 432 123newnick :Erroneous Nickname\r\n"
+
+    nc.sendall(b"NICK /newnick\n")
+    assert receive_line(nc) == b":mantatail 432 /newnick :Erroneous Nickname\r\n"
+
+    nc.sendall(b"NICK newnick*\n")
+    assert receive_line(nc) == b":mantatail 432 newnick* :Erroneous Nickname\r\n"
 
 
 def test_sudden_disconnect(run_server):
