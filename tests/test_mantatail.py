@@ -603,3 +603,7 @@ def test_message_starting_with_colon(user_alice, user_bob):
     # It is prefixed with a second ":" because of how IRC works.
     user_alice.sendall(b"PRIVMSG #foo ::O lolwat\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O lolwat\r\n"
+
+    # Alice sends ":O"
+    user_alice.sendall(b"PRIVMSG #foo ::O\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O\r\n"
