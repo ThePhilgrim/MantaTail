@@ -349,18 +349,18 @@ class Channel:
         self.founder = user.user_name
         self.topic = None
         self.modes: List[str] = []
-        self.operators: Set[str] = set()
+        self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
 
         self.set_operator(user)
 
     def set_operator(self, user: UserConnection) -> None:
         """Adds a user to the channel's operators."""
-        self.operators.add(user.nick.lower())
+        self.operators.add(user)
 
     def remove_operator(self, user: UserConnection) -> None:
         """Removes a user from the channel's operators."""
-        self.operators.discard(user.nick.lower())
+        self.operators.discard(user)
 
     def is_founder(self, user: UserConnection) -> bool:
         """Checks if the user is the channel founder."""
@@ -368,7 +368,7 @@ class Channel:
 
     def is_operator(self, user: UserConnection) -> bool:
         """Checks if a user is an operator on the channel."""
-        return user.nick.lower() in self.operators
+        return user in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         """
