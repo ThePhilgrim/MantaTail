@@ -154,11 +154,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         user.user_message = args
                         user.user_name = args[0]
                     elif command_lower == "nick":
-                        if args[0].lower() in state.connected_users.keys():
-                            commands.error_nick_in_use(user, args[0])
-                        else:
-                            user.nick = args[0]
-                            state.connected_users[user.nick.lower()] = user
+                        commands.handle_nick(state, user, args)
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
                     else:
@@ -273,18 +269,23 @@ class UserConnection:
         reason = "(Remote host closed the connection)"
         message = f"QUIT :Quit: {reason}"
 
+        receivers = self.get_users_sharing_channel()
+
+        for channel in self.state.channels.values():
+            if channel.is_operator(self):
+                channel.remove_operator(self)
+
+        for receiver in receivers:
+            receiver.send_que.put((message, self.get_user_mask()))
+
+    def get_users_sharing_channel(self) -> Set[UserConnection]:
         receivers = set()
         for channel in self.state.channels.values():
             if self in channel.users:
                 for usr in channel.users:
                     if usr != self:
                         receivers.add(usr)
-
-            if channel.is_operator(self):
-                channel.remove_operator(self)
-
-        for receiver in receivers:
-            receiver.send_que.put((message, self.get_user_mask()))
+        return receivers
 
     def send_string_to_client(self, message: str, prefix: Optional[str]) -> None:
         """
@@ -348,18 +349,18 @@ class Channel:
         self.founder = user.user_name
         self.topic = None
         self.modes: List[str] = []
-        self.operators: Set[str] = set()
+        self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
 
         self.set_operator(user)
 
     def set_operator(self, user: UserConnection) -> None:
         """Adds a user to the channel's operators."""
-        self.operators.add(user.nick.lower())
+        self.operators.add(user)
 
     def remove_operator(self, user: UserConnection) -> None:
         """Removes a user from the channel's operators."""
-        self.operators.discard(user.nick.lower())
+        self.operators.discard(user)
 
     def is_founder(self, user: UserConnection) -> bool:
         """Checks if the user is the channel founder."""
@@ -367,7 +368,7 @@ class Channel:
 
     def is_operator(self, user: UserConnection) -> bool:
         """Checks if a user is an operator on the channel."""
-        return user.nick.lower() in self.operators
+        return user in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         """

@@ -136,6 +136,45 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         process_user_modes()
 
 
+def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Sets a user's nickname if they don't already have one.
+    Changes the user's nickname if they already have one.
+    """
+    nick_regex = r"[a-zA-Z|\\_\[\]{}^`-][a-zA-Z0-9|\\_\[\]{}^`-]{,15}"
+
+    if not args:
+        error_no_nickname_given(user)
+        return
+
+    new_nick = args[0]
+    if not re.fullmatch(nick_regex, new_nick):
+        error_erroneus_nickname(user, new_nick)
+        return
+    elif new_nick in state.connected_users.keys():
+        error_nick_in_use(user, new_nick)
+    else:
+        if not hasattr(user, "nick"):
+            user.nick = new_nick
+            state.connected_users[user.nick.lower()] = user
+        else:
+            if new_nick == user.nick:
+                return
+            receivers = user.get_users_sharing_channel()
+            message = f"NICK :{new_nick}"
+
+            for receiver in receivers:
+                receiver.send_que.put((message, user.get_user_mask()))
+
+            # User doesn't get NICK message if they change their nicks before sending USER command
+            if user.user_message:
+                user.send_que.put((message, user.get_user_mask()))
+
+            del state.connected_users[user.nick.lower()]
+            user.nick = new_nick
+            state.connected_users[user.nick.lower()] = user
+
+
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command format: "KICK #foo user_to_kick (:Reason for kicking)"
@@ -395,11 +434,25 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
     user.send_que.put((message, "mantatail"))
 
 
+def error_erroneus_nickname(user: mantatail.UserConnection, new_nick: str) -> None:
+    (err_nick_num, err_nick_info) = irc_responses.ERR_ERRONEUSNICKNAME
+
+    message = f"{err_nick_num} {new_nick} {err_nick_info}"
+    user.send_que.put((message, "mantatail"))
+
+
 def error_nick_in_use(user: mantatail.UserConnection, nick: str) -> None:
     """Sent when a Nick that a user tries to establish is already in use."""
     (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
 
     message = f"{nick_in_use_num} {nick} {nick_in_use_info}"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_no_nickname_given(user: mantatail.UserConnection) -> None:
+    (no_nick_given_num, no_nick_given_info) = irc_responses.ERR_NONICKNAMEGIVEN
+
+    message = f"{no_nick_given_num} {no_nick_given_info}"
     user.send_que.put((message, "mantatail"))
 
 
