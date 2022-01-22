@@ -103,8 +103,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if user not in channel.users:
         error_not_on_channel(user, channel_name)
     else:
-        if channel.is_operator(user):
-            channel.remove_operator(user)
+        channel.operators.discard(user)
 
         for usr in channel.users:
             message = f"PART {channel_name}"
@@ -200,7 +199,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_no_such_nick_channel(user, args[1])
         return
 
-    if not channel.is_operator(user):
+    if user not in channel.operators:
         error_no_operator_privileges(user, channel)
         return
 
@@ -359,7 +358,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
         for flag in flags:
             if flag == "o":
-                if not channel.is_operator(user):
+                if user not in channel.operators:
                     error_no_operator_privileges(user, channel)
                     return
                 elif target_usr not in channel.users:
@@ -367,9 +366,9 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                     return
 
                 if mode_command == "+":
-                    channel.set_operator(target_usr)
+                    channel.operators.add(target_usr)
                 elif mode_command[0] == "-":
-                    channel.remove_operator(target_usr)
+                    channel.operators.discard(target_usr)
 
                 message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
                 for usr in channel.users:

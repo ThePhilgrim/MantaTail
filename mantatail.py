@@ -228,7 +228,7 @@ class UserConnection:
         """
         if channel.is_founder(self):
             return f"~{self.nick}"
-        elif channel.is_operator(self):
+        elif self in channel.operators:
             return f"@{self.nick}"
         else:
             return self.nick
@@ -272,8 +272,7 @@ class UserConnection:
         receivers = self.get_users_sharing_channel()
 
         for channel in self.state.channels.values():
-            if channel.is_operator(self):
-                channel.remove_operator(self)
+            channel.operators.discard(self)
 
         for receiver in receivers:
             receiver.send_que.put((message, self.get_user_mask()))
@@ -352,23 +351,11 @@ class Channel:
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
 
-        self.set_operator(user)
-
-    def set_operator(self, user: UserConnection) -> None:
-        """Adds a user to the channel's operators."""
         self.operators.add(user)
-
-    def remove_operator(self, user: UserConnection) -> None:
-        """Removes a user from the channel's operators."""
-        self.operators.discard(user)
 
     def is_founder(self, user: UserConnection) -> bool:
         """Checks if the user is the channel founder."""
         return user.user_name == self.founder
-
-    def is_operator(self, user: UserConnection) -> bool:
-        """Checks if a user is an operator on the channel."""
-        return user in self.operators
 
     def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
         """
