@@ -595,6 +595,20 @@ def test_nick_already_taken(run_server):
     nc4.close()
 
 
+def test_erroneus_nick():
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+
+    nc.sendall(b"NICK 123newnick\n")
+    assert receive_line(nc) == b":mantatail 432 123newnick :Erroneous Nickname\r\n"
+
+    nc.sendall(b"NICK /newnick\n")
+    assert receive_line(nc) == b":mantatail 432 /newnick :Erroneous Nickname\r\n"
+
+    nc.sendall(b"NICK newnick*\n")
+    assert receive_line(nc) == b":mantatail 432 newnick* :Erroneous Nickname\r\n"
+
+
 def test_sudden_disconnect(run_server):
     nc = socket.socket()
     nc.connect(("localhost", 6667))
