@@ -267,7 +267,7 @@ def test_privmsg_error_messages(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
-    assert receive_line(user_bob) == b":mantatail 401 Bob #bar :No such nick/channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 403 Bob #bar :No such channel\r\n"
 
     user_alice.sendall(b"PRIVMSG\r\n")
     assert receive_line(user_alice) == b":mantatail 411 Alice :No recipient given (PRIVMSG)\r\n"
@@ -512,8 +512,13 @@ def test_kick_user(user_alice, user_bob):
 
     user_alice.sendall(b"KICK #foo Alice\r\n")
 
+    # Need while loops here to pass through "b'\r\n'"
+    while receive_line(user_alice) != b":Alice!AliceUsr@127.0.0.1 KICK #foo Alice :Alice\r\n":
+        pass
+
     user_alice.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_alice) != b":mantatail 442 Alice #foo :You're not on that channel\r\n":
+
+    while receive_line(user_alice) != b":mantatail 403 Alice #foo :No such channel\r\n":
         pass
 
 
