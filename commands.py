@@ -345,8 +345,6 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     Finally sends a message to all users on the channel, notifying them about the new channel mode.
     """
-    print(args)
-
     try:
         channel = state.find_channel(args[0])
     except KeyError:
