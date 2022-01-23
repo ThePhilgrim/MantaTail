@@ -483,8 +483,7 @@ def test_kick_user(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
 
     user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_bob) != b":mantatail 442 Bob #foo :You're not on that channel\r\n":
-        pass
+    assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
 
@@ -512,9 +511,7 @@ def test_kick_user(user_alice, user_bob):
 
     user_alice.sendall(b"KICK #foo Alice\r\n")
 
-    # Need while loops here to pass through "b'\r\n'"
-    while receive_line(user_alice) != b":Alice!AliceUsr@127.0.0.1 KICK #foo Alice :Alice\r\n":
-        pass
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Alice :Alice\r\n"
 
     user_alice.sendall(b"PRIVMSG #foo :Foo\r\n")
 

@@ -208,10 +208,10 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         return
 
     if len(args) == 2:
-        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}\r\n"
+        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}"
     elif len(args) >= 3:
         reason = args[2]
-        message = f"KICK {channel.name} {target_usr.nick} :{reason}\r\n"
+        message = f"KICK {channel.name} {target_usr.nick} :{reason}"
 
     channel.kick_user(user, target_usr, message)
 
