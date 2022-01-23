@@ -8,6 +8,7 @@ Usage:
 
 import socket
 import random
+import sys
 
 
 words = [
@@ -40,7 +41,11 @@ while True:
         command += " ".join(chosen_words) + "\n"
 
     sock = socket.socket()
-    sock.connect(("localhost", 6667))  # If this fails you forgot to start mantatail
+    try:
+        sock.connect(("localhost", 6667))
+    except ConnectionRefusedError:
+        sys.exit("Connection Refused: Start Mantatail in a separate terminal before running fuzzer.py")
+
     sock.sendall(command.encode())
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
