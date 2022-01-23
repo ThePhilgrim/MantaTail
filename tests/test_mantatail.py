@@ -299,6 +299,17 @@ def test_not_enough_params_error(user_alice):
     user_alice.sendall(b"KICK Bob\r\n")
     assert receive_line(user_alice) == b":mantatail 461 Alice KICK :Not enough parameters\r\n"
 
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+
+    nc.sendall(b"USER\n")
+    assert receive_line(nc) == b":mantatail 461 * USER :Not enough parameters\r\n"
+
+    nc.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc):
+        pass
+    nc.close()
+
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")

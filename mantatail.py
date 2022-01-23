@@ -151,8 +151,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
 
                 if user.nick == "*" or not user.user_message:
                     if command_lower == "user":
-                        user.user_message = args
-                        user.user_name = args[0]
+                        if args:
+                            user.user_message = args
+                            user.user_name = args[0]
+                        else:
+                            commands.error_not_enough_params(user, command)
                     elif command_lower == "nick":
                         commands.handle_nick(state, user, args)
                     elif command_lower == "pong":
