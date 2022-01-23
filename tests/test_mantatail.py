@@ -311,7 +311,17 @@ def test_send_unknown_commands(user_alice):
     assert receive_line(user_alice) == b":mantatail 421 Alice &/! :Unknown command\r\n"
 
 
-def test_unknown_mode(user_alice):
+def test_channel_mode_is(user_alice):
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 324 Alice #foo\r\n"
+
+
+def test_mode_errors(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
 
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
@@ -322,6 +332,18 @@ def test_unknown_mode(user_alice):
 
     user_alice.sendall(b"MODE #foo +g Bob\r\n")
     assert receive_line(user_alice) == b":mantatail 472 Alice g :is unknown mode char to me\r\n"
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_alice.sendall(b"MODE +o #foo Bob\r\n")
+    while receive_line(user_alice) != b":mantatail 403 Alice +o :No such channel\r\n":
+        pass
+
+    user_alice.sendall(b"MODE Bob #foo +o\r\n")
+
+    # TODO: The actual IRC error for this should be "502 Can't change mode for other users"
+    # This will be implemented when MODE becomes more widely supported
+    assert receive_line(user_alice) == b":mantatail 403 Alice Bob :No such channel\r\n"
 
 
 def test_op_deop_user(user_alice, user_bob):

@@ -132,6 +132,17 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if args[0].startswith("#"):
         process_channel_modes(state, user, args)
     else:
+        try:
+            target_usr = state.find_user(args[0])
+            if user != target_usr:
+                # TODO: The actual IRC error for this should be "502 Can't change mode for other users"
+                # This will be implemented when MODE becomes more widely supported.
+                # Currently not sure which modes 502 applies to.
+                error_no_such_channel(user, args[0])
+                return
+        except KeyError:
+            error_no_such_channel(user, args[0])
+            return
         process_user_modes()
 
 
@@ -333,15 +344,6 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     Finally sends a message to all users on the channel, notifying them about the new channel mode.
     """
-    if args[1][0] not in ["+", "-"]:
-        error_unknown_mode(user, args[1][0])
-        return
-    supported_modes = ["o"]
-    for mode in args[1][1:]:
-        if mode not in supported_modes:
-            error_unknown_mode(user, mode)
-            return
-
     try:
         channel = state.find_channel(args[0])
     except KeyError:
@@ -349,11 +351,23 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         return
 
     if len(args) == 1:
-        message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+        if channel.modes:
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+        else:
+            message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
     elif len(args) == 2:
         error_not_enough_params(user, "MODE")
     else:
+        if args[1][0] not in ["+", "-"]:
+            error_unknown_mode(user, args[1][0])
+            return
+        supported_modes = ["o"]
+        for mode in args[1][1:]:
+            if mode not in supported_modes:
+                error_unknown_mode(user, mode)
+                return
+
         mode_command, flags = args[1][0], args[1][1:]
         try:
             target_usr = state.find_user(args[2])
