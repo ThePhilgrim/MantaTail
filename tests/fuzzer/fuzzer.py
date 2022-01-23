@@ -33,6 +33,8 @@ words = [
     "",
 ]
 
+print("Fuzzer starting. Please see if errors appear in the Mantatail terminal.")
+
 while True:
     command = ""
     for line_number in range(1000):
