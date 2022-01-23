@@ -644,6 +644,15 @@ def test_sudden_disconnect(run_server):
     assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
 
 
+# Issue #77
+def test_disconnecting_without_sending_anything(user_alice):
+    user_alice.send(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.close()
+
+
 def test_invalid_utf8(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
