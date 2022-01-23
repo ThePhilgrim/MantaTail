@@ -267,7 +267,7 @@ def test_privmsg_error_messages(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
-    assert receive_line(user_bob) == b":mantatail 401 Bob #bar :No such nick/channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 403 Bob #bar :No such channel\r\n"
 
     user_alice.sendall(b"PRIVMSG\r\n")
     assert receive_line(user_alice) == b":mantatail 411 Alice :No recipient given (PRIVMSG)\r\n"
@@ -483,8 +483,7 @@ def test_kick_user(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
 
     user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_bob) != b":mantatail 442 Bob #foo :You're not on that channel\r\n":
-        pass
+    assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
 
@@ -512,8 +511,11 @@ def test_kick_user(user_alice, user_bob):
 
     user_alice.sendall(b"KICK #foo Alice\r\n")
 
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Alice :Alice\r\n"
+
     user_alice.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_alice) != b":mantatail 442 Alice #foo :You're not on that channel\r\n":
+
+    while receive_line(user_alice) != b":mantatail 403 Alice #foo :No such channel\r\n":
         pass
 
 
@@ -539,6 +541,108 @@ def test_no_nickname_given():
         nc.connect(("localhost", 6667))
         nc.sendall(b"NICK\r\n")
         assert receive_line(nc) == b":mantatail 431 :No nickname given\r\n"
+
+
+def test_channel_owner_kick_self():
+    """
+    Checks that a channel is properly removed when a channel founder kicks themselves.
+
+    Thereafter, checks that channel founder keeps their operator permissions after kicking themselves,
+    when another user is on the channel
+    """
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
+        nc.sendall(b"JOIN #foo\n")
+
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
+
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+
+        nc.sendall(b"QUIT\n")
+
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
+
+        while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+            pass
+
+        nc.sendall(b"PART #foo\n")
+        assert receive_line(nc) == b":mantatail 403 nc #foo :No such channel\r\n"
+
+        nc.sendall(b"JOIN #foo\n")
+
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
+
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+
+        nc.sendall(b"QUIT\n")
+
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+    nc.sendall(b"JOIN #foo\n")
+    time.sleep(0.1)
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"NICK nc2\n")
+    nc2.sendall(b"USER nc2 0 * :netcat\n")
+    nc2.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc) != b":nc2!nc2@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc.sendall(b"KICK #foo nc\n")
+    assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+
+    nc.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc):
+        pass
+    nc.close()
+    time.sleep(0.1)
+    # Need to redefine "nc" to avoid Bad file descriptor
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+
+    while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
+
+    nc.sendall(b"PART #foo\n")
+    assert receive_line(nc) == b":mantatail 442 nc #foo :You're not on that channel\r\n"
+
+    nc.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+        pass
+    while receive_line(nc2) != b":nc!nc@127.0.0.1 JOIN #foo\r\n":
+        pass
+
+    nc.sendall(b"KICK #foo nc\n")
+    assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+
+    nc.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc):
+        pass
+    nc.close()
+
+    nc2.sendall(b"QUIT\r\n")
+    while b"QUIT" not in receive_line(nc2):
+        pass
+    nc2.close()
 
 
 def test_join_part_race_condition(user_alice, user_bob):

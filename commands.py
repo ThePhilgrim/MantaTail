@@ -199,7 +199,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_no_such_nick_channel(user, args[1])
         return
 
-    if user not in channel.operators:
+    if not (channel.is_founder(user) or user in channel.operators):
         error_no_operator_privileges(user, channel)
         return
 
@@ -208,12 +208,15 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         return
 
     if len(args) == 2:
-        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}\r\n"
+        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}"
     elif len(args) >= 3:
         reason = args[2]
-        message = f"KICK {channel.name} {target_usr.nick} :{reason}\r\n"
+        message = f"KICK {channel.name} {target_usr.nick} :{reason}"
 
     channel.kick_user(user, target_usr, message)
+
+    if len(channel.users) == 0:
+        state.delete_channel(channel.name)
 
 
 def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
@@ -245,7 +248,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         try:
             channel = state.find_channel(receiver)
         except KeyError:
-            error_no_such_nick_channel(user, receiver)
+            error_no_such_channel(user, receiver)
             return
     else:
         privmsg_to_user(state, user, receiver, privmsg)
@@ -358,7 +361,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
         for flag in flags:
             if flag == "o":
-                if user not in channel.operators:
+                if not (channel.is_founder(user) or user in channel.operators):
                     error_no_operator_privileges(user, channel)
                     return
                 elif target_usr not in channel.users:
