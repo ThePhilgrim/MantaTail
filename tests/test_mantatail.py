@@ -550,40 +550,40 @@ def test_channel_owner_kick_self():
     Thereafter, checks that channel founder keeps their operator permissions after kicking themselves,
     when another user is on the channel
     """
-    # with socket.socket() as nc:
-    #     nc.connect(("localhost", 6667))
-    #     nc.sendall(b"NICK nc\n")
-    #     nc.sendall(b"USER nc 0 * :netcat\n")
-    #     nc.sendall(b"JOIN #foo\n")
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
+        nc.sendall(b"JOIN #foo\n")
 
-    #     while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
 
-    #     nc.sendall(b"KICK #foo nc\n")
-    #     assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
 
-    #     nc.sendall(b"QUIT\n")
+        nc.sendall(b"QUIT\n")
 
-    # with socket.socket() as nc:
-    #     nc.connect(("localhost", 6667))
-    #     nc.sendall(b"NICK nc\n")
-    #     nc.sendall(b"USER nc 0 * :netcat\n")
+    with socket.socket() as nc:
+        nc.connect(("localhost", 6667))
+        nc.sendall(b"NICK nc\n")
+        nc.sendall(b"USER nc 0 * :netcat\n")
 
-    #     while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+            pass
 
-    #     nc.sendall(b"PART #foo\n")
-    #     assert receive_line(nc) == b":mantatail 403 nc #foo :No such channel\r\n"
+        nc.sendall(b"PART #foo\n")
+        assert receive_line(nc) == b":mantatail 403 nc #foo :No such channel\r\n"
 
-    #     nc.sendall(b"JOIN #foo\n")
+        nc.sendall(b"JOIN #foo\n")
 
-    #     while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-    #         pass
+        while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+            pass
 
-    #     nc.sendall(b"KICK #foo nc\n")
-    #     assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
+        nc.sendall(b"KICK #foo nc\n")
+        assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
 
-    #     nc.sendall(b"QUIT\n")
+        nc.sendall(b"QUIT\n")
 
     nc = socket.socket()
     nc.connect(("localhost", 6667))
