@@ -403,7 +403,7 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
     for num, arg in enumerate(split_msg):
         if arg.startswith(":"):
             parsed_msg = split_msg[:num]
-            parsed_msg.append(" ".join(split_msg[num:]).lstrip(":"))
+            parsed_msg.append(" ".join(split_msg[num:])[1:])
             command = parsed_msg[0]
             return command, parsed_msg[1:]
 
