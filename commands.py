@@ -132,6 +132,17 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if args[0].startswith("#"):
         process_channel_modes(state, user, args)
     else:
+        try:
+            target_usr = state.find_user(args[0])
+            if user != target_usr:
+                # TODO: The actual IRC error for this should be "502 Can't change mode for other users"
+                # This will be implemented when MODE becomes more widely supported.
+                # Currently not sure which modes 502 applies to.
+                error_no_such_channel(user, args[0])
+                return
+        except KeyError:
+            error_no_such_channel(user, args[0])
+            return
         process_user_modes()
 
 
