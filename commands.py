@@ -345,14 +345,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     Finally sends a message to all users on the channel, notifying them about the new channel mode.
     """
-    if args[1][0] not in ["+", "-"]:
-        error_unknown_mode(user, args[1][0])
-        return
-    supported_modes = ["o"]
-    for mode in args[1][1:]:
-        if mode not in supported_modes:
-            error_unknown_mode(user, mode)
-            return
+    print(args)
 
     try:
         channel = state.find_channel(args[0])
@@ -366,6 +359,15 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
     elif len(args) == 2:
         error_not_enough_params(user, "MODE")
     else:
+        if args[1][0] not in ["+", "-"]:
+            error_unknown_mode(user, args[1][0])
+            return
+        supported_modes = ["o"]
+        for mode in args[1][1:]:
+            if mode not in supported_modes:
+                error_unknown_mode(user, mode)
+                return
+
         mode_command, flags = args[1][0], args[1][1:]
         try:
             target_usr = state.find_user(args[2])
