@@ -519,6 +519,38 @@ def test_kick_user(user_alice, user_bob):
         pass
 
 
+def test_kick_operator(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    while receive_line(user_alice) != b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n":
+        pass
+    while receive_line(user_bob) != b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n":
+        pass
+
+    user_alice.sendall(b"KICK #foo Bob\r\n")
+
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
+    while receive_line(user_bob) != b":mantatail 442 Bob #foo :You're not on that channel\r\n":
+        pass
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"KICK #foo Alice\r\n")
+    assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+
 # netcat sends \n line endings, but is fine receiving \r\n
 def test_connect_via_netcat(run_server):
     with socket.socket() as nc:

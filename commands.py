@@ -215,6 +215,8 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     channel.kick_user(user, target_usr, message)
 
+    channel.operators.discard(target_usr)
+
     if len(channel.users) == 0:
         state.delete_channel(channel.name)
 
