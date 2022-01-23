@@ -32,13 +32,25 @@ class ServerState:
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
 
-    def find_user(self, nick: str) -> UserConnection:
-        """Looks for a connected user and returns its user object."""
-        return self.connected_users[nick.lower()]
+    def find_user(self, nick: str) -> Optional[UserConnection]:
+        """
+        Looks for a connected user and returns its user object.
+        Returns None if user doesn't exist.
+        """
+        try:
+            return self.connected_users[nick.lower()]
+        except KeyError:
+            return None
 
-    def find_channel(self, channel_name: str) -> Channel:
-        """Looks for an existing channel and returns its channel object."""
-        return self.channels[channel_name.lower()]
+    def find_channel(self, channel_name: str) -> Optional[Channel]:
+        """
+        Looks for an existing channel and returns its channel object.
+        Returns None if user doesn't exist.
+        """
+        try:
+            return self.channels[channel_name.lower()]
+        except KeyError:
+            return None
 
     def delete_user(self, nick: str) -> None:
         """
@@ -48,15 +60,22 @@ class ServerState:
         Note: This does not actually disconnect the user from the server.
         To disconnect the user, a tuple (None, None) must be put in their send queue.
         """
-        user = self.connected_users[nick.lower()]
-        for channel in self.channels.values():
-            if user in channel.users:
-                channel.users.discard(user)
-        del self.connected_users[nick.lower()]
+        user = self.find_user(nick)
+        if user:
+            for channel in self.channels.values():
+                if user in channel.users:
+                    channel.users.discard(user)
+            del self.connected_users[nick.lower()]
 
     def delete_channel(self, channel_name: str) -> None:
-        """Removes a channel from server."""
-        del self.channels[channel_name.lower()]
+        """
+        Removes a channel from server.
+        Silently ignores a non-existing channel.
+        """
+        try:
+            del self.channels[channel_name.lower()]
+        except KeyError:
+            pass
 
 
 class Listener:
