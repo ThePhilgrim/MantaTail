@@ -153,7 +153,6 @@ def compare_if_word_match_in_any_order(received_bytes, compare_with):
 ##############
 
 
-@pytest.mark.skip
 def test_join_before_registering(run_server):
     user_socket = socket.socket()
     user_socket.connect(("localhost", 6667))
@@ -186,7 +185,7 @@ def test_join_channel(user_alice, user_bob):
 
 def test_no_such_channel(user_alice):
     user_alice.sendall(b"PART #foo\r\n")
-    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
+    assert receive_line(user_alice) == b":mantatail 403 Alice #foo :No such channel\r\n"
 
 
 def test_youre_not_on_that_channel(user_alice, user_bob):
@@ -194,7 +193,7 @@ def test_youre_not_on_that_channel(user_alice, user_bob):
     time.sleep(0.1)  # TODO: wait until server says that join is done
     user_bob.sendall(b"PART #foo\r\n")
 
-    assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
 
 def test_nick_change(user_alice, user_bob):
@@ -265,51 +264,51 @@ def test_privmsg_error_messages(user_alice, user_bob):
     time.sleep(0.1)
 
     user_bob.sendall(b"PRIVMSG #foo :Bar\r\n")
-    assert receive_line(user_bob) == b":mantatail 442 #foo :You're not on that channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 442 Bob #foo :You're not on that channel\r\n"
 
     user_bob.sendall(b"PRIVMSG #bar :Baz\r\n")
-    assert receive_line(user_bob) == b":mantatail 401 #bar :No such nick/channel\r\n"
+    assert receive_line(user_bob) == b":mantatail 401 Bob #bar :No such nick/channel\r\n"
 
     user_alice.sendall(b"PRIVMSG\r\n")
-    assert receive_line(user_alice) == b":mantatail 411 :No recipient given (PRIVMSG)\r\n"
+    assert receive_line(user_alice) == b":mantatail 411 Alice :No recipient given (PRIVMSG)\r\n"
 
     user_alice.sendall(b"PRIVMSG #foo\r\n")
-    assert receive_line(user_alice) == b":mantatail 412 :No text to send\r\n"
+    assert receive_line(user_alice) == b":mantatail 412 Alice :No text to send\r\n"
 
     user_alice.sendall(b"PRIVMSG Charlie :This is a private message\r\n")
-    assert receive_line(user_alice) == b":mantatail 401 Charlie :No such nick/channel\r\n"
+    assert receive_line(user_alice) == b":mantatail 401 Alice Charlie :No such nick/channel\r\n"
 
 
 def test_not_enough_params_error(user_alice):
     user_alice.sendall(b"JOIN\r\n")
-    assert receive_line(user_alice) == b":mantatail 461 JOIN :Not enough parameters\r\n"
+    assert receive_line(user_alice) == b":mantatail 461 Alice JOIN :Not enough parameters\r\n"
 
     user_alice.sendall(b"JOIN #foo\r\n")
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
         pass
 
     user_alice.sendall(b"part\r\n")
-    assert receive_line(user_alice) == b":mantatail 461 PART :Not enough parameters\r\n"
+    assert receive_line(user_alice) == b":mantatail 461 Alice PART :Not enough parameters\r\n"
 
     user_alice.sendall(b"Mode\r\n")
-    assert receive_line(user_alice) == b":mantatail 461 MODE :Not enough parameters\r\n"
+    assert receive_line(user_alice) == b":mantatail 461 Alice MODE :Not enough parameters\r\n"
 
     user_alice.sendall(b"KICK\r\n")
-    assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
+    assert receive_line(user_alice) == b":mantatail 461 Alice KICK :Not enough parameters\r\n"
 
     user_alice.sendall(b"KICK Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 461 KICK :Not enough parameters\r\n"
+    assert receive_line(user_alice) == b":mantatail 461 Alice KICK :Not enough parameters\r\n"
 
 
 def test_send_unknown_commands(user_alice):
     user_alice.sendall(b"FOO\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 FOO :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 Alice FOO :Unknown command\r\n"
     user_alice.sendall(b"Bar\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 Bar :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 Alice Bar :Unknown command\r\n"
     user_alice.sendall(b"baz\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 baz :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 Alice baz :Unknown command\r\n"
     user_alice.sendall(b"&/!\r\n")
-    assert receive_line(user_alice) == b":mantatail 421 &/! :Unknown command\r\n"
+    assert receive_line(user_alice) == b":mantatail 421 Alice &/! :Unknown command\r\n"
 
 
 def test_unknown_mode(user_alice):
@@ -319,10 +318,10 @@ def test_unknown_mode(user_alice):
         pass
 
     user_alice.sendall(b"MODE #foo ^g Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 472 ^ :is unknown mode char to me\r\n"
+    assert receive_line(user_alice) == b":mantatail 472 Alice ^ :is unknown mode char to me\r\n"
 
     user_alice.sendall(b"MODE #foo +g Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 472 g :is unknown mode char to me\r\n"
+    assert receive_line(user_alice) == b":mantatail 472 Alice g :is unknown mode char to me\r\n"
 
 
 def test_op_deop_user(user_alice, user_bob):
@@ -441,7 +440,7 @@ def operator_nickchange_then_kick(user_alice, user_bob):
 
 def test_operator_no_such_channel(user_alice):
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 403 #foo :No such channel\r\n"
+    assert receive_line(user_alice) == b":mantatail 403 Alice #foo :No such channel\r\n"
 
 
 def test_operator_no_privileges(user_alice, user_bob):
@@ -455,7 +454,7 @@ def test_operator_no_privileges(user_alice, user_bob):
         pass
 
     user_bob.sendall(b"MODE #foo +o Alice\r\n")
-    assert receive_line(user_bob) == b":mantatail 482 #foo :You're not channel operator\r\n"
+    assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
 
 
 def test_operator_user_not_in_channel(user_alice, user_bob):
@@ -465,7 +464,7 @@ def test_operator_user_not_in_channel(user_alice, user_bob):
         pass
 
     user_alice.sendall(b"MODE #foo +o Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 441 Bob #foo :They aren't on that channel\r\n"
+    assert receive_line(user_alice) == b":mantatail 441 Alice Bob #foo :They aren't on that channel\r\n"
 
 
 def test_kick_user(user_alice, user_bob):
@@ -484,7 +483,7 @@ def test_kick_user(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 KICK #foo Bob :Bob\r\n"
 
     user_bob.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_bob) != b":mantatail 442 #foo :You're not on that channel\r\n":
+    while receive_line(user_bob) != b":mantatail 442 Bob #foo :You're not on that channel\r\n":
         pass
 
     user_bob.sendall(b"JOIN #foo\r\n")
@@ -514,7 +513,7 @@ def test_kick_user(user_alice, user_bob):
     user_alice.sendall(b"KICK #foo Alice\r\n")
 
     user_alice.sendall(b"PRIVMSG #foo :Foo\r\n")
-    while receive_line(user_alice) != b":mantatail 442 #foo :You're not on that channel\r\n":
+    while receive_line(user_alice) != b":mantatail 442 Alice #foo :You're not on that channel\r\n":
         pass
 
 
@@ -564,7 +563,7 @@ def test_nick_already_taken(run_server):
     nc2 = socket.socket()
     nc2.connect(("localhost", 6667))
     nc2.sendall(b"NICK nc\n")
-    assert receive_line(nc2) == b":mantatail 433 nc :Nickname is already in use\r\n"
+    assert receive_line(nc2) == b":mantatail 433 * nc :Nickname is already in use\r\n"
 
     nc.sendall(b"QUIT\r\n")
     while b"QUIT" not in receive_line(nc):
@@ -594,7 +593,7 @@ def test_nick_already_taken(run_server):
     nc4.connect(("localhost", 6667))
     nc4.sendall(b"NICK nc3\n")
 
-    assert receive_line(nc4) == b":mantatail 433 nc3 :Nickname is already in use\r\n"
+    assert receive_line(nc4) == b":mantatail 433 * nc3 :Nickname is already in use\r\n"
 
     nc3.sendall(b"QUIT\r\n")
     while b"QUIT" not in receive_line(nc3):
@@ -643,6 +642,15 @@ def test_sudden_disconnect(run_server):
     nc.close()
 
     assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
+
+
+# Issue #77
+def test_disconnecting_without_sending_anything(user_alice):
+    user_alice.send(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.close()
 
 
 def test_invalid_utf8(user_alice, user_bob):

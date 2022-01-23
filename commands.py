@@ -153,7 +153,7 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     elif new_nick in state.connected_users.keys():
         error_nick_in_use(user, new_nick)
     else:
-        if not hasattr(user, "nick"):
+        if user.nick == "*":
             user.nick = new_nick
             state.connected_users[user.nick.lower()] = user
         else:
@@ -344,7 +344,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         return
 
     if len(args) == 1:
-        message = f'{irc_responses.RPL_CHANNELMODEIS} {channel.name} {" ".join(channel.modes)}'
+        message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
         user.send_que.put((message, "mantatail"))
     elif len(args) == 2:
         error_not_enough_params(user, "MODE")
@@ -410,7 +410,7 @@ def error_unknown_command(user: mantatail.UserConnection, command: str) -> None:
     """Sent when server does not recognize a command user sent to server."""
     (unknown_cmd_num, unknown_cmd_info) = irc_responses.ERR_UNKNOWNCOMMAND
 
-    message = f"{unknown_cmd_num} {command} {unknown_cmd_info}"
+    message = f"{unknown_cmd_num} {user.nick} {command} {unknown_cmd_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -421,7 +421,7 @@ def error_not_registered(user: mantatail.UserConnection) -> None:
     """
     (not_registered_num, not_registered_info) = irc_responses.ERR_NOTREGISTERED
 
-    message = f":mantatail {not_registered_num} * {not_registered_info}"
+    message = f"{not_registered_num} {user.nick} {not_registered_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -429,7 +429,7 @@ def error_no_motd(user: mantatail.UserConnection) -> None:
     """Sent when server cannot find the Message of the Day."""
     (no_motd_num, no_motd_info) = irc_responses.ERR_NOMOTD
 
-    message = f"{no_motd_num} {no_motd_info}"
+    message = f"{no_motd_num} {user.nick} {no_motd_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -444,7 +444,7 @@ def error_nick_in_use(user: mantatail.UserConnection, nick: str) -> None:
     """Sent when a Nick that a user tries to establish is already in use."""
     (nick_in_use_num, nick_in_use_info) = irc_responses.ERR_NICKNAMEINUSE
 
-    message = f"{nick_in_use_num} {nick} {nick_in_use_info}"
+    message = f"{nick_in_use_num} {user.nick} {nick} {nick_in_use_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -459,7 +459,7 @@ def error_no_such_nick_channel(user: mantatail.UserConnection, channel_or_nick: 
     """Sent when a user provides a non-existing user or channel as an argument in a command."""
     (no_nick_num, no_nick_info) = irc_responses.ERR_NOSUCHNICK
 
-    message = f"{no_nick_num} {channel_or_nick} {no_nick_info}"
+    message = f"{no_nick_num} {user.nick} {channel_or_nick} {no_nick_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -467,7 +467,7 @@ def error_not_on_channel(user: mantatail.UserConnection, channel_name: str) -> N
     """Sent when a user tries to send a message to, or part from a channel that they are not connected to."""
     (not_on_channel_num, not_on_channel_info) = irc_responses.ERR_NOTONCHANNEL
 
-    message = f"{not_on_channel_num} {channel_name} {not_on_channel_info}"
+    message = f"{not_on_channel_num} {user.nick} {channel_name} {not_on_channel_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -479,7 +479,7 @@ def error_user_not_in_channel(
     and this user is connected to the server but has not joined the channel.
     """
     (not_in_chan_num, not_in_chan_info) = irc_responses.ERR_USERNOTINCHANNEL
-    message = f"{not_in_chan_num} {target_usr.nick} {channel.name} {not_in_chan_info}"
+    message = f"{not_in_chan_num} {user.nick} {target_usr.nick} {channel.name} {not_in_chan_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -493,14 +493,14 @@ def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: s
     """
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
-    message = f"{cant_send_num} {channel_name} {cant_send_info}"
+    message = f"{cant_send_num} {user.nick} {channel_name} {cant_send_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_no_such_channel(user: mantatail.UserConnection, channel_name: str) -> None:
     """Sent when a user provides a non-existing channel as an argument in a command."""
     (no_channel_num, no_channel_info) = irc_responses.ERR_NOSUCHCHANNEL
-    message = f"{no_channel_num} {channel_name} {no_channel_info}"
+    message = f"{no_channel_num} {user.nick} {channel_name} {no_channel_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -510,7 +510,7 @@ def error_no_operator_privileges(user: mantatail.UserConnection, channel: mantat
     but is not an operator on that channel.
     """
     (not_operator_num, not_operator_info) = irc_responses.ERR_CHANOPRIVSNEEDED
-    message = f"{not_operator_num} {channel.name} {not_operator_info}"
+    message = f"{not_operator_num} {user.nick} {channel.name} {not_operator_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -518,7 +518,7 @@ def error_no_recipient(user: mantatail.UserConnection, command: str) -> None:
     """Sent when a user sends a PRIVMSG but without providing a recipient."""
     (no_recipient_num, no_recipient_info) = irc_responses.ERR_NORECIPIENT
 
-    message = f"{no_recipient_num} {no_recipient_info} ({command.upper()})"
+    message = f"{no_recipient_num} {user.nick} {no_recipient_info} ({command.upper()})"
     user.send_que.put((message, "mantatail"))
 
 
@@ -529,14 +529,14 @@ def error_no_text_to_send(user: mantatail.UserConnection) -> None:
     """
     (no_text_num, no_text_info) = irc_responses.ERR_NOTEXTTOSEND
 
-    message = f"{no_text_num} {no_text_info}"
+    message = f"{no_text_num} {user.nick} {no_text_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_unknown_mode(user: mantatail.UserConnection, unknown_command: str) -> None:
     """Sent when a user tries to set a channel/user mode that the server does not recognize."""
     (unknown_mode_num, unknown_mode_info) = irc_responses.ERR_UNKNOWNMODE
-    message = f"{unknown_mode_num} {unknown_command} {unknown_mode_info}"
+    message = f"{unknown_mode_num} {user.nick} {unknown_command} {unknown_mode_info}"
     user.send_que.put((message, "mantatail"))
 
 
@@ -547,12 +547,12 @@ def error_no_origin(user: mantatail.UserConnection) -> None:
     """
     (no_origin_num, no_origin_info) = irc_responses.ERR_NOORIGIN
 
-    message = f"{no_origin_num} {no_origin_info}"
+    message = f"{no_origin_num} {user.nick} {no_origin_info}"
     user.send_que.put((message, "mantatail"))
 
 
 def error_not_enough_params(user: mantatail.UserConnection, command: str) -> None:
     """Sent when a user sends a command to the server that does not contain all required arguments."""
     (not_enough_params_num, not_enough_params_info) = irc_responses.ERR_NEEDMOREPARAMS
-    message = f"{not_enough_params_num} {command} {not_enough_params_info}"
+    message = f"{not_enough_params_num} {user.nick} {command} {not_enough_params_info}"
     user.send_que.put((message, "mantatail"))
