@@ -311,6 +311,16 @@ def test_send_unknown_commands(user_alice):
     assert receive_line(user_alice) == b":mantatail 421 Alice &/! :Unknown command\r\n"
 
 
+def test_channel_mode_is(user_alice):
+    user_alice.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo")
+    assert receive_line(user_alice) == b":mantatail 324 Alice #foo\r\n"
+
+
 def test_mode_errors(user_alice, user_bob):
     user_alice.sendall(b"JOIN #foo\r\n")
 
