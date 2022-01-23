@@ -317,7 +317,7 @@ def test_channel_mode_is(user_alice):
     while receive_line(user_alice) != b":mantatail 366 Alice #foo :End of /NAMES list.\r\n":
         pass
 
-    user_alice.sendall(b"MODE #foo")
+    user_alice.sendall(b"MODE #foo\r\n")
     assert receive_line(user_alice) == b":mantatail 324 Alice #foo\r\n"
 
 

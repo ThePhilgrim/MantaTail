@@ -351,7 +351,10 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         return
 
     if len(args) == 1:
-        message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+        if channel.modes:
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+        else:
+            message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
     elif len(args) == 2:
         error_not_enough_params(user, "MODE")
