@@ -770,3 +770,23 @@ def test_invalid_utf8(user_alice, user_bob):
     random_message = os.urandom(100).replace(b"\n", b"")
     user_alice.sendall(b"PRIVMSG #foo :" + random_message + b"\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :" + random_message + b"\r\n"
+
+
+def test_message_starting_with_colon(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    # Alice sends ":O lolwat" to Bob.
+    # It is prefixed with a second ":" because of how IRC works.
+    user_alice.sendall(b"PRIVMSG #foo ::O lolwat\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O lolwat\r\n"
+
+    # Alice sends ":O"
+    user_alice.sendall(b"PRIVMSG #foo ::O\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O\r\n"
