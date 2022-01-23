@@ -15,7 +15,7 @@ jobs:
       - run: |
           python3 -m pip install black
       - run: |
-          python3 -m black --check *.py tests/*py
+          python3 -m black --check *.py tests
   mypy:
     runs-on: ubuntu-latest
     steps:
