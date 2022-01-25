@@ -61,11 +61,12 @@ class ServerState:
         To disconnect the user, a tuple (None, None) must be put in their send queue.
         """
         user = self.find_user(nick)
-        if user:
-            for channel in self.channels.values():
-                if user in channel.users:
-                    channel.users.discard(user)
-            del self.connected_users[nick.lower()]
+        assert user is not None
+
+        for channel in self.channels.values():
+            if user in channel.users:
+                channel.users.discard(user)
+        del self.connected_users[nick.lower()]
 
     def delete_channel(self, channel_name: str) -> None:
         """
@@ -74,8 +75,9 @@ class ServerState:
         """
         try:
             del self.channels[channel_name.lower()]
-        except KeyError:
-            pass
+        except KeyError as err:
+            print(err)
+            print("Tried to delete a channel that does not exist.")
 
 
 class Listener:

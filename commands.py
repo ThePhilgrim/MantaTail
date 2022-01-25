@@ -53,26 +53,27 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         channel = state.find_channel(channel_name)
 
-        if channel:
-            if user not in channel.users:
-                channel_users_str = ""
-                for usr in channel.users:
-                    channel_users_str += f" {usr.get_nick_with_prefix(channel)}"
+        assert channel
 
-                channel.users.add(user)
+        if user not in channel.users:
+            channel_users_str = ""
+            for usr in channel.users:
+                channel_users_str += f" {usr.get_nick_with_prefix(channel)}"
 
-                for usr in channel.users:
-                    message = f"JOIN {channel_name}"
-                    usr.send_que.put((message, user.get_user_mask()))
+            channel.users.add(user)
 
-                # TODO: Implement topic functionality for existing channels & MODE for new ones
+            for usr in channel.users:
+                message = f"JOIN {channel_name}"
+                usr.send_que.put((message, user.get_user_mask()))
 
-                message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}{channel_users_str}"
+            # TODO: Implement topic functionality for existing channels & MODE for new ones
 
-                user.send_que.put((message, "mantatail"))
+            message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}{channel_users_str}"
 
-                message = f"366 {user.nick} {channel_name} :End of /NAMES list."
-                user.send_que.put((message, "mantatail"))
+            user.send_que.put((message, "mantatail"))
+
+            message = f"366 {user.nick} {channel_name} :End of /NAMES list."
+            user.send_que.put((message, "mantatail"))
 
         # TODO:
         #   * Send topic (332)
@@ -99,19 +100,20 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     if not channel:
         error_no_such_channel(user, channel_name)
+        return
+
+    if user not in channel.users:
+        error_not_on_channel(user, channel_name)
     else:
-        if user not in channel.users:
-            error_not_on_channel(user, channel_name)
-        else:
-            channel.operators.discard(user)
+        channel.operators.discard(user)
 
-            for usr in channel.users:
-                message = f"PART {channel_name}"
-                usr.send_que.put((message, user.get_user_mask()))
+        for usr in channel.users:
+            message = f"PART {channel_name}"
+            usr.send_que.put((message, user.get_user_mask()))
 
-            channel.users.discard(user)
-            if len(channel.users) == 0:
-                state.delete_channel(channel_name)
+        channel.users.discard(user)
+        if len(channel.users) == 0:
+            state.delete_channel(channel_name)
 
 
 def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
