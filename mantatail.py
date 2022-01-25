@@ -183,7 +183,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_pong(state, user, args)
                     else:
                         if command_lower == "quit":
-                            user.send_que.put((None, None))
+                            return
                         else:
                             commands.error_not_registered(user)
 
@@ -199,6 +199,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                     else:
                         with state.lock:
                             call_handler_function(state, user, args)
+                            if command_lower == "quit":
+                                return
     finally:
         user.send_que.put((None, None))
 
