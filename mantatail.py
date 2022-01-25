@@ -73,11 +73,7 @@ class ServerState:
         Removes a channel from server.
         Silently ignores a non-existing channel.
         """
-        try:
-            del self.channels[channel_name.lower()]
-        except KeyError as err:
-            print(err)
-            print("Tried to delete a channel that does not exist.")
+        del self.channels[channel_name.lower()]
 
 
 class Listener:
