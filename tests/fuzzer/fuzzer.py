@@ -42,5 +42,10 @@ while True:
     sock = socket.socket()
     sock.connect(("localhost", 6667))  # If this fails you forgot to start mantatail
     sock.sendall(command.encode())
-    sock.shutdown(socket.SHUT_RDWR)
+
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        # shutdown() sometimes fails on macos
+        pass
     sock.close()
