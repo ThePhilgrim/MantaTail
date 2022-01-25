@@ -51,7 +51,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         if lower_channel_name not in state.channels.keys():
             state.channels[lower_channel_name] = mantatail.Channel(channel_name, user)
 
-        channel = state.channels[lower_channel_name]
+        channel = state.find_channel(channel_name)
+
+        assert channel
 
         if user not in channel.users:
             channel_users_str = ""
@@ -94,9 +96,9 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     channel_name = args[0]
 
-    try:
-        channel = state.find_channel(channel_name)
-    except KeyError:
+    channel = state.find_channel(channel_name)
+
+    if not channel:
         error_no_such_channel(user, channel_name)
         return
 
@@ -132,17 +134,17 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if args[0].startswith("#"):
         process_channel_modes(state, user, args)
     else:
-        try:
-            target_usr = state.find_user(args[0])
+        target_usr = state.find_user(args[0])
+        if not target_usr:
+            error_no_such_channel(user, args[0])
+            return
+        else:
             if user != target_usr:
                 # TODO: The actual IRC error for this should be "502 Can't change mode for other users"
                 # This will be implemented when MODE becomes more widely supported.
                 # Currently not sure which modes 502 applies to.
                 error_no_such_channel(user, args[0])
                 return
-        except KeyError:
-            error_no_such_channel(user, args[0])
-            return
         process_user_modes()
 
 
@@ -180,7 +182,9 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             if user.user_message:
                 user.send_que.put((message, user.get_user_mask()))
 
+            # Not using state.delete_user() as that will delete the user from all channels as well.
             del state.connected_users[user.nick.lower()]
+
             user.nick = new_nick
             state.connected_users[user.nick.lower()] = user
 
@@ -199,14 +203,13 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_not_enough_params(user, "KICK")
         return
 
-    try:
-        channel = state.find_channel(args[0])
-    except KeyError:
+    channel = state.find_channel(args[0])
+    if not channel:
         error_no_such_channel(user, args[0])
         return
-    try:
-        target_usr = state.find_user(args[1])
-    except KeyError:
+
+    target_usr = state.find_user(args[1])
+    if not target_usr:
         error_no_such_nick_channel(user, args[1])
         return
 
@@ -258,9 +261,9 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     (receiver, privmsg) = args[0], args[1]
 
     if receiver.startswith("#"):
-        try:
-            channel = state.find_channel(receiver)
-        except KeyError:
+
+        channel = state.find_channel(receiver)
+        if not channel:
             error_no_such_channel(user, receiver)
             return
     else:
@@ -297,9 +300,8 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 def privmsg_to_user(
     state: mantatail.ServerState, sender: mantatail.UserConnection, receiver: str, privmsg: str
 ) -> None:
-    try:
-        receiver_usr = state.find_user(receiver)
-    except KeyError:
+    receiver_usr = state.find_user(receiver)
+    if not receiver_usr:
         error_no_such_nick_channel(sender, receiver)
         return
 
@@ -344,9 +346,8 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     Finally sends a message to all users on the channel, notifying them about the new channel mode.
     """
-    try:
-        channel = state.find_channel(args[0])
-    except KeyError:
+    channel = state.find_channel(args[0])
+    if not channel:
         error_no_such_channel(user, args[0])
         return
 
@@ -369,9 +370,9 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                 return
 
         mode_command, flags = args[1][0], args[1][1:]
-        try:
-            target_usr = state.find_user(args[2])
-        except KeyError:
+
+        target_usr = state.find_user(args[2])
+        if not target_usr:
             error_no_such_nick_channel(user, args[2])
             return
 

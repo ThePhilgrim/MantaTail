@@ -49,5 +49,10 @@ while True:
         sys.exit("Connection Refused: Start Mantatail in a separate terminal before running fuzzer.py")
 
     sock.sendall(command.encode())
-    sock.shutdown(socket.SHUT_RDWR)
+
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        # shutdown() sometimes fails on macos
+        pass
     sock.close()
