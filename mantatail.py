@@ -13,6 +13,7 @@ import json
 from typing import Dict, Optional, List, Set, Tuple
 
 import commands
+import irc_responses
 
 # Global so that it can be accessed from pytest
 TIMER_SECONDS = 600
@@ -364,7 +365,7 @@ class Channel:
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
         self.founder = user.user_name
-        self.topic = None
+        self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
         self.modes: List[str] = []
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
@@ -374,6 +375,27 @@ class Channel:
     def is_founder(self, user: UserConnection) -> bool:
         """Checks if the user is the channel founder."""
         return user.user_name == self.founder
+
+    def set_topic(self, user: UserConnection, topic: str) -> None:
+        if not topic:
+            self.topic = None
+        else:
+            self.topic = (topic, user.nick)
+
+    def send_topic_to_user(self, user: UserConnection) -> None:
+        topic_num = irc_responses.RPL_TOPIC
+        topic_author_num = irc_responses.RPL_TOPICWHOTIME
+        (no_topic_num, no_topic_info) = irc_responses.RPL_NOTOPIC
+
+        if self.topic is None:
+            message = f"{no_topic_num} {user.nick} {self.name} {no_topic_info}"
+            user.send_que.put((message, "mantatail"))
+        else:
+            topic_message = f"{topic_num} {user.nick} {self.name} :{self.topic[0]}"
+            author_message = f"{topic_author_num} {user.nick} {self.name} :{self.topic[1]}"
+
+            user.send_que.put((topic_message, "mantatail"))
+            user.send_que.put((author_message, "mantatail"))
 
     def queue_message_to_chan_users(self, message: str, sender: UserConnection, send_to_self: bool = True) -> None:
         """

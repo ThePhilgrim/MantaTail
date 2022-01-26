@@ -32,6 +32,9 @@ ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")  #! Not implemented
 
 # Command Responses
 RPL_AWAY = "301"  #! Not implemented
+RPL_NOTOPIC = ("331", ":No topic is set.")
+RPL_TOPIC = "332"
+RPL_TOPICWHOTIME = "333"
 RPL_CHANNELMODEIS = "324"
 RPL_MOTDSTART = ("375", "Message of the day - ")
 RPL_MOTD = "372"

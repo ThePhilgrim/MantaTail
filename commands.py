@@ -65,10 +65,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             join_msg = f"JOIN {channel_name}"
             channel.queue_message_to_chan_users(join_msg, user)
 
-            # TODO: Implement topic functionality for existing channels & MODE for new ones
+            if channel.topic:
+                channel.send_topic_to_user(user)
 
             message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}{channel_users_str}"
-
             user.send_que.put((message, "mantatail"))
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
@@ -186,6 +186,42 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             user.nick = new_nick
             state.connected_users[user.nick.lower()] = user
+
+
+def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Command formats:
+        Set new topic: "TOPIC #foo :New Topic"
+        Clear topic: "TOPIC #foo :"
+        Get topic: "TOPIC #foo"
+
+    Depending on command and operator status, either sends a channel's topic to user, sets a new topic,
+    or clears the current topic.
+    """
+    if not args:
+        error_not_enough_params(user, "TOPIC")
+        return
+
+    channel = state.find_channel(args[0])
+
+    if not channel:
+        error_no_such_channel(user, args[0])
+        return
+
+    if len(args) == 1:
+        channel.send_topic_to_user(user)
+    else:
+        if not user in channel.operators:
+            error_no_operator_privileges(user, channel)
+        else:
+            channel.set_topic(user, args[1])
+
+            if not args[1]:
+                topic_message = f"TOPIC {channel.name} :"
+            else:
+                topic_message = f"TOPIC {channel.name} :{args[1]}"
+
+            channel.queue_message_to_chan_users(topic_message, user)
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:

@@ -25,6 +25,7 @@ words = [
     "MODE",
     "NICK",
     "PART",
+    "TOPIC",
     "PING",
     "PONG",
     "PRIVMSG",
@@ -37,7 +38,7 @@ print("Fuzzer starting. Please see if errors appear in the Mantatail terminal.")
 
 while True:
     command = ""
-    for line_number in range(1000):
+    for line_number in range(10000):
         words_per_line = random.randint(1, 5)
         chosen_words = [random.choice(words) for word_number in range(words_per_line)]
         command += " ".join(chosen_words) + "\n"
