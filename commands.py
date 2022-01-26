@@ -274,10 +274,14 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     """
     Command format: "QUIT"
 
-    Disconnects a user from the server by putting tuple (None, None) to their send queue.
+    Disconnects a user from the server by putting tuple (None, disconnect_reason: str) to their send queue.
     """
-    # TODO "if args: set args to reason"
-    user.send_que.put((None, None))
+    if args:
+        disconnect_reason = f"({args[0]})"
+    else:
+        disconnect_reason = "(Client quit.)"
+
+    user.send_que.put((None, disconnect_reason))
 
 
 def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
