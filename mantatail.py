@@ -387,10 +387,7 @@ class Channel:
         is called with send_to_self = False.
         """
         for usr in self.users:
-            if not send_to_self:
-                if usr != sender:
-                    usr.send_que.put((message, sender.get_user_mask()))
-            else:
+            if usr != sender or send_to_self:
                 usr.send_que.put((message, sender.get_user_mask()))
 
 
