@@ -114,13 +114,8 @@ def fuzzing_loop():
             commands += " ".join(chosen_words) + "\n"
 
         sock = socket.socket()
-        try:
-            sock.connect(("localhost", 6667))
-        except ConnectionRefusedError:
-            sys.exit("Connection Refused: Start Mantatail in a separate terminal before running fuzzer.py")
-
+        sock.connect(("localhost", 6667))
         recent_commands.append((sock.getsockname(), commands))
-
         sock.sendall(commands.encode())
 
         try:
