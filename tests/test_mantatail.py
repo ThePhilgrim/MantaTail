@@ -249,7 +249,7 @@ def test_send_privmsg(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
-def test_channel_topics(user_alice, user_bob):
+def test_channel_topics(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
@@ -274,11 +274,19 @@ def test_channel_topics(user_alice, user_bob):
     assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
 
+    time.sleep(0.1)
+    user_charlie.sendall(b"JOIN #foo\r\n")
+    receive_line(user_charlie)
+    assert receive_line(user_charlie) == b":mantatail 332 Charlie #foo :This is a topic\r\n"
+    assert receive_line(user_charlie) == b":mantatail 333 Charlie #foo :Alice\r\n"
+
     user_alice.sendall(b"TOPIC #foo\r\n")
+    receive_line(user_alice)  # Charlie's JOIN message
     assert receive_line(user_alice) == b":mantatail 332 Alice #foo :This is a topic\r\n"
     assert receive_line(user_alice) == b":mantatail 333 Alice #foo :Alice\r\n"
 
     user_bob.sendall(b"TOPIC #foo\r\n")
+    receive_line(user_bob)  # Charlie's JOIN message
     assert receive_line(user_bob) == b":mantatail 332 Bob #foo :This is a topic\r\n"
     assert receive_line(user_bob) == b":mantatail 333 Bob #foo :Alice\r\n"
 
