@@ -273,7 +273,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         error_not_on_channel(user, receiver)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
-        channel.queue_message_to_chan_users(privmsg_message, user, False)
+        channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
