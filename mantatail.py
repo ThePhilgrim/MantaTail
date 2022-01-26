@@ -375,10 +375,6 @@ class Channel:
         """Checks if the user is the channel founder."""
         return user.user_name == self.founder
 
-    def kick_user(self, user_to_kick: UserConnection) -> None:
-        """Kicks user from the channel."""
-        self.users.discard(user_to_kick)
-
     def queue_message_to_chan_users(self, message: str, sender: UserConnection, send_to_self: bool = True) -> None:
         """
         Puts a message in the send queue of all users on the channel.
