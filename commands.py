@@ -62,9 +62,8 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             channel.users.add(user)
 
-            for usr in channel.users:
-                message = f"JOIN {channel_name}"
-                usr.send_que.put((message, user.get_user_mask()))
+            join_msg = f"JOIN {channel_name}"
+            channel.queue_message_to_chan_users(join_msg, user)
 
             # TODO: Implement topic functionality for existing channels & MODE for new ones
 
@@ -107,9 +106,8 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     else:
         channel.operators.discard(user)
 
-        for usr in channel.users:
-            message = f"PART {channel_name}"
-            usr.send_que.put((message, user.get_user_mask()))
+        part_message = f"PART {channel_name}"
+        channel.queue_message_to_chan_users(part_message, user)
 
         channel.users.discard(user)
         if len(channel.users) == 0:
@@ -172,6 +170,7 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         else:
             if new_nick == user.nick:
                 return
+            # Avoids sending NICK message to users several times if user shares more than one channel with them.
             receivers = user.get_users_sharing_channel()
             message = f"NICK :{new_nick}"
 
@@ -222,13 +221,13 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         return
 
     if len(args) == 2:
-        message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}"
+        kick_message = f"KICK {channel.name} {target_usr.nick} :{target_usr.nick}"
     elif len(args) >= 3:
         reason = args[2]
-        message = f"KICK {channel.name} {target_usr.nick} :{reason}"
+        kick_message = f"KICK {channel.name} {target_usr.nick} :{reason}"
 
-    channel.kick_user(user, target_usr, message)
-
+    channel.queue_message_to_chan_users(kick_message, user)
+    channel.kick_user(target_usr)
     channel.operators.discard(target_usr)
 
     if len(channel.users) == 0:
@@ -273,10 +272,8 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     if user not in channel.users:
         error_not_on_channel(user, receiver)
     else:
-        for usr in channel.users:
-            if usr.nick != user.nick:
-                message = f"PRIVMSG {receiver} :{privmsg}"
-                usr.send_que.put((message, user.get_user_mask()))
+        privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
+        channel.queue_message_to_chan_users(privmsg_message, user, False)
 
 
 def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
@@ -390,9 +387,8 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
                 elif mode_command[0] == "-":
                     channel.operators.discard(target_usr)
 
-                message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
-                for usr in channel.users:
-                    usr.send_que.put((message, user.get_user_mask()))
+                mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
+                channel.queue_message_to_chan_users(mode_message, user)
 
 
 # !Not implemented

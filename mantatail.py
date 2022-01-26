@@ -375,15 +375,23 @@ class Channel:
         """Checks if the user is the channel founder."""
         return user.user_name == self.founder
 
-    def kick_user(self, kicker: UserConnection, user_to_kick: UserConnection, message: str) -> None:
+    def kick_user(self, user_to_kick: UserConnection) -> None:
+        """Kicks user from the channel."""
+        self.users.discard(user_to_kick)
+
+    def queue_message_to_chan_users(self, message: str, sender: UserConnection, send_to_self: bool = True) -> None:
         """
-        Notifies all users on the channel that a user has been kicked.
-        Thereafter removes the kicked user from the channel.
+        Puts a message in the send queue of all users on the channel.
+
+        In cases where the message should not be sent to self (ex. PRIVMSG), the method
+        is called with send_to_self = False.
         """
         for usr in self.users:
-            usr.send_que.put((message, kicker.get_user_mask()))
-
-        self.users.discard(user_to_kick)
+            if not send_to_self:
+                if usr != sender:
+                    usr.send_que.put((message, sender.get_user_mask()))
+            else:
+                usr.send_que.put((message, sender.get_user_mask()))
 
 
 def split_on_new_line(string: str) -> List[str]:
