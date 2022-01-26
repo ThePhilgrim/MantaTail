@@ -217,12 +217,11 @@ def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, a
             channel.set_topic(user, args[1])
 
             if not args[1]:
-                message = f"TOPIC {channel.name} :"
+                topic_message = f"TOPIC {channel.name} :"
             else:
-                message = f"TOPIC {channel.name} :{args[1]}"
+                topic_message = f"TOPIC {channel.name} :{args[1]}"
 
-            for usr in channel.users:
-                usr.send_que.put((message, user.get_user_mask()))
+            channel.queue_message_to_chan_users(topic_message, user)
 
 
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
