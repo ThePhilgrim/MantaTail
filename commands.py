@@ -189,6 +189,43 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             state.connected_users[user.nick.lower()] = user
 
 
+def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Command formats:
+        Set new topic: "TOPIC #foo :New Topic"
+        Clear topic: "TOPIC #foo :"
+        Get topic: "TOPIC #foo"
+
+    Depending on command and operator status, either sends a channel's topic to user, sets a new topic,
+    or clears the current topic.
+    """
+    if not args:
+        error_not_enough_params(user, "TOPIC")
+        return
+
+    channel = state.find_channel(args[0])
+
+    if not channel:
+        error_no_such_channel(user, args[0])
+        return
+
+    if len(args) == 1:
+        channel.send_topic_to_user(user)
+    else:
+        if not user in channel.operators:
+            error_no_operator_privileges(user, channel)
+        else:
+            channel.set_topic(user, args[1])
+
+            if not args[1]:
+                message = f"TOPIC {channel.name} :"
+            else:
+                message = f"TOPIC {channel.name} :{args[1]}"
+
+            for usr in channel.users:
+                usr.send_que.put((message, user.get_user_mask()))
+
+
 def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command format: "KICK #foo user_to_kick (:Reason for kicking)"

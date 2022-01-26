@@ -249,6 +249,55 @@ def test_send_privmsg(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
+def test_channel_topics(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while True:
+        received = receive_line(user_alice)
+        assert b"332" not in received
+        assert b"333" not in received
+        if received == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+            break
+
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"TOPIC\r\n")
+    assert receive_line(user_alice) == b":mantatail 461 Alice TOPIC :Not enough parameters\r\n"
+
+    user_alice.sendall(b"TOPIC #foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 331 Alice #foo :No topic is set.\r\n"
+
+    user_alice.sendall(b"TOPIC #foo :This is a topic\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
+
+    user_alice.sendall(b"TOPIC #foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 332 Alice #foo :This is a topic\r\n"
+    assert receive_line(user_alice) == b":mantatail 333 Alice #foo :Alice\r\n"
+
+    user_bob.sendall(b"TOPIC #foo\r\n")
+    assert receive_line(user_bob) == b":mantatail 332 Bob #foo :This is a topic\r\n"
+    assert receive_line(user_bob) == b":mantatail 333 Bob #foo :Alice\r\n"
+
+    user_bob.sendall(b"TOPIC #foo :Bob is setting a topic\r\n")
+    assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_bob.sendall(b"TOPIC #foo :\r\n")
+    assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_alice.sendall(b"TOPIC #foo :\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 TOPIC #foo :\r\n"
+
+    user_alice.sendall(b"TOPIC #foo\r\n")
+    assert receive_line(user_alice) == b":mantatail 331 Alice #foo :No topic is set.\r\n"
+    user_bob.sendall(b"TOPIC #foo\r\n")
+    assert receive_line(user_bob) == b":mantatail 331 Bob #foo :No topic is set.\r\n"
+
+
 def test_send_privmsg_to_user(user_alice, user_bob):
     user_alice.sendall(b"PRIVMSG Bob :This is a private message\r\n")
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :This is a private message\r\n"
