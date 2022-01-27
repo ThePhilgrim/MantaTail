@@ -188,6 +188,27 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             state.connected_users[user.nick.lower()] = user
 
 
+def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Command formats:
+        Set away status "AWAY :Away message"
+        Remove away status "AWAY"
+
+    Sets/Removes the Away status of a user. If somebody sends a PRIVMSG to a user who is Away,
+    they will receive a reply with the user's away message.
+    """
+    if not args:
+        (unaway_num, unaway_info) = irc_responses.RPL_UNAWAY
+        unaway_message = f"{unaway_num} {user.nick} {unaway_info}"
+        user.send_que.put((unaway_message, "mantatail"))
+        user.away = (False, "")
+    else:
+        (nowaway_num, nowaway_info) = irc_responses.RPL_NOWAWAY
+        nowaway_message = f"{nowaway_num} {user.nick} {nowaway_info}"
+        user.send_que.put((nowaway_message, "mantatail"))
+        user.away = (True, args[0])
+
+
 def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command formats:
@@ -340,6 +361,11 @@ def privmsg_to_user(
 
     message = f"PRIVMSG {receiver_usr.nick} :{privmsg}"
     receiver_usr.send_que.put((message, sender.get_user_mask()))
+
+    if receiver_usr.away[0]:  # receiver_usr.away = (True, "Away message")
+        away_num = irc_responses.RPL_AWAY
+        away_message = f"{away_num} {sender.nick} {receiver_usr.nick} :{receiver_usr.away[1]}"
+        sender.send_que.put((away_message, "mantatail"))
 
 
 def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:

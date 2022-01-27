@@ -28,6 +28,7 @@ words = [
     "TOPIC",
     "PING",
     "PONG",
+    "AWAY",
     "PRIVMSG",
     "QUIT",
     "USER",

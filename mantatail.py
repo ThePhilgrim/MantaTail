@@ -231,6 +231,7 @@ class UserConnection:
         self.nick = "*"
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
+        self.away: Tuple[bool, str] = (False, "")  # str = away message
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()

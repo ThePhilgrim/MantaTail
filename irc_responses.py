@@ -31,7 +31,9 @@ ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
 ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")  #! Not implemented
 
 # Command Responses
-RPL_AWAY = "301"  #! Not implemented
+RPL_AWAY = "301"
+RPL_UNAWAY = ("305", ":You are no longer marked as being away")
+RPL_NOWAWAY = ("306", ":You have been marked as being away")
 RPL_NOTOPIC = ("331", ":No topic is set.")
 RPL_TOPIC = "332"
 RPL_TOPICWHOTIME = "333"
