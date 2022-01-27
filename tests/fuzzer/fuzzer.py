@@ -83,7 +83,7 @@ def print_commands(source_string):
     recent_commands_copy = list(recent_commands)
 
     for address_tuple, commands in recent_commands_copy:
-        if str(address_tuple) == source_string:  # lol
+        if str(address_tuple) == source_string:
             print(commands)
 
 
