@@ -198,7 +198,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             if command_lower == "quit":
                                 return
     finally:
-        disconnect_reason = "(Remote host closed the connection)"
+        disconnect_reason = "Remote host closed the connection"
         user.send_que.put((None, disconnect_reason))
 
 
@@ -232,7 +232,7 @@ class UserConnection:
         self.nick = "*"
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
-        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, Optional[str]]] = queue.Queue()
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.pong_received = False
@@ -260,7 +260,7 @@ class UserConnection:
 
             if message is None:
                 disconnect_reason = prefix
-                quit_message = f"QUIT :Quit: {disconnect_reason}"
+                quit_message = f"QUIT :Quit: ({disconnect_reason})"
                 with self.state.lock:
                     self.queue_quit_message_for_other_users(quit_message)
                     if self.nick != "*":
@@ -281,7 +281,7 @@ class UserConnection:
                 try:
                     self.send_string_to_client(message, prefix)
                 except:
-                    disconnect_reason = "(Remote host closed the connection)"
+                    disconnect_reason = "Remote host closed the connection"
                     self.send_que.put((None, disconnect_reason))
 
     def queue_quit_message_for_other_users(self, quit_message: str) -> None:
@@ -348,7 +348,7 @@ class UserConnection:
         If no PONG response has been received, the server closes the connection to the client.
         """
         if not self.pong_received:
-            disconnect_reason = "(Ping timeout...)"
+            disconnect_reason = "Ping timeout..."
             self.send_que.put((None, disconnect_reason))
         else:
             self.pong_received = False
