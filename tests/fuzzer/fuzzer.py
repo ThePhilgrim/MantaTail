@@ -12,10 +12,16 @@ To fuzz:
 """
 
 import collections
+import os
 import random
 import socket
 import subprocess
 import threading
+from pathlib import Path
+
+# Change to the directory where this script is, so it doesn't matter whether
+# you run "python3 fuzzer.py" or "python3 tests/fuzzer/fuzzer.py"
+os.chdir(Path(__file__).parent)
 
 
 words = [
