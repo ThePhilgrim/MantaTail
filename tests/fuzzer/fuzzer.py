@@ -15,7 +15,6 @@ import collections
 import random
 import socket
 import subprocess
-import sys
 import threading
 
 
