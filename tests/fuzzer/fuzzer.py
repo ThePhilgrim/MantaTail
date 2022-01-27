@@ -139,8 +139,8 @@ def fuzzing_loop():
 mantatail_process = subprocess.Popen(
     ["python3", "-u", "mantatail.py"], cwd="../..", stdout=subprocess.PIPE, stderr=subprocess.STDOUT
 )
-print(mantatail_process.stdout.readline())  # Wait for mantatail to start
 try:
+    print(mantatail_process.stdout.readline())  # Wait for mantatail to start
     threading.Thread(target=output_reading_thread).start()
     fuzzing_loop()
 finally:
