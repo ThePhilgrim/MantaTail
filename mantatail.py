@@ -142,7 +142,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     """
 
     user = UserConnection(state, user_host, user_socket)
-
+    disconnect_reason = ""
     try:
         while True:
             request = b""
@@ -150,7 +150,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
-                except OSError:
+                except OSError as err:
+                    disconnect_reason = err.strerror
                     return  # go to "finally:"
                 finally:
                     user.ping_timer.cancel()
@@ -158,6 +159,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
+                    disconnect_reason = "Remote host closed the connection"
                     return  # go to "finally:"
 
             decoded_message = request.decode("latin-1")
@@ -179,6 +181,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_pong(state, user, args)
                     else:
                         if command_lower == "quit":
+                            disconnect_reason = "Remote host closed the connection"
                             return
                         else:
                             commands.error_not_registered(user)
@@ -198,7 +201,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             if command_lower == "quit":
                                 return
     finally:
-        disconnect_reason = "Remote host closed the connection"
         user.send_que.put((None, disconnect_reason))
 
 
@@ -280,8 +282,8 @@ class UserConnection:
             else:
                 try:
                     self.send_string_to_client(message, prefix)
-                except:
-                    disconnect_reason = "Remote host closed the connection"
+                except OSError as err:
+                    disconnect_reason = err.strerror
                     self.send_que.put((None, disconnect_reason))
 
     def queue_quit_message_for_other_users(self, quit_message: str) -> None:

@@ -919,7 +919,7 @@ def test_sudden_disconnect(run_server):
 
     nc.close()
 
-    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Connection reset by peer)\r\n"
 
 
 # Issue #77
