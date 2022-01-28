@@ -681,6 +681,47 @@ def test_kick_operator(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
 
 
+def test_ban_functionality(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +b Bob\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b Bob!*@*\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b Bob!*@*\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :This is a message\r\n")
+    assert receive_line(user_bob) == b":mantatail 404 Bob #foo :Cannot send to nick/channel\r\n"
+
+    user_bob.sendall(b"PART #foo\r\n")
+    assert receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 PART #foo\r\n"
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+    assert receive_line(user_bob) == b":mantatail 474 Bob #foo :Cannot join channel (+b) - you are banned\r\n"
+    time.sleep(0.1)
+
+    user_alice.sendallb(b"MODE #foo +b\r\n")
+    assert receive_line(user_alice) == b":mantatail 367 Alice #foo Bob!*@* Alice!AliceUsr@127.0.0.1\r\n"
+    assert receive_line(user_alice) == b":mantatail 368 Alice #foo :End of Channel Ban List\r\n"
+
+    user_alice.sendall(b"MODE #foo -b Bob\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -b Bob!*@*\r\n"
+
+    user_bob.sendall(b"JOIN #foo\r\n")
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"MODE #foo +b Alice\r\n")
+    assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+
 # netcat sends \n line endings, but is fine receiving \r\n
 def test_connect_via_netcat(run_server):
     with socket.socket() as nc:
