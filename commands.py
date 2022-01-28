@@ -32,7 +32,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Command format: "JOIN #foo"
 
     If the channel already exists, the user is added to the channel.
-    If the channel does not exist, the channel is created with the user as founder.
+    If the channel does not exist, the channel is created.
 
     Finally, sends a message to all users on the channel, notifying them that
     User has joined the channel.
@@ -271,7 +271,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         error_no_such_nick_channel(user, args[1])
         return
 
-    if not (channel.is_founder(user) or user in channel.operators):
+    if user not in channel.operators:
         error_no_operator_privileges(user, channel)
         return
 
@@ -443,7 +443,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
         for flag in flags:
             if flag == "o":
-                if not (channel.is_founder(user) or user in channel.operators):
+                if user not in channel.operators:
                     error_no_operator_privileges(user, channel)
                     return
                 elif target_usr not in channel.users:
