@@ -373,6 +373,7 @@ class Channel:
         self.modes: List[str] = []
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
+        self.ban_list: Set[str] = set()
 
         self.operators.add(user)
 

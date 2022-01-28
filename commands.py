@@ -422,13 +422,11 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         else:
             message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
-    elif len(args) == 2:
-        error_not_enough_params(user, "MODE")
     else:
         if args[1][0] not in ["+", "-"]:
             error_unknown_mode(user, args[1][0])
             return
-        supported_modes = ["o"]
+        supported_modes = ["o", "b"]
         for mode in args[1][1:]:
             if mode not in supported_modes:
                 error_unknown_mode(user, mode)
@@ -443,7 +441,10 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
         for flag in flags:
             if flag == "o":
-                if not (channel.is_founder(user) or user in channel.operators):
+                if len(args) == 2:
+                    error_not_enough_params(user, "MODE")
+                    return
+                elif not (channel.is_founder(user) or user in channel.operators):
                     error_no_operator_privileges(user, channel)
                     return
                 elif target_usr not in channel.users:
