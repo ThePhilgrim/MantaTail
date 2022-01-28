@@ -961,7 +961,7 @@ def test_sudden_disconnect(run_server):
 
     if sys.platform == "win32":
         # strerror is platform-specific, and also language specific on windows
-        assert receive_line(nc2).startswith(b":nc!nc@... QUIT :Quit: ")
+        assert receive_line(nc2).startswith(b":nc!nc@127.0.0.1 QUIT :Quit: ")
     else:
         assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: Connection reset by peer\r\n"
 
