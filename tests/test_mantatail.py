@@ -655,7 +655,7 @@ def test_quit_before_registering():
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))  # nc localhost 6667
         nc.sendall(b"QUIT\n")
-        assert receive_line(nc) == b":QUIT :Quit: (Remote host closed the connection)\r\n"
+        assert receive_line(nc) == b":QUIT :Quit: Client quit\r\n"
 
 
 def test_quit_reasons():
@@ -698,16 +698,16 @@ def test_quit_reasons():
     time.sleep(0.1)
 
     nc.sendall(b"QUIT\n")
-    assert receive_line(nc4) == b":nc!nc@127.0.0.1 QUIT :Quit: (Client quit.)\r\n"
+    assert receive_line(nc4) == b":nc!nc@127.0.0.1 QUIT :Quit: Client quit\r\n"
 
     nc2.sendall(b"QUIT :Reason\n")
-    assert receive_line(nc4) == b":nc2!nc2@127.0.0.1 QUIT :Quit: (Reason)\r\n"
+    assert receive_line(nc4) == b":nc2!nc2@127.0.0.1 QUIT :Quit: Reason\r\n"
 
     nc3.sendall(b"QUIT :Reason with many words\n")
-    assert receive_line(nc4) == b":nc3!nc3@127.0.0.1 QUIT :Quit: (Reason with many words)\r\n"
+    assert receive_line(nc4) == b":nc3!nc3@127.0.0.1 QUIT :Quit: Reason with many words\r\n"
 
     nc4.sendall(b"QUIT Many words but no colon\n")
-    assert receive_line(nc4) == b":nc4!nc4@127.0.0.1 QUIT :Quit: (Many)\r\n"
+    assert receive_line(nc4) == b":nc4!nc4@127.0.0.1 QUIT :Quit: Many\r\n"
 
 
 def test_no_nickname_given():
@@ -919,7 +919,7 @@ def test_sudden_disconnect(run_server):
 
     nc.close()
 
-    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Connection reset by peer)\r\n"
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: Connection reset by peer\r\n"
 
 
 # Issue #77

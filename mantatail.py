@@ -181,7 +181,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_pong(state, user, args)
                     else:
                         if command_lower == "quit":
-                            disconnect_reason = "Remote host closed the connection"
+                            disconnect_reason = "Client quit"
                             return
                         else:
                             commands.error_not_registered(user)
@@ -262,7 +262,7 @@ class UserConnection:
 
             if message is None:
                 disconnect_reason = prefix
-                quit_message = f"QUIT :Quit: ({disconnect_reason})"
+                quit_message = f"QUIT :Quit: {disconnect_reason}"
                 with self.state.lock:
                     self.queue_quit_message_for_other_users(quit_message)
                     if self.nick != "*":

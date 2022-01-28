@@ -279,7 +279,7 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     if args:
         disconnect_reason = args[0]
     else:
-        disconnect_reason = "Client quit."
+        disconnect_reason = "Client quit"
 
     user.send_que.put((None, disconnect_reason))
 
