@@ -214,6 +214,7 @@ class UserConnection:
 
     Usually the nick is used when referring to the user.
 
+
     Send Queue:
         A send queue and a separate thread are used for sending messages to the client.
         This helps with error handling, and even if someone has a slow internet connection,
@@ -232,7 +233,7 @@ class UserConnection:
         self.nick = "*"
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
-        self.away: Tuple[bool, str] = (False, "")  # str = away message
+        self.away: Optional[str] = None  # None = user not away, str = user away
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
