@@ -59,7 +59,7 @@ class ServerState:
         thereafter removes user from connected users.
 
         Note: This does not actually disconnect the user from the server.
-        To disconnect the user, a tuple (None, None) must be put in their send queue.
+        To disconnect the user, a tuple (None, disconnect_reason: str) must be put in their send queue.
         """
         user = self.find_user(nick)
         assert user is not None
@@ -143,7 +143,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     """
 
     user = UserConnection(state, user_host, user_socket)
-
+    disconnect_reason = ""
     try:
         while True:
             request = b""
@@ -151,7 +151,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 user.start_ping_timer()
                 try:
                     request_chunk = user_socket.recv(4096)
-                except OSError:
+                except OSError as err:
+                    disconnect_reason = err.strerror
                     return  # go to "finally:"
                 finally:
                     user.ping_timer.cancel()
@@ -159,6 +160,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 if request_chunk:
                     request += request_chunk
                 else:
+                    disconnect_reason = "Remote host closed the connection"
                     return  # go to "finally:"
 
             decoded_message = request.decode("latin-1")
@@ -180,6 +182,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_pong(state, user, args)
                     else:
                         if command_lower == "quit":
+                            disconnect_reason = "Client quit"
                             return
                         else:
                             commands.error_not_registered(user)
@@ -199,7 +202,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                             if command_lower == "quit":
                                 return
     finally:
-        user.send_que.put((None, None))
+        user.send_que.put((None, disconnect_reason))
 
 
 class UserConnection:
@@ -223,7 +226,7 @@ class UserConnection:
         All messages are sent as a tuple formatted as (message, prefix).
         Prefixes are either ":mantatail" or ":sender.user_mask"
 
-        A Tuple containing (None, None) indicates a QUIT command and closes the connection to the client.
+        A Tuple containing (None, disconnect_reason: str) indicates a QUIT command and closes the connection to the client.
     """
 
     def __init__(self, state: ServerState, host: str, socket: socket.socket):
@@ -234,7 +237,7 @@ class UserConnection:
         self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
         self.user_name: Optional[str] = None  # Ex. AliceUsr
         self.away: Optional[str] = None  # None = user not away, str = user away
-        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, None]] = queue.Queue()
+        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.pong_received = False
@@ -260,15 +263,15 @@ class UserConnection:
         while True:
             (message, prefix) = self.send_que.get()
 
-            if message is None or prefix is None:
+            if message is None:
+                disconnect_reason = prefix
+                quit_message = f"QUIT :Quit: {disconnect_reason}"
                 with self.state.lock:
-                    self.queue_quit_message_for_other_users()
+                    self.queue_quit_message_for_other_users(quit_message)
                     if self.nick != "*":
                         self.state.delete_user(self.nick)
 
                 try:
-                    reason = "(Remote host closed the connection)"
-                    quit_message = f"QUIT :Quit: {reason}"
                     # Can be slow, if user has bad internet. Don't do this while holding the lock.
                     if self.nick == "*" or not self.user_message:
                         self.send_string_to_client(quit_message, None)
@@ -282,22 +285,19 @@ class UserConnection:
             else:
                 try:
                     self.send_string_to_client(message, prefix)
-                except:
-                    self.send_que.put((None, None))
+                except OSError as err:
+                    disconnect_reason = err.strerror
+                    self.send_que.put((None, disconnect_reason))
 
-    def queue_quit_message_for_other_users(self) -> None:
+    def queue_quit_message_for_other_users(self, quit_message: str) -> None:
         """Alerts all other users that the User has QUIT and closed the connection to the server."""
-        # TODO: Implement logic for different reasons & disconnects.
-        reason = "(Remote host closed the connection)"
-        message = f"QUIT :Quit: {reason}"
-
         receivers = self.get_users_sharing_channel()
 
         for channel in self.state.channels.values():
             channel.operators.discard(self)
 
         for receiver in receivers:
-            receiver.send_que.put((message, self.get_user_mask()))
+            receiver.send_que.put((quit_message, self.get_user_mask()))
 
     def get_users_sharing_channel(self) -> Set[UserConnection]:
         receivers = set()
@@ -353,7 +353,8 @@ class UserConnection:
         If no PONG response has been received, the server closes the connection to the client.
         """
         if not self.pong_received:
-            self.send_que.put((None, None))
+            disconnect_reason = "Ping timeout..."
+            self.send_que.put((None, disconnect_reason))
         else:
             self.pong_received = False
 

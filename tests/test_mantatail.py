@@ -1,4 +1,5 @@
 import os
+import sys
 import pytest
 import random
 import socket
@@ -694,7 +695,59 @@ def test_quit_before_registering():
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))  # nc localhost 6667
         nc.sendall(b"QUIT\n")
-        assert receive_line(nc) == b":QUIT :Quit: (Remote host closed the connection)\r\n"
+        assert receive_line(nc) == b":QUIT :Quit: Client quit\r\n"
+
+
+def test_quit_reasons():
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+    nc.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"NICK nc2\n")
+    nc2.sendall(b"USER nc2 0 * :netcat\n")
+    nc2.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc3 = socket.socket()
+    nc3.connect(("localhost", 6667))
+    nc3.sendall(b"NICK nc3\n")
+    nc3.sendall(b"USER nc3 0 * :netcat\n")
+    nc3.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc3) != b":mantatail 366 nc3 #foo :End of /NAMES list.\r\n":
+        pass
+
+    nc4 = socket.socket()
+    nc4.connect(("localhost", 6667))
+    nc4.sendall(b"NICK nc4\n")
+    nc4.sendall(b"USER nc4 0 * :netcat\n")
+    nc4.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc4) != b":mantatail 366 nc4 #foo :End of /NAMES list.\r\n":
+        pass
+
+    time.sleep(0.1)
+
+    nc.sendall(b"QUIT\n")
+    assert receive_line(nc4) == b":nc!nc@127.0.0.1 QUIT :Quit: Client quit\r\n"
+
+    nc2.sendall(b"QUIT :Reason\n")
+    assert receive_line(nc4) == b":nc2!nc2@127.0.0.1 QUIT :Quit: Reason\r\n"
+
+    nc3.sendall(b"QUIT :Reason with many words\n")
+    assert receive_line(nc4) == b":nc3!nc3@127.0.0.1 QUIT :Quit: Reason with many words\r\n"
+
+    nc4.sendall(b"QUIT Many words but no colon\n")
+    assert receive_line(nc4) == b":nc4!nc4@127.0.0.1 QUIT :Quit: Many\r\n"
 
 
 def test_no_nickname_given():
@@ -906,7 +959,11 @@ def test_sudden_disconnect(run_server):
 
     nc.close()
 
-    assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: (Remote host closed the connection)\r\n"
+    if sys.platform == "win32":
+        # strerror is platform-specific, and also language specific on windows
+        assert receive_line(nc2).startswith(b":nc!nc@127.0.0.1 QUIT :Quit: ")
+    else:
+        assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: Connection reset by peer\r\n"
 
 
 # Issue #77
