@@ -249,6 +249,45 @@ def test_send_privmsg(user_alice, user_bob):
     assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo :Foo\r\n"
 
 
+def test_away_status(user_alice, user_bob):
+    user_alice.sendall(b"PRIVMSG Bob :Hello Bob\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :Hello Bob\r\n"
+
+    # Makes sure that Alice doesn't receive an away message from Bob
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+
+    user_bob.sendall(b"AWAY\r\n")
+    assert receive_line(user_bob) == b":mantatail 305 Bob :You are no longer marked as being away\r\n"
+
+    # Makes sure UNAWAY (306) is only sent to Bob
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+
+    user_bob.sendall(b"AWAY :This is an away status\r\n")
+    assert receive_line(user_bob) == b":mantatail 306 Bob :You have been marked as being away\r\n"
+
+    # Makes sure NOWAWAY (305) is only sent to Bob
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+
+    user_alice.sendall(b"PRIVMSG Bob :Hello Bob\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :Hello Bob\r\n"
+
+    assert receive_line(user_alice) == b":mantatail 301 Alice Bob :This is an away status\r\n"
+
+    user_bob.sendall(b"AWAY\r\n")
+    assert receive_line(user_bob) == b":mantatail 305 Bob :You are no longer marked as being away\r\n"
+
+    user_bob.sendall(b"AWAY This is an away status\r\n")
+    assert receive_line(user_bob) == b":mantatail 306 Bob :You have been marked as being away\r\n"
+
+    user_alice.sendall(b"PRIVMSG Bob :Hello Bob\r\n")
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :Hello Bob\r\n"
+
+    assert receive_line(user_alice) == b":mantatail 301 Alice Bob :This\r\n"
+
+
 def test_channel_topics(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
