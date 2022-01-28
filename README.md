@@ -10,13 +10,12 @@ It is still at an early stage of production, and is therefore missing several cr
 - Join channel
 - Part from channel
 - Send message to channel
+- Send private message to other user
 - Set / Remove channel operator
 - Kick user from channel
+- Change nick
+- Set away status
 - Quit from server
-
-### Connect to MantaTail
-
-To connect your IRC server to MantaTail, connect to `127.0.0.1 port 6667`.
 
 ## For developers
 
@@ -34,7 +33,7 @@ To start, please follow these steps:
 
 ### Tests
 
-Mantatail relies on Pytest for testing. In order to run the test suite, use `python3 -m pytest tests/test_file.py`
+Mantatail relies on Pytest for testing. In order to run the test suite, use `python3 -m pytest`
 
 ### Resources
 
