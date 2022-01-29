@@ -37,6 +37,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Finally, sends a message to all users on the channel, notifying them that
     User has joined the channel.
     """
+
+    # TODO: Check if user is in channel ban list
+
     if not args:
         error_not_enough_params(user, "JOIN")
         return
@@ -313,6 +316,9 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
     Depending on the command, sends a message to all users on a channel or a private message to a user.
     """
+
+    # TODO: Check if user is in channel ban list
+
     if not args:
         error_no_recipient(user, "PRIVMSG")
         return
@@ -426,38 +432,92 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
         if args[1][0] not in ["+", "-"]:
             error_unknown_mode(user, args[1][0])
             return
-        supported_modes = ["o", "b"]
+
+        valid_chanmodes = r"[a-zA-Z]"
+        supported_modes = [mode for modes in state.chanmodes.values() for mode in modes]
+
         for mode in args[1][1:]:
-            if mode not in supported_modes:
+            if mode not in supported_modes or not re.fullmatch(valid_chanmodes, mode):
                 error_unknown_mode(user, mode)
                 return
 
         mode_command, flags = args[1][0], args[1][1:]
-
-        target_usr = state.find_user(args[2])
-        if not target_usr:
-            error_no_such_nick_channel(user, args[2])
-            return
-
+        parameters = iter(args[2:])
         for flag in flags:
+
             if flag == "o":
-                if len(args) == 2:
-                    error_not_enough_params(user, "MODE")
-                    return
-                elif not (channel.is_founder(user) or user in channel.operators):
-                    error_no_operator_privileges(user, channel)
-                    return
-                elif target_usr not in channel.users:
-                    error_user_not_in_channel(user, target_usr, channel)
-                    return
+                current_param = next(parameters, None)
 
-                if mode_command == "+":
-                    channel.operators.add(target_usr)
-                elif mode_command[0] == "-":
-                    channel.operators.discard(target_usr)
+                process_mode_o(state, user, channel, mode_command, current_param)
 
-                mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
-                channel.queue_message_to_chan_users(mode_message, user)
+            elif flag == "b":
+                current_param = next(parameters, None)
+
+                process_mode_b(state, user, channel, mode_command, current_param)
+
+
+def process_mode_b(
+    state: mantatail.ServerState,
+    user: mantatail.UserConnection,
+    channel: mantatail.Channel,
+    mode_command: str,
+    target_usr_nick: Optional[str],
+) -> None:
+    if not target_usr_nick:
+        # TODO: Send ban list to user (if not empty) in for loop (nick!*@*)
+        # TODO: Send end of ban list
+        print("SEND BAN LIST")
+        return
+
+    target_usr = state.find_user(target_usr_nick)
+
+    if not target_usr:
+        error_no_such_nick_channel(user, target_usr_nick)
+        return
+    if user not in channel.operators:
+        error_no_operator_privileges(user, channel)
+        return
+
+    if mode_command == "+":
+        channel.ban_list.add(target_usr)
+    elif mode_command[0] == "-":
+        channel.ban_list.discard(target_usr)
+
+    mode_message = f"MODE {channel.name} {mode_command}b {target_usr.nick}!*@*"
+    channel.queue_message_to_chan_users(mode_message, user)
+
+
+def process_mode_o(
+    state: mantatail.ServerState,
+    user: mantatail.UserConnection,
+    channel: mantatail.Channel,
+    mode_command: str,
+    target_usr_nick: Optional[str],
+) -> None:
+    """Sets or removes channel operator"""
+    if not target_usr_nick:
+        error_not_enough_params(user, "MODE")
+        return
+
+    target_usr = state.find_user(target_usr_nick)
+
+    if not target_usr:
+        error_no_such_nick_channel(user, target_usr_nick)
+        return
+    if user not in channel.operators:
+        error_no_operator_privileges(user, channel)
+        return
+    if target_usr not in channel.users:
+        error_user_not_in_channel(user, target_usr, channel)
+        return
+
+    if mode_command == "+":
+        channel.operators.add(target_usr)
+    elif mode_command[0] == "-":
+        channel.operators.discard(target_usr)
+
+    mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
+    channel.queue_message_to_chan_users(mode_message, user)
 
 
 # !Not implemented

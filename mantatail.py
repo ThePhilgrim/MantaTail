@@ -24,14 +24,23 @@ class ServerState:
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         """
-        The attribute "self.lock" locks the state of the server to avoid modifications
-        to iterables during iteration.
+        Attributes:
+            - lock: Locks the state of the server to avoid modifications
+            to iterables during iteration.
+
+            - chanmodes: These are the channel modes that the server supports.
+            Chanmodes are divided into four types (A, B, C, D). It also contains
+            "prefix", which are chanmodes set on a user (ex. +o, +v).
+            Depending on the channel mode type, they either must take
+            a parameter, or they must not.
+            More info: https://modern.ircdocs.horse/#channel-mode
         """
 
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
+        self.chanmodes = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
         """
@@ -370,7 +379,7 @@ class Channel:
         self.name = channel_name
         self.founder = user.user_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
-        self.modes: List[str] = []
+        self.modes: List[str] = ["t"]
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
         self.ban_list: Set[str] = set()
