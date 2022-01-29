@@ -436,10 +436,10 @@ def test_mode_errors(user_alice, user_bob):
         pass
 
     user_alice.sendall(b"MODE #foo ^g Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 472 Alice ^ :is unknown mode char to me\r\n"
+    assert receive_line(user_alice) == b":mantatail 472 Alice ^ :is an unknown mode char to me\r\n"
 
     user_alice.sendall(b"MODE #foo +g Bob\r\n")
-    assert receive_line(user_alice) == b":mantatail 472 Alice g :is unknown mode char to me\r\n"
+    assert receive_line(user_alice) == b":mantatail 472 Alice g :is an unknown mode char to me\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
