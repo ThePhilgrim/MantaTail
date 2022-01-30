@@ -40,7 +40,7 @@ class ServerState:
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
-        self.chanmodes = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
+        self.chanmodes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
         """
@@ -379,10 +379,10 @@ class Channel:
         self.name = channel_name
         self.founder = user.user_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
-        self.modes: List[str] = ["t"]
+        self.modes: Set[str] = {"t"}
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
-        self.ban_list: Set[str] = set()
+        self.ban_list: Set[UserConnection] = set()
 
         self.operators.add(user)
 
