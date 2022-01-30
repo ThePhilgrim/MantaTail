@@ -38,8 +38,6 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     User has joined the channel.
     """
 
-    # TODO: Check if user is in channel ban list
-
     if not args:
         error_not_enough_params(user, "JOIN")
         return
@@ -57,6 +55,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         channel = state.find_channel(channel_name)
 
         assert channel
+
+        if user in channel.ban_list:
+            error_banned_from_chan(user, channel)
+            return
 
         if user not in channel.users:
             channel_users_str = ""
@@ -424,7 +426,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     if len(args) == 1:
         if channel.modes:
-            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} +{" ".join(channel.modes)}'
         else:
             message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
@@ -434,7 +436,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
             return
 
         valid_chanmodes = r"[a-zA-Z]"
-        supported_modes = [mode for modes in state.chanmodes.values() for mode in modes]
+        supported_modes = [chanmode for chanmodes in state.chanmodes.values() for chanmode in chanmodes]
 
         for mode in args[1][1:]:
             if mode not in supported_modes or not re.fullmatch(valid_chanmodes, mode):
@@ -478,13 +480,16 @@ def process_mode_b(
         error_no_operator_privileges(user, channel)
         return
 
-    if mode_command == "+":
-        channel.ban_list.add(target_usr)
-    elif mode_command[0] == "-":
-        channel.ban_list.discard(target_usr)
-
     mode_message = f"MODE {channel.name} {mode_command}b {target_usr.nick}!*@*"
-    channel.queue_message_to_chan_users(mode_message, user)
+
+    # Not sending message if "+b" and target usr is already banned (or vice versa)
+    if mode_command == "+" and target_usr not in channel.ban_list:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.ban_list.add(target_usr)
+
+    elif mode_command[0] == "-" and target_usr in channel.ban_list:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.ban_list.discard(target_usr)
 
 
 def process_mode_o(
@@ -639,6 +644,13 @@ def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: s
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {user.nick} {channel_name} {cant_send_info}"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_banned_from_chan(user: mantatail.UserConnection, channel: mantatail.Channel) -> None:
+    """Notifies the user trying to join a channel that they are banned from that channel."""
+    (banned_num, banned_info) = irc_responses.ERR_BANNEDFROMCHAN
+    message = f"{banned_num} {user.nick} {channel.name} {banned_info}"
     user.send_que.put((message, "mantatail"))
 
 
