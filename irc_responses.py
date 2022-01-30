@@ -27,6 +27,7 @@ ERR_NOTONCHANNEL = ("442", ":You're not on that channel")
 ERR_NOTREGISTERED = ("451", ":You have not registered")
 ERR_NEEDMOREPARAMS = ("461", ":Not enough parameters")
 ERR_UNKNOWNMODE = ("472", ":is an unknown mode char to me")
+ERR_BANNEDFROMCHAN = ("474", ":Cannot join channel (+b) - you are banned")
 ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
 ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")  #! Not implemented
 
