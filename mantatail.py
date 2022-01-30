@@ -379,7 +379,7 @@ class Channel:
         self.modes: Set[str] = {"t"}
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
-        self.ban_list: Set[UserConnection] = set()
+        self.ban_list: Dict[UserConnection, str] = {}
 
         self.operators.add(user)
 
