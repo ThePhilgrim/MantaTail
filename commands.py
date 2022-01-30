@@ -27,6 +27,59 @@ from typing import Optional, Dict, List, Tuple
 
 
 ### Handlers
+def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Command formats:
+        Starts capability negotiation: "CAP LS 302" ("302" indicates
+            support for IRCv3.2. Number in command can differ.)
+        Requires a capability to be enabled: "CAP REQ :capability"
+        Get enabled capabilities: "CAP LIST"
+    """
+    if not args:
+        error_not_enough_params(user, "CAP")
+        return
+
+    low_cap_command = args[0].lower()
+
+    if low_cap_command == "ls":
+        message = f"CAP {user.nick} LS :{' '.join(state.cap_ls)}"
+        user.send_que.put((message, "mantatail"))
+        if len(args) > 1:
+            try:
+                if int(args[1]) >= 302:
+                    user.cap_list.add("cap-notify")
+            except ValueError:
+                return
+        return
+
+    if low_cap_command == "list":
+        message = f"CAP {user.nick} LIST :{' '.join(user.cap_list)}"
+        user.send_que.put((message, "mantatail"))
+        return
+
+    if low_cap_command == "req":
+        # CAP REQ without specified capability
+        if len(args) == 1:
+            return
+
+        capabilities = args[1].split(" ")
+        unsupported_caps = [cap for cap in capabilities if cap not in state.cap_ls]
+
+        if unsupported_caps:
+            message = f"CAP {user.nick} NAK :{args[1]}"
+        else:
+            message = f"CAP {user.nick} ACK :{args[1]}"
+
+            for capability in capabilities:
+                user.cap_list.add(capability)
+
+        user.send_que.put((message, "mantatail"))
+        return
+
+    if low_cap_command == "end":
+        return
+
+
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command format: "JOIN #foo"
@@ -191,8 +244,8 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command formats:
-        Set away status "AWAY :Away message"
-        Remove away status "AWAY"
+        Set away status: "AWAY :Away message"
+        Remove away status: "AWAY"
 
     Sets/Removes the Away status of a user. If somebody sends a PRIVMSG to a user who is Away,
     they will receive a reply with the user's away message.

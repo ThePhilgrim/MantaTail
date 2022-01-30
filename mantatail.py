@@ -24,13 +24,18 @@ class ServerState:
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         """
-        The attribute "self.lock" locks the state of the server to avoid modifications
-        to iterables during iteration.
+        Attributes:
+            - lock: Locks the state of the server to avoid modifications
+            to iterables during iteration.
+
+            - cap_ls: Server Capabilities. List of features beyond the standard
+            IRC protocol that Mantatail supports.
         """
 
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
+        self.cap_ls: List[str] = ["cap-notify", "foo", "bar", "baz"]
         self.motd_content = motd_content
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
@@ -180,6 +185,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_nick(state, user, args)
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
+                    elif command_lower == "cap":
+                        commands.handle_cap(state, user, args)
                     else:
                         if command_lower == "quit":
                             disconnect_reason = "Client quit"
@@ -234,12 +241,13 @@ class UserConnection:
         self.socket = socket
         self.host = host
         self.nick = "*"
-        self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
-        self.user_name: Optional[str] = None  # Ex. AliceUsr
+        self.user_message: Optional[List[str]] = None
+        self.user_name: Optional[str] = None
         self.away: Optional[str] = None  # None = user not away, str = user away
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
+        self.cap_list: Set[str] = set()
         self.pong_received = False
 
     def get_user_mask(self) -> str:
