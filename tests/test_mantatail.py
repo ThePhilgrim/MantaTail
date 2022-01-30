@@ -426,7 +426,7 @@ def test_channel_mode_is(user_alice):
         pass
 
     user_alice.sendall(b"MODE #foo\r\n")
-    assert receive_line(user_alice) == b":mantatail 324 Alice #foo\r\n"
+    assert receive_line(user_alice) == b":mantatail 324 Alice #foo +t\r\n"
 
 
 def test_mode_errors(user_alice, user_bob):
