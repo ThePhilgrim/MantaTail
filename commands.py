@@ -56,7 +56,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         assert channel
 
-        if user in channel.ban_list:
+        if user in channel.ban_list.keys():
             error_banned_from_chan(user, channel)
             return
 
@@ -342,6 +342,8 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
     if user not in channel.users:
         error_not_on_channel(user, receiver)
+    elif user in channel.ban_list.keys():
+        error_cannot_send_to_channel(user, channel.name)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
@@ -465,10 +467,18 @@ def process_mode_b(
     mode_command: str,
     target_usr_nick: Optional[str],
 ) -> None:
+    """Bans or unbans a user from a channel."""
     if not target_usr_nick:
-        # TODO: Send ban list to user (if not empty) in for loop (nick!*@*)
-        # TODO: Send end of ban list
-        print("SEND BAN LIST")
+        if channel.ban_list:
+            banlist_num = irc_responses.RPL_BANLIST
+
+            for usr, banner in channel.ban_list.items():
+                message = f"{banlist_num} {user.nick} {channel.name} {usr.nick}!*@* {banner}"
+                user.send_que.put((message, "mantatail"))
+
+        (endbanlist_num, endbanlist_info) = irc_responses.RPL_ENDOFBANLIST
+        message = f"{endbanlist_num} {user.nick} {channel.name} {endbanlist_info}"
+        user.send_que.put((message, "mantatail"))
         return
 
     target_usr = state.find_user(target_usr_nick)
@@ -482,14 +492,16 @@ def process_mode_b(
 
     mode_message = f"MODE {channel.name} {mode_command}b {target_usr.nick}!*@*"
 
-    # Not sending message if "+b" and target usr is already banned (or vice versa)
-    if mode_command == "+" and target_usr not in channel.ban_list:
-        channel.queue_message_to_chan_users(mode_message, user)
-        channel.ban_list.add(target_usr)
+    banned_users = channel.ban_list.keys()
 
-    elif mode_command[0] == "-" and target_usr in channel.ban_list:
+    # Not sending message if "+b" and target usr is already banned (or vice versa)
+    if mode_command == "+" and target_usr not in banned_users:
         channel.queue_message_to_chan_users(mode_message, user)
-        channel.ban_list.discard(target_usr)
+        channel.ban_list[target_usr] = f"{user.get_user_mask()}"
+
+    elif mode_command[0] == "-" and target_usr in banned_users:
+        channel.queue_message_to_chan_users(mode_message, user)
+        del channel.ban_list[target_usr]
 
 
 def process_mode_o(
@@ -516,13 +528,15 @@ def process_mode_o(
         error_user_not_in_channel(user, target_usr, channel)
         return
 
-    if mode_command == "+":
-        channel.operators.add(target_usr)
-    elif mode_command[0] == "-":
-        channel.operators.discard(target_usr)
-
     mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
-    channel.queue_message_to_chan_users(mode_message, user)
+
+    if mode_command == "+" and target_usr not in channel.operators:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.operators.add(target_usr)
+
+    elif mode_command[0] == "-" and target_usr in channel.operators:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.operators.discard(target_usr)
 
 
 # !Not implemented
