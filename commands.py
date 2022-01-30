@@ -39,10 +39,11 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
         error_not_enough_params(user, "CAP")
         return
 
+    user.capneg_in_progress = True
     low_cap_command = args[0].lower()
 
     if low_cap_command == "ls":
-        message = f"CAP {user.nick} LS :{' '.join(state.cap_ls)}"
+        message = f"CAP {user.nick} LS :{' '.join(mantatail.CAP_LS)}"
         user.send_que.put((message, "mantatail"))
         if len(args) > 1:
             try:
@@ -63,7 +64,7 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
             return
 
         capabilities = args[1].split(" ")
-        unsupported_caps = [cap for cap in capabilities if cap not in state.cap_ls]
+        unsupported_caps = [cap for cap in capabilities if cap not in mantatail.CAP_LS]
 
         if unsupported_caps:
             message = f"CAP {user.nick} NAK :{args[1]}"
@@ -77,6 +78,7 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
         return
 
     if low_cap_command == "end":
+        user.capneg_in_progress = False
         return
 
 

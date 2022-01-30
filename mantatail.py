@@ -15,8 +15,8 @@ from typing import Dict, Optional, List, Set, Tuple
 import commands
 import irc_responses
 
-# Global so that it can be accessed from pytest
 TIMER_SECONDS = 600
+CAP_LS: List[str] = ["cap-notify"]
 
 
 class ServerState:
@@ -35,7 +35,7 @@ class ServerState:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
-        self.cap_ls: List[str] = ["cap-notify", "foo", "bar", "baz"]
+
         self.motd_content = motd_content
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
@@ -148,7 +148,11 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     """
 
     user = UserConnection(state, user_host, user_socket)
+    nick_received = False
+    user_received = False
+    motd_sent = False
     disconnect_reason = ""
+
     try:
         while True:
             request = b""
@@ -174,15 +178,17 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if user.nick == "*" or not user.user_message:
+                if not nick_received or not user_received or not motd_sent:
                     if command_lower == "user":
                         if args:
                             user.user_message = args
                             user.user_name = args[0]
+                            user_received = True
                         else:
                             commands.error_not_enough_params(user, command)
                     elif command_lower == "nick":
                         commands.handle_nick(state, user, args)
+                        nick_received = True
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
                     elif command_lower == "cap":
@@ -194,8 +200,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             commands.error_not_registered(user)
 
-                    if user.nick != "*" and user.user_message:
+                    if nick_received and user_received and not user.capneg_in_progress:
                         commands.motd(state.motd_content, user)
+                        motd_sent = True
 
                 else:
                     try:
@@ -248,6 +255,7 @@ class UserConnection:
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.cap_list: Set[str] = set()
+        self.capneg_in_progress = False
         self.pong_received = False
 
     def get_user_mask(self) -> str:
