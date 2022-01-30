@@ -258,11 +258,9 @@ class UserConnection:
     def get_nick_with_prefix(self, channel: Channel) -> str:
         """
         Returns user nick with appropriate prefix for a specific channel.
-        ("~" for channel founder, "@" for channel operator).
+        ("@" for channel operator, none for other users).
         """
-        if channel.is_founder(self):
-            return f"~{self.nick}"
-        elif self in channel.operators:
+        if self in channel.operators:
             return f"@{self.nick}"
         else:
             return self.nick
@@ -377,7 +375,6 @@ class Channel:
 
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
-        self.founder = user.user_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
         self.modes: Set[str] = {"t"}
         self.operators: Set[UserConnection] = set()
@@ -385,10 +382,6 @@ class Channel:
         self.ban_list: Set[UserConnection] = set()
 
         self.operators.add(user)
-
-    def is_founder(self, user: UserConnection) -> bool:
-        """Checks if the user is the channel founder."""
-        return user.user_name == self.founder
 
     def set_topic(self, user: UserConnection, topic: str) -> None:
         if not topic:

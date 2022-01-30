@@ -178,7 +178,7 @@ def test_join_channel(user_alice, user_bob):
 
     assert receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n"
 
-    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob ~Alice\r\n":
+    while receive_line(user_bob) != b":mantatail 353 Bob = #foo :Bob @Alice\r\n":
         pass
     while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
@@ -484,7 +484,7 @@ def test_channel_owner(user_alice, user_bob):
     while True:
         received = receive_line(user_bob)
         if b"353" in received:
-            assert compare_if_word_match_in_any_order(received, b":mantatail 353 Bob = #foo :Bob ~Alice\r\n")
+            assert compare_if_word_match_in_any_order(received, b":mantatail 353 Bob = #foo :Bob @Alice\r\n")
             break
 
     user_alice.sendall(b"PART #foo\r\n")
@@ -497,15 +497,15 @@ def test_channel_owner(user_alice, user_bob):
     while True:
         received = receive_line(user_alice)
         if b"353" in received:
-            assert compare_if_word_match_in_any_order(received, b":mantatail 353 Alice = #foo :Alice ~Bob\r\n")
+            assert compare_if_word_match_in_any_order(received, b":mantatail 353 Alice = #foo :Alice @Bob\r\n")
             break
 
 
-def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
+def test_operator_prefix(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
     receive_line(user_alice)  # JOIN message from server
 
-    assert receive_line(user_alice) == b":mantatail 353 Alice = #foo :~Alice\r\n"
+    assert receive_line(user_alice) == b":mantatail 353 Alice = #foo :@Alice\r\n"
 
     user_bob.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
@@ -517,7 +517,7 @@ def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
         received = receive_line(user_charlie)
         if b"353" in received:
             assert compare_if_word_match_in_any_order(
-                received, b":mantatail 353 Charlie = #foo :Charlie ~Alice @Bob\r\n"
+                received, b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n"
             )
             break
 
@@ -530,7 +530,7 @@ def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
         received = receive_line(user_charlie)
         if b"353" in received:
             assert compare_if_word_match_in_any_order(
-                received, b":mantatail 353 Charlie = #foo :Charlie ~Alice Bob\r\n"
+                received, b":mantatail 353 Charlie = #foo :Charlie @Alice Bob\r\n"
             )
             break
 
@@ -543,7 +543,7 @@ def test_founder_and_operator_prefix(user_alice, user_bob, user_charlie):
         received = receive_line(user_charlie)
         if b"353" in received:
             assert compare_if_word_match_in_any_order(
-                received, b":mantatail 353 Charlie = #foo :Charlie ~Alice @Bob\r\n"
+                received, b":mantatail 353 Charlie = #foo :Charlie @Alice @Bob\r\n"
             )
             break
 
@@ -799,12 +799,7 @@ def test_no_nickname_given():
 
 
 def test_channel_owner_kick_self():
-    """
-    Checks that a channel is properly removed when a channel founder kicks themselves.
-
-    Thereafter, checks that channel founder keeps their operator permissions after kicking themselves,
-    when another user is on the channel
-    """
+    """Checks that a channel is properly removed when a channel's last user (operator) kicks themselves."""
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))
         nc.sendall(b"NICK nc\n")
@@ -839,65 +834,6 @@ def test_channel_owner_kick_self():
         assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
 
         nc.sendall(b"QUIT\n")
-
-    nc = socket.socket()
-    nc.connect(("localhost", 6667))
-    nc.sendall(b"NICK nc\n")
-    nc.sendall(b"USER nc 0 * :netcat\n")
-    nc.sendall(b"JOIN #foo\n")
-    time.sleep(0.1)
-    nc2 = socket.socket()
-    nc2.connect(("localhost", 6667))
-    nc2.sendall(b"NICK nc2\n")
-    nc2.sendall(b"USER nc2 0 * :netcat\n")
-    nc2.sendall(b"JOIN #foo\n")
-
-    while receive_line(nc) != b":nc2!nc2@127.0.0.1 JOIN #foo\r\n":
-        pass
-    while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
-        pass
-
-    nc.sendall(b"KICK #foo nc\n")
-    assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
-    assert receive_line(nc2) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
-
-    nc.sendall(b"QUIT\r\n")
-    while b"QUIT" not in receive_line(nc):
-        pass
-    nc.close()
-    time.sleep(0.1)
-    # Need to redefine "nc" to avoid Bad file descriptor
-    nc = socket.socket()
-    nc.connect(("localhost", 6667))
-    nc.sendall(b"NICK nc\n")
-    nc.sendall(b"USER nc 0 * :netcat\n")
-
-    while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
-        pass
-
-    nc.sendall(b"PART #foo\n")
-    assert receive_line(nc) == b":mantatail 442 nc #foo :You're not on that channel\r\n"
-
-    nc.sendall(b"JOIN #foo\n")
-
-    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-        pass
-    while receive_line(nc2) != b":nc!nc@127.0.0.1 JOIN #foo\r\n":
-        pass
-
-    nc.sendall(b"KICK #foo nc\n")
-    assert receive_line(nc) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
-    assert receive_line(nc2) == b":nc!nc@127.0.0.1 KICK #foo nc :nc\r\n"
-
-    nc.sendall(b"QUIT\r\n")
-    while b"QUIT" not in receive_line(nc):
-        pass
-    nc.close()
-
-    nc2.sendall(b"QUIT\r\n")
-    while b"QUIT" not in receive_line(nc2):
-        pass
-    nc2.close()
 
 
 def test_join_part_race_condition(user_alice, user_bob):
