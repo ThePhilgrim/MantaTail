@@ -15,8 +15,8 @@ from typing import Dict, Optional, List, Set, Tuple
 import commands
 import irc_responses
 
-# Global so that it can be accessed from pytest
 TIMER_SECONDS = 600
+CAP_LS: List[str] = ["cap-notify"]
 
 
 class ServerState:
@@ -24,8 +24,9 @@ class ServerState:
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
         """
-        The attribute "self.lock" locks the state of the server to avoid modifications
-        to iterables during iteration.
+        Attributes:
+            - lock: Locks the state of the server to avoid modifications
+            to iterables during iteration.
         """
 
         self.lock = threading.Lock()
@@ -143,7 +144,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     """
 
     user = UserConnection(state, user_host, user_socket)
+    motd_sent = False
     disconnect_reason = ""
+
     try:
         while True:
             request = b""
@@ -169,7 +172,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if user.nick == "*" or not user.user_message:
+                if user.nick == "*" or user.user_message is None or not motd_sent:
                     if command_lower == "user":
                         if args:
                             user.user_message = args
@@ -180,6 +183,8 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         commands.handle_nick(state, user, args)
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
+                    elif command_lower == "cap":
+                        commands.handle_cap(state, user, args)
                     else:
                         if command_lower == "quit":
                             disconnect_reason = "Client quit"
@@ -187,8 +192,9 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             commands.error_not_registered(user)
 
-                    if user.nick != "*" and user.user_message:
+                    if user.nick != "*" and user.user_message is not None and not user.capneg_in_progress:
                         commands.motd(state.motd_content, user)
+                        motd_sent = True
 
                 else:
                     try:
@@ -234,12 +240,14 @@ class UserConnection:
         self.socket = socket
         self.host = host
         self.nick = "*"
-        self.user_message: Optional[List[str]] = None  # Ex. AliceUsr 0 * Alice
-        self.user_name: Optional[str] = None  # Ex. AliceUsr
+        self.user_message: Optional[List[str]] = None
+        self.user_name: Optional[str] = None
         self.away: Optional[str] = None  # None = user not away, str = user away
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
+        self.cap_list: Set[str] = set()
+        self.capneg_in_progress = False
         self.pong_received = False
 
     def get_user_mask(self) -> str:
