@@ -465,10 +465,10 @@ def process_mode_b(
     user: mantatail.UserConnection,
     channel: mantatail.Channel,
     mode_command: str,
-    target_usr_nick: Optional[str],
+    ban_target: Optional[str],
 ) -> None:
     """Bans or unbans a user from a channel."""
-    if not target_usr_nick:
+    if not ban_target:
         if channel.ban_list:
             banlist_num = irc_responses.RPL_BANLIST
 
@@ -481,14 +481,16 @@ def process_mode_b(
         user.send_que.put((message, "mantatail"))
         return
 
-    target_usr = state.find_user(target_usr_nick)
+    # target_usr = state.find_user(target_usr_nick)
 
-    if not target_usr:
-        error_no_such_nick_channel(user, target_usr_nick)
-        return
+    # if not target_usr:
+    #     error_no_such_nick_channel(user, target_usr_nick)
+    #     return
     if user not in channel.operators:
         error_no_operator_privileges(user, channel)
         return
+
+    generate_ban_mask(ban_target)
 
     mode_message = f"MODE {channel.name} {mode_command}b {target_usr.nick}!*@*"
 
@@ -567,6 +569,48 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
 
     command = split_msg[0]
     return command, split_msg[1:]
+
+
+def generate_ban_mask(ban_target: str) -> str:
+    """ """
+    if "!" in ban_target and "@" in ban_target:
+        ban_mask_regex = r"(.*)!(.*)@(.*)"
+        ban_match = re.fullmatch(ban_mask_regex, ban_target)
+        if not ban_match:
+            # @ before ! (corner case)
+            pass
+        else:
+            nick, user, host = ban_match.groups()
+
+    elif "!" in ban_target:
+        nick, user, host = "!".split(ban_target, 1)
+
+    elif "@" in ban_target:
+        user, host, host = "@".split(ban_target, 1)
+
+    #
+    # if "!" in ban_target and "@" in ban_target:
+    #   regex for *!*@*
+    #   regex_groups_list = blah.groups()
+    # elif "!" in ban_target:
+    #   regex for *!*
+    #   regex_groups_list = blah.groups()
+    # elif "@" in ban_target:
+    #   regex for *@*
+    #   regex_groups_list = blah.groups()
+    # else:
+    #   regex for *
+    #   regex_groups_list = blah.groups()
+    #
+    # final_mask = []
+    #
+    # for x in regex_groups_list:
+    #   if not x:
+    #     final_mask.append correct thingy (! or @)
+    #   else:
+    #     final_mask.append x
+
+    pass
 
 
 ### Error Messages
