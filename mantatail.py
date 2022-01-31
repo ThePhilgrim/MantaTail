@@ -148,8 +148,6 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
     """
 
     user = UserConnection(state, user_host, user_socket)
-    nick_received = False
-    user_received = False
     motd_sent = False
     disconnect_reason = ""
 
@@ -178,17 +176,15 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                 command_lower = command.lower()
                 parsed_command = "handle_" + command_lower
 
-                if not nick_received or not user_received or not motd_sent:
+                if user.nick == "*" or user.user_message is None or not motd_sent:
                     if command_lower == "user":
                         if args:
                             user.user_message = args
                             user.user_name = args[0]
-                            user_received = True
                         else:
                             commands.error_not_enough_params(user, command)
                     elif command_lower == "nick":
                         commands.handle_nick(state, user, args)
-                        nick_received = True
                     elif command_lower == "pong":
                         commands.handle_pong(state, user, args)
                     elif command_lower == "cap":
@@ -200,7 +196,7 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
                         else:
                             commands.error_not_registered(user)
 
-                    if nick_received and user_received and not user.capneg_in_progress:
+                    if user.nick != "*" and user.user_message is not None and not user.capneg_in_progress:
                         commands.motd(state.motd_content, user)
                         motd_sent = True
 
