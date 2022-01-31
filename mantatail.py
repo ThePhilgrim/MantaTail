@@ -27,15 +27,11 @@ class ServerState:
         Attributes:
             - lock: Locks the state of the server to avoid modifications
             to iterables during iteration.
-
-            - cap_ls: Server Capabilities. List of features beyond the standard
-            IRC protocol that Mantatail supports.
         """
 
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
-
         self.motd_content = motd_content
 
     def find_user(self, nick: str) -> Optional[UserConnection]:

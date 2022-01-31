@@ -52,7 +52,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
         raise last_exception
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
     listener = Listener(6667, motd_dict_test)
 
