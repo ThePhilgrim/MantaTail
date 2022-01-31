@@ -37,6 +37,7 @@ words = [
     "LS",
     "LIST",
     "REQ",
+    "END",
     "JOIN",
     "KICK",
     "MODE",
