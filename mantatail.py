@@ -16,7 +16,7 @@ import commands
 import irc_responses
 
 TIMER_SECONDS = 600
-CAP_LS: List[str] = ["cap-notify"]
+CAP_LS: List[str] = ["away-notify", "cap-notify"]
 
 
 class ServerState:
