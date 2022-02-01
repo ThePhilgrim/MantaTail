@@ -586,7 +586,7 @@ def generate_ban_mask(ban_target: str) -> str:
         nick, user, host = "!".split(ban_target, 1)
 
     elif "@" in ban_target:
-        user, host, host = "@".split(ban_target, 1)
+        nick, user, host = "@".split(ban_target, 1)
 
     #
     # if "!" in ban_target and "@" in ban_target:
