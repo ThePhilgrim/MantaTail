@@ -129,6 +129,12 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
             user.send_que.put((message, "mantatail"))
 
+            if user.away:
+                away_notify_msg = f"AWAY :{user.away}"
+                for usr in channel.users:
+                    if "away-notify" in usr.cap_list:
+                        usr.send_que.put((away_notify_msg, user.get_user_mask()))
+
         # TODO:
         #   * Send topic (332)
         #   * Optional/Later: (333) https://modern.ircdocs.horse/#rpltopicwhotime-333
@@ -253,17 +259,30 @@ def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     they will receive a reply with the user's away message.
     """
 
+    receivers = user.get_users_sharing_channel()
+
     # args[0] == "" happens when user sends "AWAY :", which indicates they are no longer away.
     if not args or args[0] == "":
         (unaway_num, unaway_info) = irc_responses.RPL_UNAWAY
-        unaway_message = f"{unaway_num} {user.nick} {unaway_info}"
-        user.send_que.put((unaway_message, "mantatail"))
+        msg_to_self = f"{unaway_num} {user.nick} {unaway_info}"
         user.away = None
     else:
         (nowaway_num, nowaway_info) = irc_responses.RPL_NOWAWAY
-        nowaway_message = f"{nowaway_num} {user.nick} {nowaway_info}"
-        user.send_que.put((nowaway_message, "mantatail"))
+        msg_to_self = f"{nowaway_num} {user.nick} {nowaway_info}"
         user.away = args[0]
+
+    user.send_que.put((msg_to_self, "mantatail"))
+
+    if not args:
+        away_parameter = ""
+    else:
+        away_parameter = args[0]
+
+    away_notify_msg = f"AWAY :{away_parameter}"
+
+    for receiver in receivers:
+        if "away-notify" in receiver.cap_list:
+            receiver.send_que.put((away_notify_msg, user.get_user_mask()))
 
 
 def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
