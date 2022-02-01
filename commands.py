@@ -261,8 +261,13 @@ def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
     receivers = user.get_users_sharing_channel()
 
+    if not args:
+        away_parameter = ""
+    else:
+        away_parameter = args[0]
+
     # args[0] == "" happens when user sends "AWAY :", which indicates they are no longer away.
-    if not args or args[0] == "":
+    if not away_parameter:
         (unaway_num, unaway_info) = irc_responses.RPL_UNAWAY
         msg_to_self = f"{unaway_num} {user.nick} {unaway_info}"
         user.away = None
@@ -272,12 +277,6 @@ def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         user.away = args[0]
 
     user.send_que.put((msg_to_self, "mantatail"))
-
-    if not args:
-        away_parameter = ""
-    else:
-        away_parameter = args[0]
-
     away_notify_msg = f"AWAY :{away_parameter}"
 
     for receiver in receivers:
