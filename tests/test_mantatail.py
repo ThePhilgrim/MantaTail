@@ -827,7 +827,7 @@ def test_away_notify(run_server):
     while receive_line(nc2) != b":nc4!nc4@127.0.0.1 AWAY :I am away\r\n":
         pass
 
-    receive_line(nc3)  # nc4 JOIN message
+    assert b"JOIN" in receive_line(nc3)  # nc4 JOIN message
 
     # Makes sure that nc3 doesn't receive an away message from nc
     with pytest.raises(socket.timeout):
