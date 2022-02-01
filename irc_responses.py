@@ -15,6 +15,7 @@ ERR_NOSUCHCHANNEL = ("403", ":No such channel")
 ERR_CANNOTSENDTOCHAN = ("404", ":Cannot send to nick/channel")
 ERR_TOOMANYCHANNELS = ("405", ":You have joined too many channels")  #! Not implemented
 ERR_NOORIGIN = ("409", ":No origin specified")
+ERR_INVALIDCAPCMD = ("410", ":Invalid CAP command")
 ERR_NORECIPIENT = ("411", ":No recipient given")
 ERR_NOTEXTTOSEND = ("412", ":No text to send")
 ERR_UNKNOWNCOMMAND = ("421", ":Unknown command")

@@ -27,6 +27,61 @@ from typing import Optional, Dict, List, Tuple
 
 
 ### Handlers
+def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+    """
+    Command formats:
+        Starts capability negotiation: "CAP LS 302" ("302" indicates
+            support for IRCv3.2. Number in command can differ.)
+        Requires a capability to be enabled: "CAP REQ :capability"
+        Get enabled capabilities: "CAP LIST"
+    """
+    if not args:
+        error_not_enough_params(user, "CAP")
+        return
+
+    user.capneg_in_progress = True
+    low_cap_command = args[0].lower()
+
+    if low_cap_command == "ls":
+        message = f"CAP {user.nick} LS :{' '.join(mantatail.CAP_LS)}"
+        user.send_que.put((message, "mantatail"))
+        if len(args) > 1:
+            try:
+                if int(args[1]) >= 302:
+                    user.cap_list.add("cap-notify")
+            except ValueError:
+                return
+        return
+
+    if low_cap_command == "list":
+        message = f"CAP {user.nick} LIST :{' '.join(user.cap_list)}"
+        user.send_que.put((message, "mantatail"))
+        return
+
+    if low_cap_command == "req":
+        # CAP REQ without specified capability
+        if len(args) == 1:
+            return
+
+        capabilities = args[1].split(" ")
+        unsupported_caps = [cap for cap in capabilities if cap not in mantatail.CAP_LS]
+
+        if unsupported_caps:
+            message = f"CAP {user.nick} NAK :{args[1]}"
+        else:
+            message = f"CAP {user.nick} ACK :{args[1]}"
+
+            for capability in capabilities:
+                user.cap_list.add(capability)
+
+        user.send_que.put((message, "mantatail"))
+        return
+
+    if low_cap_command == "end":
+        user.capneg_in_progress = False
+        return
+
+
 def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command format: "JOIN #foo"
@@ -78,6 +133,12 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
             user.send_que.put((message, "mantatail"))
+
+            if user.away:
+                away_notify_msg = f"AWAY :{user.away}"
+                for usr in channel.users:
+                    if "away-notify" in usr.cap_list:
+                        usr.send_que.put((away_notify_msg, user.get_user_mask()))
 
         # TODO:
         #   * Send topic (332)
@@ -196,24 +257,36 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
     """
     Command formats:
-        Set away status "AWAY :Away message"
-        Remove away status "AWAY"
+        Set away status: "AWAY :Away message"
+        Remove away status: "AWAY"
 
     Sets/Removes the Away status of a user. If somebody sends a PRIVMSG to a user who is Away,
     they will receive a reply with the user's away message.
     """
 
+    receivers = user.get_users_sharing_channel()
+
+    if not args:
+        away_parameter = ""
+    else:
+        away_parameter = args[0]
+
     # args[0] == "" happens when user sends "AWAY :", which indicates they are no longer away.
-    if not args or args[0] == "":
+    if not away_parameter:
         (unaway_num, unaway_info) = irc_responses.RPL_UNAWAY
-        unaway_message = f"{unaway_num} {user.nick} {unaway_info}"
-        user.send_que.put((unaway_message, "mantatail"))
+        msg_to_self = f"{unaway_num} {user.nick} {unaway_info}"
         user.away = None
     else:
         (nowaway_num, nowaway_info) = irc_responses.RPL_NOWAWAY
-        nowaway_message = f"{nowaway_num} {user.nick} {nowaway_info}"
-        user.send_que.put((nowaway_message, "mantatail"))
+        msg_to_self = f"{nowaway_num} {user.nick} {nowaway_info}"
         user.away = args[0]
+
+    user.send_que.put((msg_to_self, "mantatail"))
+    away_notify_msg = f"AWAY :{away_parameter}"
+
+    for receiver in receivers:
+        if "away-notify" in receiver.cap_list:
+            receiver.send_que.put((away_notify_msg, user.get_user_mask()))
 
 
 def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:

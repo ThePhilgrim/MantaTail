@@ -52,7 +52,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
         raise last_exception
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
     listener = Listener(6667, motd_dict_test)
 
@@ -775,14 +775,157 @@ def test_connect_via_netcat(run_server):
             pass
 
 
-def test_quit_before_registering():
+def test_cap_commands(run_server):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+
+    nc.sendall(b"CAP\n")
+    assert receive_line(nc) == b":mantatail 461 * CAP :Not enough parameters\r\n"
+
+    nc.sendall(b"CAP LS\n")
+    assert receive_line(nc) == b":mantatail CAP * LS :away-notify cap-notify\r\n"
+
+    nc.sendall(b"CAP LIST\n")
+    assert receive_line(nc) == b":mantatail CAP * LIST :\r\n"
+
+    nc.sendall(b"CAP LS 302\n")
+    assert receive_line(nc) == b":mantatail CAP * LS :away-notify cap-notify\r\n"
+
+    nc.sendall(b"CAP LIST\n")
+    assert receive_line(nc) == b":mantatail CAP * LIST :cap-notify\r\n"
+
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+
+    with pytest.raises(socket.timeout):
+        receive_line(nc)
+
+    nc.sendall(b"CAP END\n")
+    while receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
+
+
+def test_cap_req(run_server):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"CAP LS\n")
+    assert receive_line(nc) == b":mantatail CAP * LS :away-notify cap-notify\r\n"
+
+    nc.sendall(b"CAP REQ\n")
+    with pytest.raises(socket.timeout):
+        receive_line(nc)
+
+    nc.sendall(b"CAP REQ foo\n")
+    assert receive_line(nc) == b":mantatail CAP * NAK :foo\r\n"
+
+    nc.sendall(b"CAP REQ foo bar\n")
+    assert receive_line(nc) == b":mantatail CAP * NAK :foo\r\n"
+
+    nc.sendall(b"CAP REQ :foo bar\n")
+    assert receive_line(nc) == b":mantatail CAP * NAK :foo bar\r\n"
+
+    nc.sendall(b"CAP REQ :foo cap-notify\n")
+    assert receive_line(nc) == b":mantatail CAP * NAK :foo cap-notify\r\n"
+
+    nc.sendall(b"CAP REQ :cap-notify\n")
+    assert receive_line(nc) == b":mantatail CAP * ACK :cap-notify\r\n"
+
+    nc.sendall(b"CAP LIST\n")
+    assert receive_line(nc) == b":mantatail CAP * LIST :cap-notify\r\n"
+
+    nc.sendall(b"CAP REQ :away-notify\n")
+    assert receive_line(nc) == b":mantatail CAP * ACK :away-notify\r\n"
+
+    nc.sendall(b"CAP LIST\n")
+
+    while True:
+        received = receive_line(nc)
+        if b"LIST" in received:
+            received_no_colons = received.replace(b":", b"")
+            assert compare_if_word_match_in_any_order(
+                received_no_colons, b"mantatail CAP * LIST cap-notify away-notify\r\n"
+            )
+            break
+
+
+def test_away_notify(run_server):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"CAP LS\n")
+    assert receive_line(nc) == b":mantatail CAP * LS :away-notify cap-notify\r\n"
+
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+    nc.sendall(b"CAP END\n")
+    nc.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
+        pass
+
+    # Negotiates away-notify with server
+    nc2 = socket.socket()
+    nc2.connect(("localhost", 6667))
+    nc2.sendall(b"CAP REQ away-notify\n")
+    assert receive_line(nc2) == b":mantatail CAP * ACK :away-notify\r\n"
+    nc2.sendall(b"NICK nc2\n")
+    nc2.sendall(b"USER nc2 0 * :netcat\n")
+    nc2.sendall(b"CAP END\n")
+    nc2.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc2) != b":mantatail 366 nc2 #foo :End of /NAMES list.\r\n":
+        pass
+
+    # Does not negotiate with server
+    nc3 = socket.socket()
+    nc3.connect(("localhost", 6667))
+    nc3.sendall(b"NICK nc3\n")
+    nc3.sendall(b"USER nc3 0 * :netcat\n")
+    nc3.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc3) != b":mantatail 366 nc3 #foo :End of /NAMES list.\r\n":
+        pass
+
+    # Join messages from other clients
+    receive_line(nc)
+    receive_line(nc2)
+
+    time.sleep(0.1)
+
+    nc.sendall(b"AWAY :This is an away message\n")
+
+    assert receive_line(nc2) == b":nc!nc@127.0.0.1 AWAY :This is an away message\r\n"
+
+    # Makes sure that nc3 doesn't receive an away message from nc
+    with pytest.raises(socket.timeout):
+        receive_line(nc3)
+
+    nc4 = socket.socket()
+    nc4.connect(("localhost", 6667))
+    nc4.sendall(b"NICK nc4\n")
+    nc4.sendall(b"USER nc4 0 * :netcat\n")
+
+    nc4.sendall(b"AWAY :I am away\n")
+
+    nc4.sendall(b"JOIN #foo\n")
+
+    while receive_line(nc2) != b":nc4!nc4@127.0.0.1 AWAY :I am away\r\n":
+        pass
+
+    assert b"JOIN" in receive_line(nc3)  # nc4 JOIN message
+
+    # Makes sure that nc3 doesn't receive an away message from nc
+    with pytest.raises(socket.timeout):
+        receive_line(nc3)
+
+
+def test_quit_before_registering(run_server):
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))  # nc localhost 6667
         nc.sendall(b"QUIT\n")
         assert receive_line(nc) == b":QUIT :Quit: Client quit\r\n"
 
 
-def test_quit_reasons():
+def test_quit_reasons(run_server):
     nc = socket.socket()
     nc.connect(("localhost", 6667))
     nc.sendall(b"NICK nc\n")
@@ -834,14 +977,14 @@ def test_quit_reasons():
     assert receive_line(nc4) == b":nc4!nc4@127.0.0.1 QUIT :Quit: Many\r\n"
 
 
-def test_no_nickname_given():
+def test_no_nickname_given(run_server):
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))
         nc.sendall(b"NICK\r\n")
         assert receive_line(nc) == b":mantatail 431 :No nickname given\r\n"
 
 
-def test_channel_owner_kick_self():
+def test_channel_owner_kick_self(run_server):
     """Checks that a channel is properly removed when a channel's last user (operator) kicks themselves."""
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))
@@ -944,7 +1087,7 @@ def test_nick_already_taken(run_server):
     nc4.close()
 
 
-def test_erroneus_nick():
+def test_erroneus_nick(run_server):
     nc = socket.socket()
     nc.connect(("localhost", 6667))
 
