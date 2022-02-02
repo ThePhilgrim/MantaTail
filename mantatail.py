@@ -27,7 +27,6 @@ class ServerState:
         Attributes:
             - lock: Locks the state of the server to avoid modifications
             to iterables during iteration.
-<<<<<<< HEAD
 
             - chanmodes: These are the channel modes that the server supports.
             Chanmodes are divided into four types (A, B, C, D). It also contains
@@ -35,8 +34,6 @@ class ServerState:
             Depending on the channel mode type, they either must take
             a parameter, or they must not.
             More info: https://modern.ircdocs.horse/#channel-mode
-=======
->>>>>>> main
         """
 
         self.lock = threading.Lock()
@@ -389,7 +386,7 @@ class Channel:
         self.modes: Set[str] = {"t"}
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
-        self.ban_list: Dict[UserConnection, str] = {}
+        self.ban_list: Dict[str, str] = {}
 
         self.operators.add(user)
 

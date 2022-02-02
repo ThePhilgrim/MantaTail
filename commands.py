@@ -111,9 +111,10 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         assert channel
 
-        if user in channel.ban_list.keys():
-            error_banned_from_chan(user, channel)
-            return
+        # ! Currently not working: NEED TO MATCH USER MASK WITH BAN MASKS (WITH WILDCARDS)
+        # if user in channel.ban_list:
+        #     error_banned_from_chan(user, channel)
+        #     return
 
         if user not in channel.users:
             channel_users_str = ""
@@ -415,8 +416,9 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
     if user not in channel.users:
         error_not_on_channel(user, receiver)
-    elif user in channel.ban_list.keys():
-        error_cannot_send_to_channel(user, channel.name)
+    # ! Currently not working: NEED TO MATCH USER MASK WITH BAN MASKS (WITH WILDCARDS)
+    # elif user in channel.ban_list:
+    #     error_cannot_send_to_channel(user, channel.name)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
@@ -545,8 +547,8 @@ def process_mode_b(
         if channel.ban_list:
             banlist_num = irc_responses.RPL_BANLIST
 
-            for usr, banner in channel.ban_list.items():
-                message = f"{banlist_num} {user.nick} {channel.name} {usr.nick}!*@* {banner}"
+            for ban_mask, banner in channel.ban_list.items():
+                message = f"{banlist_num} {user.nick} {channel.name} {ban_mask} {banner}"
                 user.send_que.put((message, "mantatail"))
 
         (endbanlist_num, endbanlist_info) = irc_responses.RPL_ENDOFBANLIST
@@ -554,29 +556,27 @@ def process_mode_b(
         user.send_que.put((message, "mantatail"))
         return
 
-    # target_usr = state.find_user(target_usr_nick)
-
-    # if not target_usr:
-    #     error_no_such_nick_channel(user, target_usr_nick)
-    #     return
     if user not in channel.operators:
         error_no_operator_privileges(user, channel)
         return
 
-    generate_ban_mask(ban_target)
+    banned_user = generate_ban_mask(ban_target)
 
-    mode_message = f"MODE {channel.name} {mode_command}b {target_usr.nick}!*@*"
+    mode_message = f"MODE {channel.name} {mode_command}b {banned_user}"
 
     banned_users = channel.ban_list.keys()
 
-    # Not sending message if "+b" and target usr is already banned (or vice versa)
-    if mode_command == "+" and target_usr not in banned_users:
-        channel.queue_message_to_chan_users(mode_message, user)
-        channel.ban_list[target_usr] = f"{user.get_user_mask()}"
+    # TODO: Make sure to not add duplicates in ban list.
+    # * If *!*@* is in ban list, foo!bar@baz is a duplicate.
 
-    elif mode_command[0] == "-" and target_usr in banned_users:
+    # Not sending message if "+b" and target usr is already banned (or vice versa)
+    if mode_command == "+" and banned_user not in banned_users:
         channel.queue_message_to_chan_users(mode_message, user)
-        del channel.ban_list[target_usr]
+        channel.ban_list[banned_user] = user.nick
+
+    elif mode_command == "-" and banned_user in banned_users:
+        channel.queue_message_to_chan_users(mode_message, user)
+        del channel.ban_list[banned_user]
 
 
 def process_mode_o(
@@ -645,45 +645,58 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
 
 
 def generate_ban_mask(ban_target: str) -> str:
-    """ """
+    """
+    Generates a user mask based on the parameters given in a MODE +b command.
+    Any part of the user mask not provided by the user is added as a wildcard ("*").
+
+    Ex:
+        - MODE +b Foo -> Foo!*@*
+        - MODE +b Foo!Bar -> Foo!Bar@*
+        - MODE +b Foo!Bar@Baz -> Foo!Bar@Baz
+        - MODE +b Bar@Baz -> *!Bar@Baz
+        - MODE +b @Baz -> *!*@Baz
+    """
     if "!" in ban_target and "@" in ban_target:
-        ban_mask_regex = r"(.*)!(.*)@(.*)"
+        ban_mask_regex = r"([^!]*)!(.*)@(.*)"
         ban_match = re.fullmatch(ban_mask_regex, ban_target)
         if not ban_match:
             # @ before ! (corner case)
-            pass
-        else:
-            nick, user, host = ban_match.groups()
+            ban_mask_regex = r"(.*)@(.*)!(.*)"
+            ban_match = re.fullmatch(ban_mask_regex, ban_target)
+
+        nick, user, host = ban_match.groups()
+
+        if not nick:
+            nick = "*"
+        if not user:
+            user = "*"
+        if not host:
+            host = "*"
 
     elif "!" in ban_target:
-        nick, user, host = "!".split(ban_target, 1)
+        nick, user = ban_target.split("!", 1)
+        if not nick:
+            nick = "*"
+        if not user:
+            user = "*"
+
+        host = "*"
 
     elif "@" in ban_target:
-        nick, user, host = "@".split(ban_target, 1)
+        user, host = ban_target.split("@", 1)
+        if not user:
+            user = "*"
+        if not host:
+            host = "*"
 
-    #
-    # if "!" in ban_target and "@" in ban_target:
-    #   regex for *!*@*
-    #   regex_groups_list = blah.groups()
-    # elif "!" in ban_target:
-    #   regex for *!*
-    #   regex_groups_list = blah.groups()
-    # elif "@" in ban_target:
-    #   regex for *@*
-    #   regex_groups_list = blah.groups()
-    # else:
-    #   regex for *
-    #   regex_groups_list = blah.groups()
-    #
-    # final_mask = []
-    #
-    # for x in regex_groups_list:
-    #   if not x:
-    #     final_mask.append correct thingy (! or @)
-    #   else:
-    #     final_mask.append x
+        nick = "*"
 
-    pass
+    else:
+        nick = ban_target
+        user = "*"
+        host = "*"
+
+    return f"{nick}!{user}@{host}"
 
 
 ### Error Messages
