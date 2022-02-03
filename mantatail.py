@@ -9,6 +9,7 @@ from __future__ import annotations
 import socket
 import threading
 import queue
+import fnmatch
 import json
 from typing import Dict, Optional, List, Set, Tuple
 
@@ -40,7 +41,12 @@ class ServerState:
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
         self.motd_content = motd_content
+        # Supported Channel Modes:
+        # b: Ban/Unban user from channel
+        # o: Set/Unset channel operator
+        # t: Only operator can set channel topic
         self.chanmodes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
+        # TODO: Support -t and add "t" to self.chanmodes
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
         """
@@ -383,11 +389,10 @@ class Channel:
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
-        self.modes: Set[str] = {"t"}
+        self.modes: Set[str] = {"t"}  # See ServerState __init__ for more info on letters.
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
         self.ban_list: Dict[str, str] = {}
-
         self.operators.add(user)
 
     def set_topic(self, user: UserConnection, topic: str) -> None:
@@ -421,6 +426,9 @@ class Channel:
         for usr in self.users:
             if usr != sender or send_to_self:
                 usr.send_que.put((message, sender.get_user_mask()))
+
+    def check_if_banned(self, target: str) -> bool:
+        return any(fnmatch.fnmatch(target, ban_mask) for ban_mask in self.ban_list.keys())
 
 
 def split_on_new_line(string: str) -> List[str]:

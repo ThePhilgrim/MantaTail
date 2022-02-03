@@ -112,11 +112,9 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         assert channel
 
-        match_with_banned_user = any(
-            fnmatch.fnmatch(user.get_user_mask(), ban_mask) for ban_mask in channel.ban_list.keys()
-        )
+        is_banned = channel.check_if_banned(user.get_user_mask())
 
-        if match_with_banned_user:
+        if is_banned:
             error_banned_from_chan(user, channel)
             return
 
@@ -396,9 +394,6 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
 
     Depending on the command, sends a message to all users on a channel or a private message to a user.
     """
-
-    # TODO: Check if user is in channel ban list
-
     if not args:
         error_no_recipient(user, "PRIVMSG")
         return
@@ -421,13 +416,11 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
     # USER MASK:  Bob!BobUsr@127.0.0.1
     # BAN LIST:  ['Bob!*@*']
 
-    match_with_banned_user = any(
-        fnmatch.fnmatch(user.get_user_mask(), ban_mask) for ban_mask in channel.ban_list.keys()
-    )
+    is_banned = channel.check_if_banned(user.get_user_mask())
 
     if user not in channel.users:
         error_not_on_channel(user, receiver)
-    elif match_with_banned_user:
+    elif is_banned:
         error_cannot_send_to_channel(user, channel.name)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
@@ -571,17 +564,20 @@ def process_mode_b(
         return
 
     target_ban_mask = generate_ban_mask(ban_target)
-    match_with_banned_user = any(fnmatch.fnmatch(target_ban_mask, ban_mask) for ban_mask in channel.ban_list.keys())
+    is_already_banned = channel.check_if_banned(target_ban_mask)
     mode_message = f"MODE {channel.name} {mode_command}b {target_ban_mask}"
 
     # Not sending message if "+b" and target usr is already banned (or vice versa)
-    if mode_command == "+" and not match_with_banned_user:
+    if mode_command == "+" and not is_already_banned:
         channel.queue_message_to_chan_users(mode_message, user)
         channel.ban_list[target_ban_mask] = user.get_user_mask()
 
-    elif mode_command == "-" and match_with_banned_user:
+    elif mode_command == "-" and is_already_banned:
         channel.queue_message_to_chan_users(mode_message, user)
-        del channel.ban_list[target_ban_mask]
+        try:
+            del channel.ban_list[target_ban_mask]
+        except KeyError:
+            pass
 
 
 def process_mode_o(
