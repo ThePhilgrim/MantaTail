@@ -20,7 +20,6 @@ To read how handler functions are called: see mantatail.recv_loop() documentatio
 """
 from __future__ import annotations
 import re
-import fnmatch
 import mantatail
 import irc_responses
 
@@ -649,12 +648,16 @@ def generate_ban_mask(ban_target: str) -> str:
     Generates a user mask based on the parameters given in a MODE +b command.
     Any part of the user mask not provided by the user is added as a wildcard ("*").
 
-    Ex:
-        - MODE +b Foo -> Foo!*@*
-        - MODE +b Foo!Bar -> Foo!Bar@*
-        - MODE +b Foo!Bar@Baz -> Foo!Bar@Baz
-        - MODE +b Bar@Baz -> *!Bar@Baz
-        - MODE +b @Baz -> *!*@Baz
+    >>> generate_ban_mask("Foo")
+    'Foo!*@*'
+    >>> generate_ban_mask("Foo!Bar")
+    'Foo!Bar@*'
+    >>> generate_ban_mask("Foo!Bar@Baz")
+    'Foo!Bar@Baz'
+    >>> generate_ban_mask("Bar@Baz")
+    '*!Bar@Baz'
+    >>> generate_ban_mask("@Baz")
+    '*!*@Baz'
     """
     if "!" in ban_target and "@" in ban_target:
         ban_mask_regex = r"([^!]*)!(.*)@(.*)"
