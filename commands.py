@@ -515,11 +515,10 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
             error_unknown_mode(user, args[1][0])
             return
 
-        valid_chanmodes = r"[a-zA-Z]"
         supported_modes = [chanmode for chanmodes in state.chanmodes.values() for chanmode in chanmodes]
 
         for mode in args[1][1:]:
-            if mode not in supported_modes or not re.fullmatch(valid_chanmodes, mode):
+            if mode not in supported_modes or not re.fullmatch(r"[a-zA-Z]", mode):
                 error_unknown_mode(user, mode)
                 return
 
@@ -668,34 +667,24 @@ def generate_ban_mask(ban_target: str) -> str:
         assert ban_match is not None  # Keeps mypy silent
         nick, user, host = ban_match.groups()
 
-        if not nick:
-            nick = "*"
-        if not user:
-            user = "*"
-        if not host:
-            host = "*"
-
     elif "!" in ban_target:
         nick, user = ban_target.split("!", 1)
-        if not nick:
-            nick = "*"
-        if not user:
-            user = "*"
-
         host = "*"
 
     elif "@" in ban_target:
         user, host = ban_target.split("@", 1)
-        if not user:
-            user = "*"
-        if not host:
-            host = "*"
-
         nick = "*"
 
     else:
         nick = ban_target
         user = "*"
+        host = "*"
+
+    if not nick:
+        nick = "*"
+    if not user:
+        user = "*"
+    if not host:
         host = "*"
 
     return f"{nick}!{user}@{host}"
