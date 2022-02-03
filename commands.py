@@ -513,7 +513,7 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     if len(args) == 1:
         if channel.modes:
-            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} +{" ".join(channel.modes)}'
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} +{"".join(channel.modes)}'
         else:
             message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
