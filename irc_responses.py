@@ -12,7 +12,7 @@ These include:
 ERR_NOSUCHNICK = ("401", ":No such nick/channel")
 ERR_NOSUCHSERVER = ("402", ":No such server")  #! Not implemented
 ERR_NOSUCHCHANNEL = ("403", ":No such channel")
-ERR_CANNOTSENDTOCHAN = ("404", ":Cannot send to channel")
+ERR_CANNOTSENDTOCHAN = ("404", ":Cannot send to nick/channel")
 ERR_TOOMANYCHANNELS = ("405", ":You have joined too many channels")  #! Not implemented
 ERR_NOORIGIN = ("409", ":No origin specified")
 ERR_INVALIDCAPCMD = ("410", ":Invalid CAP command")
@@ -27,7 +27,8 @@ ERR_USERNOTINCHANNEL = ("441", ":They aren't on that channel")
 ERR_NOTONCHANNEL = ("442", ":You're not on that channel")
 ERR_NOTREGISTERED = ("451", ":You have not registered")
 ERR_NEEDMOREPARAMS = ("461", ":Not enough parameters")
-ERR_UNKNOWNMODE = ("472", ":is unknown mode char to me")
+ERR_UNKNOWNMODE = ("472", ":is an unknown mode char to me")
+ERR_BANNEDFROMCHAN = ("474", ":Cannot join channel (+b) - you are banned")
 ERR_CHANOPRIVSNEEDED = ("482", ":You're not channel operator")
 ERR_UMODEUNKNOWNFLAG = ("501", ":Unknown MODE flag")  #! Not implemented
 
@@ -39,6 +40,8 @@ RPL_NOTOPIC = ("331", ":No topic is set.")
 RPL_TOPIC = "332"
 RPL_TOPICWHOTIME = "333"
 RPL_CHANNELMODEIS = "324"
+RPL_BANLIST = "367"
+RPL_ENDOFBANLIST = ("368", ":End of Channel Ban List")
 RPL_MOTDSTART = ("375", "Message of the day - ")
 RPL_MOTD = "372"
 RPL_ENDOFMOTD = ("376", ":End of /MOTD command")

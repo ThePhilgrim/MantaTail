@@ -92,6 +92,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     Finally, sends a message to all users on the channel, notifying them that
     User has joined the channel.
     """
+
     if not args:
         error_not_enough_params(user, "JOIN")
         return
@@ -109,6 +110,12 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         channel = state.find_channel(channel_name)
 
         assert channel
+
+        is_banned = channel.check_if_banned(user.get_user_mask())
+
+        if is_banned:
+            error_banned_from_chan(user, channel)
+            return
 
         if user not in channel.users:
             channel_users_str = ""
@@ -405,8 +412,15 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         privmsg_to_user(state, user, receiver, privmsg)
         return
 
+    # USER MASK:  Bob!BobUsr@127.0.0.1
+    # BAN LIST:  ['Bob!*@*']
+
+    is_banned = channel.check_if_banned(user.get_user_mask())
+
     if user not in channel.users:
         error_not_on_channel(user, receiver)
+    elif is_banned:
+        error_cannot_send_to_channel(user, channel.name)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
@@ -491,45 +505,112 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
     if len(args) == 1:
         if channel.modes:
-            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} {" ".join(channel.modes)}'
+            message = f'{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name} +{"".join(channel.modes)}'
         else:
             message = f"{irc_responses.RPL_CHANNELMODEIS} {user.nick} {channel.name}"
         user.send_que.put((message, "mantatail"))
-    elif len(args) == 2:
-        error_not_enough_params(user, "MODE")
     else:
         if args[1][0] not in ["+", "-"]:
             error_unknown_mode(user, args[1][0])
             return
-        supported_modes = ["o"]
+
+        supported_modes = [chanmode for chanmodes in state.chanmodes.values() for chanmode in chanmodes]
+
         for mode in args[1][1:]:
-            if mode not in supported_modes:
+            if mode not in supported_modes or not re.fullmatch(r"[a-zA-Z]", mode):
                 error_unknown_mode(user, mode)
                 return
 
         mode_command, flags = args[1][0], args[1][1:]
-
-        target_usr = state.find_user(args[2])
-        if not target_usr:
-            error_no_such_nick_channel(user, args[2])
-            return
-
+        parameters = iter(args[2:])
         for flag in flags:
+
             if flag == "o":
-                if user not in channel.operators:
-                    error_no_operator_privileges(user, channel)
-                    return
-                elif target_usr not in channel.users:
-                    error_user_not_in_channel(user, target_usr, channel)
-                    return
+                current_param = next(parameters, None)
 
-                if mode_command == "+":
-                    channel.operators.add(target_usr)
-                elif mode_command[0] == "-":
-                    channel.operators.discard(target_usr)
+                process_mode_o(state, user, channel, mode_command, current_param)
 
-                mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
-                channel.queue_message_to_chan_users(mode_message, user)
+            elif flag == "b":
+                current_param = next(parameters, None)
+
+                process_mode_b(state, user, channel, mode_command, current_param)
+
+
+def process_mode_b(
+    state: mantatail.ServerState,
+    user: mantatail.UserConnection,
+    channel: mantatail.Channel,
+    mode_command: str,
+    ban_target: Optional[str],
+) -> None:
+    """Bans or unbans a user from a channel."""
+    if not ban_target:
+        if channel.ban_list:
+            banlist_num = irc_responses.RPL_BANLIST
+
+            for ban_mask, banner in channel.ban_list.items():
+                message = f"{banlist_num} {user.nick} {channel.name} {ban_mask} {banner}"
+                user.send_que.put((message, "mantatail"))
+
+        (endbanlist_num, endbanlist_info) = irc_responses.RPL_ENDOFBANLIST
+        message = f"{endbanlist_num} {user.nick} {channel.name} {endbanlist_info}"
+        user.send_que.put((message, "mantatail"))
+        return
+
+    if user not in channel.operators:
+        error_no_operator_privileges(user, channel)
+        return
+
+    target_ban_mask = generate_ban_mask(ban_target)
+    is_already_banned = channel.check_if_banned(target_ban_mask)
+    mode_message = f"MODE {channel.name} {mode_command}b {target_ban_mask}"
+
+    # Not sending message if "+b" and target usr is already banned (or vice versa)
+    if mode_command == "+" and not is_already_banned:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.ban_list[target_ban_mask] = user.get_user_mask()
+
+    elif mode_command == "-" and is_already_banned:
+        channel.queue_message_to_chan_users(mode_message, user)
+        try:
+            del channel.ban_list[target_ban_mask]
+        except KeyError:
+            pass
+
+
+def process_mode_o(
+    state: mantatail.ServerState,
+    user: mantatail.UserConnection,
+    channel: mantatail.Channel,
+    mode_command: str,
+    target_usr_nick: Optional[str],
+) -> None:
+    """Sets or removes channel operator"""
+    if not target_usr_nick:
+        error_not_enough_params(user, "MODE")
+        return
+
+    target_usr = state.find_user(target_usr_nick)
+
+    if not target_usr:
+        error_no_such_nick_channel(user, target_usr_nick)
+        return
+    if user not in channel.operators:
+        error_no_operator_privileges(user, channel)
+        return
+    if target_usr not in channel.users:
+        error_user_not_in_channel(user, target_usr, channel)
+        return
+
+    mode_message = f"MODE {channel.name} {mode_command}o {target_usr.nick}"
+
+    if mode_command == "+" and target_usr not in channel.operators:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.operators.add(target_usr)
+
+    elif mode_command[0] == "-" and target_usr in channel.operators:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.operators.discard(target_usr)
 
 
 # !Not implemented
@@ -560,6 +641,56 @@ def parse_received_args(msg: str) -> Tuple[str, List[str]]:
 
     command = split_msg[0]
     return command, split_msg[1:]
+
+
+def generate_ban_mask(ban_target: str) -> str:
+    """
+    Generates a user mask based on the parameters given in a MODE +b command.
+    Any part of the user mask not provided by the user is added as a wildcard ("*").
+
+    >>> generate_ban_mask("Foo")
+    'Foo!*@*'
+    >>> generate_ban_mask("Foo!Bar")
+    'Foo!Bar@*'
+    >>> generate_ban_mask("Foo!Bar@Baz")
+    'Foo!Bar@Baz'
+    >>> generate_ban_mask("Bar@Baz")
+    '*!Bar@Baz'
+    >>> generate_ban_mask("@Baz")
+    '*!*@Baz'
+    """
+    if "!" in ban_target and "@" in ban_target:
+        ban_mask_regex = r"([^!]*)!(.*)@(.*)"
+        ban_match = re.fullmatch(ban_mask_regex, ban_target)
+        if not ban_match:
+            # @ before ! (corner case)
+            ban_mask_regex = r"(.*)@(.*)!(.*)"
+            ban_match = re.fullmatch(ban_mask_regex, ban_target)
+
+        assert ban_match is not None  # Keeps mypy silent
+        nick, user, host = ban_match.groups()
+
+    elif "!" in ban_target:
+        nick, user = ban_target.split("!", 1)
+        host = "*"
+
+    elif "@" in ban_target:
+        user, host = ban_target.split("@", 1)
+        nick = "*"
+
+    else:
+        nick = ban_target
+        user = "*"
+        host = "*"
+
+    if not nick:
+        nick = "*"
+    if not user:
+        user = "*"
+    if not host:
+        host = "*"
+
+    return f"{nick}!{user}@{host}"
 
 
 ### Error Messages
@@ -651,6 +782,13 @@ def error_cannot_send_to_channel(user: mantatail.UserConnection, channel_name: s
     (cant_send_num, cant_send_info) = irc_responses.ERR_CANNOTSENDTOCHAN
 
     message = f"{cant_send_num} {user.nick} {channel_name} {cant_send_info}"
+    user.send_que.put((message, "mantatail"))
+
+
+def error_banned_from_chan(user: mantatail.UserConnection, channel: mantatail.Channel) -> None:
+    """Notifies the user trying to join a channel that they are banned from that channel."""
+    (banned_num, banned_info) = irc_responses.ERR_BANNEDFROMCHAN
+    message = f"{banned_num} {user.nick} {channel.name} {banned_info}"
     user.send_que.put((message, "mantatail"))
 
 

@@ -25,13 +25,19 @@ os.chdir(Path(__file__).parent)
 
 
 words = [
+    "foo!*@*",
+    "foo!bar@*",
+    "foo!bar@baz",
+    "*!*@*",
     "#bar",
     "#foo",
     "+g",
     "+o",
+    "+b",
     "+xyz",
     "-g",
     "-o",
+    "-b",
     "-xyz",
     "CAP",
     "LS",
