@@ -465,10 +465,49 @@ def test_mode_several_flags(user_alice, user_bob, user_charlie):
     assert receive_line(user_alice) == b":mantatail 461 Alice MODE :Not enough parameters\r\n"
 
 
-@pytest.mark.skip
-def test_repeated_mode_messages(user_alice):
-    # TODO: Make sure server sends message every time MODE command is sent, or ignores successive identical MODE commands.
-    pass
+def test_repeated_mode_messages(user_alice, user_bob):
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +o Bob\r\n"
+
+    user_alice.sendall(b"MODE #foo +o Bob\r\n")
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+    with pytest.raises(socket.timeout):
+        receive_line(user_bob)
+
+    user_alice.sendall(b"MODE #foo +b Bob\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b Bob!*@*\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b Bob!*@*\r\n"
+
+    user_alice.sendall(b"MODE #foo +b Bob\r\n")
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+    with pytest.raises(socket.timeout):
+        receive_line(user_bob)
+
+    user_alice.sendall(b"MODE #foo -b Bob\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -b Bob!*@*\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -b Bob!*@*\r\n"
+
+    user_alice.sendall(b"MODE #foo +b *!*@*\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!*@*\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!*@*\r\n"
+
+    user_alice.sendall(b"MODE #foo +b Bob\r\n")
+    with pytest.raises(socket.timeout):
+        receive_line(user_alice)
+    with pytest.raises(socket.timeout):
+        receive_line(user_bob)
 
 
 def test_mode_errors(user_alice, user_bob):
@@ -723,7 +762,7 @@ def test_kick_operator(user_alice, user_bob):
     assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
 
 
-def test_ban_functionality(user_alice, user_bob):
+def test_ban_functionality(user_alice, user_bob, user_charlie):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
@@ -763,6 +802,20 @@ def test_ban_functionality(user_alice, user_bob):
 
     user_bob.sendall(b"MODE #foo +b Alice\r\n")
     assert receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_alice.sendall(b"MODE #foo +b BobUsr@\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!BobUsr@*\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!BobUsr@*\r\n"
+
+    user_bob.sendall(b"PRIVMSG #foo :This is a message\r\n")
+    assert receive_line(user_bob) == b":mantatail 404 Bob #foo :Cannot send to nick/channel\r\n"
+
+    user_alice.sendall(b"MODE #foo +b @127.0.0.1\r\n")
+    assert receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!*@127.0.0.1\r\n"
+    assert receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +b *!*@127.0.0.1\r\n"
+
+    user_charlie.sendall(b"JOIN #foo\r\n")
+    assert receive_line(user_charlie) == b":mantatail 474 Charlie #foo :Cannot join channel (+b) - you are banned\r\n"
 
 
 # netcat sends \n line endings, but is fine receiving \r\n
@@ -1127,42 +1180,6 @@ def test_sudden_disconnect(run_server):
         assert receive_line(nc2).startswith(b":nc!nc@127.0.0.1 QUIT :Quit: ")
     else:
         assert receive_line(nc2) == b":nc!nc@127.0.0.1 QUIT :Quit: Connection reset by peer\r\n"
-
-
-# Currently xpasses
-@pytest.mark.xfail
-def test_ban_user_bug():
-    nc = socket.socket()
-    nc.connect(("localhost", 6667))
-    nc.sendall(b"NICK nc\n")
-    nc.sendall(b"USER nc 0 * :netcat\n")
-    nc.sendall(b"JOIN #foo\n")
-
-    while receive_line(nc) != b":mantatail 366 nc #foo :End of /NAMES list.\r\n":
-        pass
-
-    nc2 = socket.socket()
-    nc2.connect(("localhost", 6667))
-    nc2.sendall(b"NICK nc2\n")
-    nc2.sendall(b"USER nc2 0 * :netcat\n")
-
-    time.sleep(0.1)
-
-    nc.sendall(b"MODE #foo +b nc2\n")
-    assert receive_line(nc) == b":nc!nc@127.0.0.1 MODE #foo +b nc2!*@*\r\n"
-
-    time.sleep(0.1)
-
-    nc2.sendall(b"QUIT\r\n")
-    while b"QUIT" not in receive_line(nc2):
-        pass
-    nc2.close()
-
-    time.sleep(0.1)
-
-    # Would expect this to error since the UserConnection doesn't exist when server looks up
-    # UserConnection.nick in process_mode_b()
-    nc.sendall(b"MODE #foo +b\n")
 
 
 # Issue #77
