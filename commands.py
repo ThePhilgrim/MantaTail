@@ -20,6 +20,7 @@ To read how handler functions are called: see mantatail.recv_loop() documentatio
 """
 from __future__ import annotations
 import re
+import fnmatch
 import mantatail
 import irc_responses
 
@@ -111,10 +112,13 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
         assert channel
 
-        # ! Currently not working: NEED TO MATCH USER MASK WITH BAN MASKS (WITH WILDCARDS)
-        # if user in channel.ban_list:
-        #     error_banned_from_chan(user, channel)
-        #     return
+        match_with_banned_user = any(
+            fnmatch.fnmatch(user.get_user_mask(), ban_mask) for ban_mask in channel.ban_list.keys()
+        )
+
+        if match_with_banned_user:
+            error_banned_from_chan(user, channel)
+            return
 
         if user not in channel.users:
             channel_users_str = ""
@@ -414,11 +418,17 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         privmsg_to_user(state, user, receiver, privmsg)
         return
 
+    # USER MASK:  Bob!BobUsr@127.0.0.1
+    # BAN LIST:  ['Bob!*@*']
+
+    match_with_banned_user = any(
+        fnmatch.fnmatch(user.get_user_mask(), ban_mask) for ban_mask in channel.ban_list.keys()
+    )
+
     if user not in channel.users:
         error_not_on_channel(user, receiver)
-    # ! Currently not working: NEED TO MATCH USER MASK WITH BAN MASKS (WITH WILDCARDS)
-    # elif user in channel.ban_list:
-    #     error_cannot_send_to_channel(user, channel.name)
+    elif match_with_banned_user:
+        error_cannot_send_to_channel(user, channel.name)
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
@@ -560,23 +570,18 @@ def process_mode_b(
         error_no_operator_privileges(user, channel)
         return
 
-    banned_user = generate_ban_mask(ban_target)
-
-    mode_message = f"MODE {channel.name} {mode_command}b {banned_user}"
-
-    banned_users = channel.ban_list.keys()
-
-    # TODO: Make sure to not add duplicates in ban list.
-    # * If *!*@* is in ban list, foo!bar@baz is a duplicate.
+    target_ban_mask = generate_ban_mask(ban_target)
+    match_with_banned_user = any(fnmatch.fnmatch(target_ban_mask, ban_mask) for ban_mask in channel.ban_list.keys())
+    mode_message = f"MODE {channel.name} {mode_command}b {target_ban_mask}"
 
     # Not sending message if "+b" and target usr is already banned (or vice versa)
-    if mode_command == "+" and banned_user not in banned_users:
+    if mode_command == "+" and not match_with_banned_user:
         channel.queue_message_to_chan_users(mode_message, user)
-        channel.ban_list[banned_user] = user.nick
+        channel.ban_list[target_ban_mask] = user.get_user_mask()
 
-    elif mode_command == "-" and banned_user in banned_users:
+    elif mode_command == "-" and match_with_banned_user:
         channel.queue_message_to_chan_users(mode_message, user)
-        del channel.ban_list[banned_user]
+        del channel.ban_list[target_ban_mask]
 
 
 def process_mode_o(
@@ -664,6 +669,7 @@ def generate_ban_mask(ban_target: str) -> str:
             ban_mask_regex = r"(.*)@(.*)!(.*)"
             ban_match = re.fullmatch(ban_mask_regex, ban_target)
 
+        assert ban_match is not None  # Keeps mypy silent
         nick, user, host = ban_match.groups()
 
         if not nick:
