@@ -91,7 +91,7 @@ class ServerState:
         del self.channels[channel_name.lower()]
 
 
-class Listener:
+class ConnectionListener:
     """Starts the server and listens for incoming connections from clients."""
 
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -113,7 +113,7 @@ class Listener:
             (user_socket, user_address) = self.listener_socket.accept()
             print("Got connection from", user_address)
             client_thread = threading.Thread(
-                target=recv_loop, args=[self.state, user_address[0], user_socket], daemon=True
+                target=CommandReceiver, args=[self.state, user_address[0], user_socket], daemon=True
             )
             client_thread.start()
 
@@ -140,10 +140,10 @@ def close_socket_cleanly(sock: socket.socket) -> None:
     sock.close()
 
 
-def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
+class CommandReceiver:
     """
     Receives commands/messages from the client,
-    parses them and sends them to appropriate "handle_" function in "commands".
+    parses them and sends them to appropriate "handle_" function in the "commands" module.
 
     IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
     Most IRC clients use "\r\n" line endings, but "\n" is accepted as well (used by e.g. netcat).
@@ -157,72 +157,111 @@ def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) ->
         commands.handle_privmsg(state, user, ["#foo", "this is a message"])
     """
 
-    user = UserConnection(state, user_host, user_socket)
-    motd_sent = False
-    disconnect_reason = ""
+    def __init__(self, state: ServerState, user_host: str, user_socket: socket.socket) -> None:
+        self.state = state
+        self.user_host = user_host
+        self.user_socket = user_socket
+        self.user = UserConnection(state, user_host, user_socket)
+        self.motd_sent: bool = False
+        self.disconnect_reason: str = ""
 
-    try:
-        while True:
-            request = b""
-            while not request.endswith(b"\n"):
-                user.start_ping_timer()
-                try:
-                    request_chunk = user_socket.recv(4096)
-                except OSError as err:
-                    disconnect_reason = err.strerror
-                    return  # go to "finally:"
-                finally:
-                    user.ping_timer.cancel()
+        self.recv_loop()
 
-                if request_chunk:
-                    request += request_chunk
-                else:
-                    disconnect_reason = "Remote host closed the connection"
-                    return  # go to "finally:"
-
-            decoded_message = request.decode("latin-1")
-            for line in split_on_new_line(decoded_message)[:-1]:
-                command, args = commands.parse_received_args(line)
-                command_lower = command.lower()
-                parsed_command = "handle_" + command_lower
-
-                if user.nick == "*" or user.user_message is None or not motd_sent:
-                    if command_lower == "user":
-                        if args:
-                            user.user_message = args
-                            user.user_name = args[0]
-                        else:
-                            commands.error_not_enough_params(user, command)
-                    elif command_lower == "nick":
-                        commands.handle_nick(state, user, args)
-                    elif command_lower == "pong":
-                        commands.handle_pong(state, user, args)
-                    elif command_lower == "cap":
-                        commands.handle_cap(state, user, args)
-                    else:
-                        if command_lower == "quit":
-                            disconnect_reason = "Client quit"
-                            return
-                        else:
-                            commands.error_not_registered(user)
-
-                    if user.nick != "*" and user.user_message is not None and not user.capneg_in_progress:
-                        commands.motd(state.motd_content, user)
-                        motd_sent = True
-
-                else:
+    def recv_loop(self) -> None:
+        try:
+            while True:
+                request = b""  # get_message_request
+                while not request.endswith(b"\n"):
+                    self.user.start_ping_timer()
                     try:
-                        # ex. "command.handle_nick" or "command.handle_join"
-                        call_handler_function = getattr(commands, parsed_command)
-                    except AttributeError:
-                        commands.error_unknown_command(user, command)
+                        request_chunk = self.user_socket.recv(4096)
+                    except OSError as err:
+                        self.disconnect_reason = err.strerror
+                        return  # go to "finally:"
+                    finally:
+                        self.user.ping_timer.cancel()
+
+                    if request_chunk:
+                        request += request_chunk
                     else:
-                        with state.lock:
-                            call_handler_function(state, user, args)
+                        self.disconnect_reason = "Remote host closed the connection"
+                        return  # go to "finally:"
+
+                decoded_command = request.decode("latin-1")
+                for line in split_on_new_line(decoded_command)[:-1]:
+                    (command, args) = self.parse_received_command(line)
+                    command_lower = command.lower()
+                    handler_function = "handle_" + command_lower
+
+                    if self.user.nick == "*" or self.user.user_message is None or not self.motd_sent:
+                        if command_lower == "user":
+                            if args:
+                                self.user.user_message = args
+                                self.user.user_name = args[0]
+                            else:
+                                commands.error_not_enough_params(self.user, command)
+                        elif command_lower == "nick":
+                            commands.handle_nick(self.state, self.user, args)
+                        elif command_lower == "pong":
+                            commands.handle_pong(self.state, self.user, args)
+                        elif command_lower == "cap":
+                            commands.handle_cap(self.state, self.user, args)
+                        else:
                             if command_lower == "quit":
+                                self.disconnect_reason = "Client quit"
                                 return
-    finally:
-        user.send_que.put((None, disconnect_reason))
+                            else:
+                                commands.error_not_registered(self.user)
+
+                        if (
+                            self.user.nick != "*"
+                            and self.user.user_message is not None
+                            and not self.user.capneg_in_progress
+                        ):
+                            commands.motd(self.state.motd_content, self.user)
+                            self.motd_sent = True
+
+                    else:
+                        try:
+                            # ex. "command.handle_nick" or "command.handle_join"
+                            call_handler_function = getattr(commands, handler_function)
+                        except AttributeError:
+                            commands.error_unknown_command(self.user, command)
+                        else:
+                            with self.state.lock:
+                                call_handler_function(self.state, self.user, args)
+                                if command_lower == "quit":
+                                    return
+
+        finally:
+            self.user.send_que.put((None, self.disconnect_reason))
+
+    def get_message_request(self) -> bytes:
+        pass
+
+    def parse_received_command(self, msg: str) -> Tuple[str, List[str]]:
+        """
+        Parses the user command by separating the command (e.g "join", "privmsg", etc.) from the
+        arguments.
+
+        If a parameter contains spaces, it must start with ':' to be interpreted as one parameter.
+        If the parameter does not start with ':', it will be cut off at the first space.
+
+        Ex:
+            - "PRIVMSG #foo :This is a message\r\n" will send "This is a message"
+            - "PRIVMSG #foo This is a message\r\n" will send "This"
+        """
+        split_msg = msg.split(" ")
+
+        for num, arg in enumerate(split_msg):
+            if arg.startswith(":"):
+                parsed_msg = split_msg[:num]
+                parsed_msg.append(" ".join(split_msg[num:])[1:])
+                command = parsed_msg[0]
+                return command, parsed_msg[1:]
+
+        command = split_msg[0]
+        return command, split_msg[1:]
 
 
 class UserConnection:
@@ -453,4 +492,4 @@ def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
 
 
 if __name__ == "__main__":
-    Listener(6667, get_motd_content_from_json()).run_server_forever()
+    ConnectionListener(6667, get_motd_content_from_json()).run_server_forever()

@@ -618,31 +618,6 @@ def process_user_modes() -> None:
     pass
 
 
-def parse_received_args(msg: str) -> Tuple[str, List[str]]:
-    """
-    Parses the user command by separating the command (e.g "join", "privmsg", etc.) from the
-    arguments.
-
-    If a parameter contains spaces, it must start with ':' to be interpreted as one parameter.
-    If the parameter does not start with ':', it will be cut off at the first space.
-
-    Ex:
-        - "PRIVMSG #foo :This is a message\r\n" will send "This is a message"
-        - "PRIVMSG #foo This is a message\r\n" will send "This"
-    """
-    split_msg = msg.split(" ")
-
-    for num, arg in enumerate(split_msg):
-        if arg.startswith(":"):
-            parsed_msg = split_msg[:num]
-            parsed_msg.append(" ".join(split_msg[num:])[1:])
-            command = parsed_msg[0]
-            return command, parsed_msg[1:]
-
-    command = split_msg[0]
-    return command, split_msg[1:]
-
-
 def generate_ban_mask(ban_target: str) -> str:
     """
     Generates a user mask based on the parameters given in a MODE +b command.

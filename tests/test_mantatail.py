@@ -8,7 +8,7 @@ import threading
 import time
 
 import mantatail
-from mantatail import Listener
+from mantatail import ConnectionListener
 
 # Tests that are known to fail can be decorated with:
 # @pytest.mark.xfail(strict=True)
@@ -54,7 +54,7 @@ def fail_test_if_there_is_an_error_in_a_thread(monkeypatch):
 
 @pytest.fixture()
 def run_server(fail_test_if_there_is_an_error_in_a_thread):
-    listener = Listener(6667, motd_dict_test)
+    listener = ConnectionListener(6667, motd_dict_test)
 
     def run_server():
         try:
