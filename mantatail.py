@@ -182,24 +182,11 @@ class CommandReceiver:
                     handler_function = "handle_" + command_lower
 
                     if self.user.nick == "*" or self.user.user_message is None or not self.motd_sent:
-                        if command_lower == "user":
-                            if args:
-                                self.user.user_message = args
-                                self.user.user_name = args[0]
-                            else:
-                                commands.error_not_enough_params(self.user, command)
-                        elif command_lower == "nick":
-                            commands.handle_nick(self.state, self.user, args)
-                        elif command_lower == "pong":
-                            commands.handle_pong(self.state, self.user, args)
-                        elif command_lower == "cap":
-                            commands.handle_cap(self.state, self.user, args)
+                        if command_lower == "quit":
+                            self.disconnect_reason = "Client quit"
+                            return  # go to "finally:"
                         else:
-                            if command_lower == "quit":
-                                self.disconnect_reason = "Client quit"
-                                return
-                            else:
-                                commands.error_not_registered(self.user)
+                            self.handle_user_registration(command_lower, args)
 
                         if (
                             self.user.nick != "*"
@@ -267,6 +254,22 @@ class CommandReceiver:
 
         command = split_msg[0]
         return command, split_msg[1:]
+
+    def handle_user_registration(self, command: str, args: List[str]) -> None:
+        if command == "user":
+            if args:
+                self.user.user_message = args
+                self.user.user_name = args[0]
+            else:
+                commands.error_not_enough_params(self.user, command.upper())
+        elif command == "nick":
+            commands.handle_nick(self.state, self.user, args)
+        elif command == "pong":
+            commands.handle_pong(self.state, self.user, args)
+        elif command == "cap":
+            commands.handle_cap(self.state, self.user, args)
+        else:
+            commands.error_not_registered(self.user)
 
 
 class UserConnection:
