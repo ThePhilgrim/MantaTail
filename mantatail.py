@@ -162,15 +162,15 @@ class CommandReceiver:
         self.user_host = user_host
         self.user_socket = user_socket
         self.user = UserConnection(state, user_host, user_socket)
-        self.motd_sent: bool = False
         self.disconnect_reason: str = ""
 
         self.recv_loop()
 
     def recv_loop(self) -> None:
+        motd_sent: bool = False
         try:
             while True:
-                request = self.get_message_request()
+                request = self.receive_messages()
 
                 if not request:
                     return  # go to "finally:"
@@ -181,7 +181,7 @@ class CommandReceiver:
                     command_lower = command.lower()
                     handler_function = "handle_" + command_lower
 
-                    if self.user.nick == "*" or self.user.user_message is None or not self.motd_sent:
+                    if self.user.nick == "*" or self.user.user_message is None or not motd_sent:
                         if command_lower == "quit":
                             self.disconnect_reason = "Client quit"
                             return  # go to "finally:"
@@ -194,7 +194,7 @@ class CommandReceiver:
                             and not self.user.capneg_in_progress
                         ):
                             commands.motd(self.state.motd_content, self.user)
-                            self.motd_sent = True
+                            motd_sent = True
 
                     else:
                         try:
@@ -211,7 +211,7 @@ class CommandReceiver:
         finally:
             self.user.send_que.put((None, self.disconnect_reason))
 
-    def get_message_request(self) -> bytes | None:
+    def receive_messages(self) -> bytes | None:
         request = b""  # get_message_request
         while not request.endswith(b"\n"):
             self.user.start_ping_timer()
