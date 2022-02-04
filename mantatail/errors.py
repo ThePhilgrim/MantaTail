@@ -40,7 +40,7 @@ def nick_in_use(user: mantatail.UserConnection, nick: str) -> None:
 
 
 def no_nickname_given(user: mantatail.UserConnection) -> None:
-    message = f"431 :No nickname given"
+    message = "431 :No nickname given"
     user.send_que.put((message, "mantatail"))
 
 

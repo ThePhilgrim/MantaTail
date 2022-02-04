@@ -20,7 +20,6 @@ To read how handler functions are called: see mantatail.recv_loop() documentatio
 """
 from __future__ import annotations
 import re
-import irc_responses
 from . import mantatail, errors
 
 from typing import Optional, Dict, List
