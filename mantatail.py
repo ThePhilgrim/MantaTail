@@ -118,43 +118,16 @@ class ConnectionListener:
             client_thread.start()
 
 
-def close_socket_cleanly(sock: socket.socket) -> None:
-    """
-    Ensures that the connection to a client is closed cleanly without errors and with no data loss.
-
-    Use this instead of the .close() method.
-    """
-    # The code is based on this blog post:
-    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
-    try:
-        sock.shutdown(socket.SHUT_WR)
-        sock.settimeout(10)
-        sock.recv(1)  # Wait for client to close the connection
-    except OSError:
-        # Possible causes:
-        # - Client decided to keep its connection open for more than 10sec.
-        # - Client was already disconnected.
-        # - Probably something else too that I didn't think of...
-        pass
-
-    sock.close()
-
-
 class CommandReceiver:
     """
-    Receives commands/messages from the client,
-    parses them and sends them to appropriate "handle_" function in the "commands" module.
+    Receives commands/messages from the client, parses them, and sends them to the appropriate
+    handler function.
 
     IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
     Most IRC clients use "\r\n" line endings, but "\n" is accepted as well (used by e.g. netcat).
 
     Ex: b"JOIN #foo\r\n"
     Ex: b"PRIVMSG #foo :This is a message\r\n"
-
-    To handle a command FOO, a function named handle_foo() in commands.py is called.
-    For example, "PRIVMSG #foo :this is a message\r\n" results in a call like this:
-
-        commands.handle_privmsg(state, user, ["#foo", "this is a message"])
     """
 
     def __init__(self, state: ServerState, user_host: str, user_socket: socket.socket) -> None:
@@ -167,12 +140,25 @@ class CommandReceiver:
         self.recv_loop()
 
     def recv_loop(self) -> None:
+        """
+        Parses incoming messages from the client and sends them to the appropriate
+        "handle_" function.
+
+        To handle a command FOO, a function named handle_foo() in commands.py is called.
+        For example, "PRIVMSG #foo :this is a message\r\n" results in a call like this:
+
+        commands.handle_privmsg(state, user, ["#foo", "this is a message"])
+
+        The function call is done with getattr().
+        getattr(commands, "handle_join") is equivalent to commands.handle_join.
+        More info: https://docs.python.org/3/library/functions.html#getattr
+        """
         motd_sent: bool = False
         try:
             while True:
                 request = self.receive_messages()
 
-                if not request:
+                if request is None:
                     return  # go to "finally:"
 
                 decoded_command = request.decode("latin-1")
@@ -212,7 +198,16 @@ class CommandReceiver:
             self.user.send_que.put((None, self.disconnect_reason))
 
     def receive_messages(self) -> bytes | None:
-        request = b""  # get_message_request
+        """
+        Receives bytes from the client and returns them to recv_loop().
+
+        None is returned if the user disconnects.
+
+        Also starts the user's ping timer, which will send a PING message to the client
+        after a certain time of inactivity.
+        The PING message controls that the user still has an open connection to the server.
+        """
+        request = b""
         while not request.endswith(b"\n"):
             self.user.start_ping_timer()
             try:
@@ -256,6 +251,12 @@ class CommandReceiver:
         return command, split_msg[1:]
 
     def handle_user_registration(self, command: str, args: List[str]) -> None:
+        """
+        Parses messages from the client before they have registered (provided the server
+        with their nickname (NICK) and username (USER)).
+
+        This limits what commands the user can send before registering.
+        """
         if command == "user":
             if args:
                 self.user.user_message = args
@@ -367,6 +368,7 @@ class UserConnection:
             receiver.send_que.put((quit_message, self.get_user_mask()))
 
     def get_users_sharing_channel(self) -> Set[UserConnection]:
+        """Returns a set of all users sharing a channel with the client."""
         receivers = set()
         for channel in self.state.channels.values():
             if self in channel.users:
@@ -475,7 +477,36 @@ class Channel:
                 usr.send_que.put((message, sender.get_user_mask()))
 
     def check_if_banned(self, target: str) -> bool:
+        """
+        Checks if the user mask provided in a MODE +b (ban) command matches a
+        user mask that is already in the channel's ban list.
+
+        Wildcards "*" are used to cover any set of characters.
+        Ex. If the ban list contains "*!Bar@Baz", "Foo!Bar@Baz" will be considered a match.
+        """
         return any(fnmatch.fnmatch(target, ban_mask) for ban_mask in self.ban_list.keys())
+
+
+def close_socket_cleanly(sock: socket.socket) -> None:
+    """
+    Ensures that the connection to a client is closed cleanly without errors and with no data loss.
+
+    Use this instead of the .close() method.
+    """
+    # The code is based on this blog post:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+    try:
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
+    except OSError:
+        # Possible causes:
+        # - Client decided to keep its connection open for more than 10sec.
+        # - Client was already disconnected.
+        # - Probably something else too that I didn't think of...
+        pass
+
+    sock.close()
 
 
 def split_on_new_line(string: str) -> List[str]:
