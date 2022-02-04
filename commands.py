@@ -23,7 +23,7 @@ import re
 import mantatail
 import irc_responses
 
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List
 
 
 ### Handlers

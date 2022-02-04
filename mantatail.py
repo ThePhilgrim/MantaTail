@@ -170,22 +170,10 @@ class CommandReceiver:
     def recv_loop(self) -> None:
         try:
             while True:
-                request = b""  # get_message_request
-                while not request.endswith(b"\n"):
-                    self.user.start_ping_timer()
-                    try:
-                        request_chunk = self.user_socket.recv(4096)
-                    except OSError as err:
-                        self.disconnect_reason = err.strerror
-                        return  # go to "finally:"
-                    finally:
-                        self.user.ping_timer.cancel()
+                request = self.get_message_request()
 
-                    if request_chunk:
-                        request += request_chunk
-                    else:
-                        self.disconnect_reason = "Remote host closed the connection"
-                        return  # go to "finally:"
+                if not request:
+                    return  # go to "finally:"
 
                 decoded_command = request.decode("latin-1")
                 for line in split_on_new_line(decoded_command)[:-1]:
@@ -236,8 +224,25 @@ class CommandReceiver:
         finally:
             self.user.send_que.put((None, self.disconnect_reason))
 
-    def get_message_request(self) -> bytes:
-        pass
+    def get_message_request(self) -> bytes | None:
+        request = b""  # get_message_request
+        while not request.endswith(b"\n"):
+            self.user.start_ping_timer()
+            try:
+                request_chunk = self.user_socket.recv(4096)
+            except OSError as err:
+                self.disconnect_reason = err.strerror
+                return None
+            finally:
+                self.user.ping_timer.cancel()
+
+            if request_chunk:
+                request += request_chunk
+            else:
+                self.disconnect_reason = "Remote host closed the connection"
+                return None
+
+        return request
 
     def parse_received_command(self, msg: str) -> Tuple[str, List[str]]:
         """
