@@ -13,8 +13,7 @@ import fnmatch
 import json
 from typing import Dict, Optional, List, Set, Tuple
 
-import commands
-import irc_responses
+from . import commands, errors
 
 TIMER_SECONDS = 600
 CAP_LS: List[str] = ["away-notify", "cap-notify"]
@@ -187,7 +186,7 @@ class CommandReceiver:
                             # ex. "command.handle_nick" or "command.handle_join"
                             call_handler_function = getattr(commands, handler_function)
                         except AttributeError:
-                            commands.error_unknown_command(self.user, command)
+                            errors.unknown_command(self.user, command)
                         else:
                             with self.state.lock:
                                 call_handler_function(self.state, self.user, args)
@@ -262,7 +261,7 @@ class CommandReceiver:
                 self.user.user_message = args
                 self.user.user_name = args[0]
             else:
-                commands.error_not_enough_params(self.user, command.upper())
+                errors.not_enough_params(self.user, command.upper())
         elif command == "nick":
             commands.handle_nick(self.state, self.user, args)
         elif command == "pong":
@@ -270,7 +269,7 @@ class CommandReceiver:
         elif command == "cap":
             commands.handle_cap(self.state, self.user, args)
         else:
-            commands.error_not_registered(self.user)
+            errors.not_registered(self.user)
 
 
 class UserConnection:
@@ -451,16 +450,12 @@ class Channel:
             self.topic = (topic, user.nick)
 
     def send_topic_to_user(self, user: UserConnection) -> None:
-        topic_num = irc_responses.RPL_TOPIC
-        topic_author_num = irc_responses.RPL_TOPICWHOTIME
-        (no_topic_num, no_topic_info) = irc_responses.RPL_NOTOPIC
-
         if self.topic is None:
-            message = f"{no_topic_num} {user.nick} {self.name} {no_topic_info}"
+            message = f"331 {user.nick} {self.name} :No topic is set."
             user.send_que.put((message, "mantatail"))
         else:
-            topic_message = f"{topic_num} {user.nick} {self.name} :{self.topic[0]}"
-            author_message = f"{topic_author_num} {user.nick} {self.name} :{self.topic[1]}"
+            topic_message = f"332 {user.nick} {self.name} :{self.topic[0]}"
+            author_message = f"333 {user.nick} {self.name} :{self.topic[1]}"
 
             user.send_que.put((topic_message, "mantatail"))
             user.send_que.put((author_message, "mantatail"))

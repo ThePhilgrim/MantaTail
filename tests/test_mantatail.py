@@ -7,8 +7,8 @@ import traceback
 import threading
 import time
 
-import mantatail
-from mantatail import ConnectionListener
+import mantatail.mantatail as mantatail
+from mantatail.mantatail import ConnectionListener
 
 # Tests that are known to fail can be decorated with:
 # @pytest.mark.xfail(strict=True)
