@@ -219,7 +219,9 @@ def test_on_registration_messages(run_server, helpers):
     assert b":mantatail 002 nc :Your host is Mantatail[" in helpers.receive_line(nc)
     assert b":mantatail 003 nc :This server was created" in helpers.receive_line(nc)
     assert b":mantatail 004 nc Mantatail 0.0.1" in helpers.receive_line(nc)
-    assert b":mantatail 005 nc" and b":are supported by this server" in helpers.receive_line(nc)
+    line = helpers.receive_line(nc)
+    assert b":mantatail 005 nc" in line
+    assert b":are supported by this server" in line
 
     while helpers.receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
         pass
