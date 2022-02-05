@@ -130,6 +130,7 @@ class Helpers:
         return received
 
     # Makes it easier to assert bytes received from Sets
+    @staticmethod
     def compare_if_word_match_in_any_order(received_bytes, compare_with):
         return set(received_bytes.split()) == set(compare_with.split())
 
