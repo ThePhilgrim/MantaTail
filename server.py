@@ -370,7 +370,7 @@ class UserConnection:
             receiver.send_que.put((quit_message, self.get_user_mask()))
 
     def get_users_sharing_channel(self) -> Set[UserConnection]:
-        """Returns a set of all users sharing a channel with the client."""
+        """Returns all users of all channels that this user has joined."""
         receivers = set()
         for channel in self.state.channels.values():
             if self in channel.users:
