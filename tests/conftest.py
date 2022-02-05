@@ -121,6 +121,7 @@ def user_charlie(run_server, helpers):
 
 # Based on https://stackoverflow.com/a/42156088/15382873
 class Helpers:
+    @staticmethod
     def receive_line(sock, timeout=1):
         sock.settimeout(timeout)
         received = b""
