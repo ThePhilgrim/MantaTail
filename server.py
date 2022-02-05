@@ -338,15 +338,6 @@ class UserConnection:
         """
         After a user has registered on the server by providing a nickname (NICK) and a username (USER),
         several messages are sent to the client with information about the server.
-
-        The messages sent:
-            - 001 Welcome message (RPL_WELCOME)
-            - 002 Name and version of the server (RPL_YOURHOST)
-            - 003 When the server was created (RPL_CREATED)
-            - 004 All supported user/channel modes (RPL_MYINFO)
-            - 005 Features and limitations of the server (RPL_ISUPPORT)
-
-        This function calls all the appropriate functions to make sure the client receives all appropriate messages.
         """
         commands.rpl_welcome(self)
         commands.rpl_yourhost(self, self.state)
