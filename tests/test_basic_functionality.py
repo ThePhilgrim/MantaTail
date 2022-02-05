@@ -216,10 +216,7 @@ def test_on_registration_messages(run_server, helpers):
     nc.sendall(b"USER nc 0 * :netcat\n")
 
     assert helpers.receive_line(nc) == b":mantatail 001 nc :Welcome to Mantatail nc!nc@127.0.0.1\r\n"
-    assert (
-        helpers.receive_line(nc)
-        == b":mantatail 002 nc :Your host is Mantatail[127.0.0.1/6667], running version 0.0.1\r\n"
-    )
+    assert b":mantatail 002 nc :Your host is Mantatail[" in helpers.receive_line(nc)
     assert b":mantatail 003 nc :This server was created" in helpers.receive_line(nc)
     assert b":mantatail 004 nc Mantatail 0.0.1" in helpers.receive_line(nc)
     assert b":mantatail 005 nc" and b":are supported by this server" in helpers.receive_line(nc)
