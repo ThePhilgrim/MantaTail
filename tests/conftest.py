@@ -136,24 +136,3 @@ class Helpers:
 @pytest.fixture
 def helpers():
     return Helpers
-
-
-# @pytest.fixture
-# def receive_line():
-#     def execute_receive_line(sock, timeout=1):
-#         sock.settimeout(timeout)
-#         received = b""
-#         while not received.endswith(b"\r\n"):
-#             received += sock.recv(1)
-#         return received
-
-#     return execute_receive_line
-
-
-# Makes it easier to assert bytes received from Sets
-# @pytest.fixture
-# def compare_if_word_match_in_any_order():
-#     def compare_words(received_bytes, compare_with):
-#         return set(received_bytes.split()) == set(compare_with.split())
-
-#     return compare_words
