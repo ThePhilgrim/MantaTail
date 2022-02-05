@@ -44,7 +44,7 @@ class State:
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
         self.host = host
-        self.port = str(port)
+        self.port = port
         self.motd_content = motd_content
         # Supported Channel Modes:
         # b: Ban/Unban user from channel
