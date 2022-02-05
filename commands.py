@@ -455,24 +455,36 @@ def privmsg_to_user(state: server.State, sender: server.UserConnection, receiver
         sender.send_que.put((away_message, "mantatail"))
 
 
-def rpl_welcome(nick: str) -> None:
-    pass
+def rpl_welcome(user: server.UserConnection) -> None:
+    welcome_msg = f"001 {user.nick} :Welcome to Mantatail {user.get_user_mask()}"
+    user.send_que.put((welcome_msg, "mantatail"))
 
 
-def rpl_yourhost() -> None:
-    pass
+def rpl_yourhost(user: server.UserConnection, state: server.State) -> None:
+    yourhost_msg = f"002 {user.nick} :Your host is Mantatail[{state.host}/{state.port}], running version {server.MANTATAIL_VERSION}"
+    user.send_que.put((yourhost_msg, "mantatail"))
 
 
-def rpl_created() -> None:
-    pass
+def rpl_created(user: server.UserConnection) -> None:
+    created_msg = f"003 {user.nick} :This server was created {server.SERVER_STARTED} CET"
+    user.send_que.put((created_msg, "mantatail"))
 
 
-def rpl_myinfo() -> None:
-    pass
+def rpl_myinfo(user: server.UserConnection, state: server.State) -> None:
+    all_chanmodes_joined = "".join([chanmode for key in state.chanmodes.keys() for chanmode in state.chanmodes[key]])
+    myinfo_msg = f"004 {user.nick} Mantatail {server.MANTATAIL_VERSION} {all_chanmodes_joined}"
+    user.send_que.put((myinfo_msg, "mantatail"))
 
 
-def rpl_isupport() -> None:
-    pass
+def rpl_isupport(user: server.UserConnection) -> None:
+    isupport = []
+
+    # ISUPPORT = {"NICKLEN": "16", "PREFIX": "(o)@", "CHANTYPES": "#", "TARGMAX": "PRIVMSG:1,JOIN:1,PART:1,KICK:1"}
+    for key, value in server.ISUPPORT.items():
+        isupport.append(f"{key}={value}")
+
+    isupport_msg = f"005 {user.nick} {' '.join(isupport)} :are supported by this server"
+    user.send_que.put((isupport_msg, "mantatail"))
 
 
 def motd(motd_content: Optional[Dict[str, List[str]]], user: server.UserConnection) -> None:
