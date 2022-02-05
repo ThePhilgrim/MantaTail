@@ -198,7 +198,10 @@ class CommandReceiver:
 
     def receive_messages(self) -> bytes | None:
         """
-        Receives bytes from the client and returns them to recv_loop().
+        Receives one or more lines from the client as bytes and returns them to recv_loop().
+
+        It will receive until the received bytes end with "\n", which indicates that everything
+        the client has currently sent has been received.
 
         None is returned if the user disconnects.
 
