@@ -9,7 +9,7 @@ import server
 
 
 def test_ping_message(monkeypatch, user_alice, helpers):
-    monkeypatch.setattr(server, "TIMER_SECONDS", 2)
+    monkeypatch.setattr(server, "PING_TIMER_SECS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
     while helpers.receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":
