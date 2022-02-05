@@ -107,7 +107,7 @@ class ConnectionListener:
         Accepts incoming connections from clients.
         Starts a separate thread to handle each connection.
         """
-        print(f"Mantatail running ({self.host}:{self.port})")
+        print(f"Mantatail running (port {self.port})")
         while True:
             (user_socket, user_address) = self.listener_socket.accept()
             print("Got connection from", user_address)
