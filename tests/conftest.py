@@ -3,7 +3,6 @@ import threading
 import traceback
 import socket
 
-import server
 from server import ConnectionListener
 
 # fmt: off
