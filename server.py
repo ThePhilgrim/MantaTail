@@ -94,7 +94,7 @@ class ConnectionListener:
     """Starts the server and listens for incoming connections from clients."""
 
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
-        self.host = "127.0.0.1"
+        self.host = ""
         self.port = port
         self.listener_socket = socket.socket()
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
