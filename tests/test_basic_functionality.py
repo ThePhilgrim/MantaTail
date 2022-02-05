@@ -9,7 +9,7 @@ import server
 
 
 def test_ping_message(monkeypatch, user_alice, helpers):
-    monkeypatch.setattr(server, "TIMER_SECONDS", 2)
+    monkeypatch.setattr(server, "PING_TIMER_SECS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
     while helpers.receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":
@@ -207,6 +207,24 @@ def test_connect_via_netcat(run_server, helpers):
         nc.sendall(b"USER nc 0 * :netcat\n")
         while helpers.receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
             pass
+
+
+def test_on_registration_messages(run_server, helpers):
+    nc = socket.socket()
+    nc.connect(("localhost", 6667))
+    nc.sendall(b"NICK nc\n")
+    nc.sendall(b"USER nc 0 * :netcat\n")
+
+    assert helpers.receive_line(nc) == b":mantatail 001 nc :Welcome to Mantatail nc!nc@127.0.0.1\r\n"
+    assert b":mantatail 002 nc :Your host is Mantatail[" in helpers.receive_line(nc)
+    assert b":mantatail 003 nc :This server was created" in helpers.receive_line(nc)
+    assert b":mantatail 004 nc Mantatail 0.0.1" in helpers.receive_line(nc)
+    line = helpers.receive_line(nc)
+    assert b":mantatail 005 nc" in line
+    assert b":are supported by this server" in line
+
+    while helpers.receive_line(nc) != b":mantatail 376 nc :End of /MOTD command\r\n":
+        pass
 
 
 def test_cap_commands(run_server, helpers):

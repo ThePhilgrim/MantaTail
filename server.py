@@ -11,18 +11,22 @@ import threading
 import queue
 import fnmatch
 import json
+from datetime import datetime
 from typing import Dict, Optional, List, Set, Tuple
 
 import commands, errors
 
-TIMER_SECONDS = 600
+MANTATAIL_VERSION = "0.0.1"
+SERVER_STARTED = datetime.today().ctime()
+PING_TIMER_SECS = 300
 CAP_LS: List[str] = ["away-notify", "cap-notify"]
+ISUPPORT = {"NICKLEN": "16", "PREFIX": "(o)@", "CHANTYPES": "#", "TARGMAX": "PRIVMSG:1,JOIN:1,PART:1,KICK:1"}
 
 
 class State:
     """Keeps track of existing channels & connected users."""
 
-    def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
+    def __init__(self, motd_content: Optional[Dict[str, List[str]]], port: int) -> None:
         """
         Attributes:
             - lock: Locks the state of the server to avoid modifications
@@ -39,6 +43,7 @@ class State:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
+        self.port = port
         self.motd_content = motd_content
         # Supported Channel Modes:
         # b: Ban/Unban user from channel
@@ -100,7 +105,7 @@ class ConnectionListener:
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
         self.listener_socket.listen(5)
-        self.state = State(motd_content)
+        self.state = State(motd_content, self.port)
 
     def run_server_forever(self) -> None:
         """
@@ -152,7 +157,7 @@ class CommandReceiver:
         getattr(commands, "handle_join") is equivalent to commands.handle_join.
         More info: https://docs.python.org/3/library/functions.html#getattr
         """
-        motd_sent: bool = False
+
         try:
             while True:
                 request = self.receive_messages()
@@ -166,7 +171,7 @@ class CommandReceiver:
                     command_lower = command.lower()
                     handler_function = "handle_" + command_lower
 
-                    if self.user.nick == "*" or self.user.user_message is None or not motd_sent:
+                    if self.user.nick == "*" or self.user.user_message is None or not self.user.motd_sent:
                         if command_lower == "quit":
                             self.disconnect_reason = "Client quit"
                             return  # go to "finally:"
@@ -178,8 +183,7 @@ class CommandReceiver:
                             and self.user.user_message is not None
                             and not self.user.capneg_in_progress
                         ):
-                            commands.motd(self.state.motd_content, self.user)
-                            motd_sent = True
+                            self.user.on_registration()
 
                     else:
                         try:
@@ -311,6 +315,7 @@ class UserConnection:
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.cap_list: Set[str] = set()
+        self.motd_sent = False
         self.capneg_in_progress = False
         self.pong_received = False
 
@@ -327,6 +332,19 @@ class UserConnection:
             return f"@{self.nick}"
         else:
             return self.nick
+
+    def on_registration(self) -> None:
+        """
+        After a user has registered on the server by providing a nickname (NICK) and a username (USER),
+        several messages are sent to the client with information about the server.
+        """
+        commands.rpl_welcome(self)
+        commands.rpl_yourhost(self, self.state)
+        commands.rpl_created(self)
+        commands.rpl_myinfo(self, self.state)
+        commands.rpl_isupport(self)
+        commands.motd(self.state.motd_content, self)
+        self.motd_sent = True
 
     def send_queue_thread(self) -> None:
         """Queue on which the client receives messages from server."""
@@ -400,7 +418,7 @@ class UserConnection:
         Starts a timer on a separate thread that, when finished, sends a PING message to the client
         to establish that the client still has an open connection to the server.
         """
-        self.ping_timer = threading.Timer(TIMER_SECONDS, self.queue_ping_message)
+        self.ping_timer = threading.Timer(PING_TIMER_SECS, self.queue_ping_message)
         self.ping_timer.start()
 
     def queue_ping_message(self) -> None:
