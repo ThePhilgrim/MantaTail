@@ -479,7 +479,6 @@ def rpl_myinfo(user: server.UserConnection, state: server.State) -> None:
 def rpl_isupport(user: server.UserConnection) -> None:
     isupport = []
 
-    # ISUPPORT = {"NICKLEN": "16", "PREFIX": "(o)@", "CHANTYPES": "#", "TARGMAX": "PRIVMSG:1,JOIN:1,PART:1,KICK:1"}
     for key, value in server.ISUPPORT.items():
         isupport.append(f"{key}={value}")
 
