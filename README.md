@@ -53,7 +53,7 @@ To run the fuzzer, make sure `server.py` is not running, cd to `tests/fuzzer` an
 If you are developing a new feature, you can substitute the list `words` with a list containing limited amount of relevant data.
 
 For example, if you are working with the feature of banning a user, a reasonable data set could be:
-`words = ["MODE", "mode", "Mode", "#chan", "#%invalidchan "+", "-", "b", "B", "^", ":", "Param1", ":Param2", "Param with spaces"]`
+`words = ["MODE", "mode", "Mode", "#chan", "#%invalidchan "+", "-", "b", "B", "^", ":", "Param1", ":Param2"]`
 
 ### Resources
 
