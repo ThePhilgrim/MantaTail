@@ -72,7 +72,7 @@ words = [
 #        self.run()
 #      File "/usr/lib/python3.9/threading.py", line 892, in run
 #        self._target(*self._args, **self._kwargs)
-#      File "/home/akuli/MantaTail/mantatail.py", line 198, in recv_loop
+#      File "/home/akuli/MantaTail/server.py", line 198, in recv_loop
 #        call_handler_function(state, user, args)
 #      File "/home/akuli/MantaTail/commands.py", line 133, in handle_mode
 #        process_channel_modes(state, user, args)
@@ -149,7 +149,7 @@ def fuzzing_loop():
 # This is the default when the output is going to a terminal, but not when it
 # is being captured by the subprocess module.
 mantatail_process = subprocess.Popen(
-    ["python3", "-u", "mantatail.py"], cwd="../..", stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    ["python3", "-u", "server.py"], cwd="../..", stdout=subprocess.PIPE, stderr=subprocess.STDOUT
 )
 try:
     print(mantatail_process.stdout.readline())  # Wait for mantatail to start

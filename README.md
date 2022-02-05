@@ -2,20 +2,30 @@
 
 MantaTail is a sandbox IRC server developed to test IRC clients and functionality.
 
-It is still at an early stage of production, and is therefore missing several crucial features.
+It is still in development and is therefore missing some central features.
 
 ### Currently supported features:
 
+- Capability Negotiation (limited)
 - Message of the day
 - Join channel
 - Part from channel
 - Send message to channel
 - Send private message to other user
 - Set / Remove channel operator
+- Set channel topic
 - Kick user from channel
+- Ban user from channel
 - Change nick
 - Set away status
 - Quit from server
+
+## How to use Mantatail
+
+You can connect to Mantatail via an IRC client of you choice (I recommend [Mantaray](https://github.com/Akuli/mantaray)) or via a network utility such as Netcat.
+
+To start Mantatail, cd to the mantatail folder and run `python3 server.py`.
+Thereafter, you can connect to the server by connecting to `localhost 6667`.
 
 ## For developers
 
@@ -34,6 +44,16 @@ To start, please follow these steps:
 ### Tests
 
 Mantatail relies on Pytest for testing. In order to run the test suite, use `python3 -m pytest`
+
+### Fuzzing
+
+The fuzzer spams the server with random commands to reveal eventual errors.
+To run the fuzzer, make sure `server.py` is not running, cd to `tests/fuzzer` and run `python3 fuzzer.py`.
+
+If you are developing a new feature, you can substitute the list `words` with a list containing limited amount of relevant data.
+
+For example, if you are working with the feature of banning a user, a reasonable data set could be:
+`words = ["MODE", "mode", "Mode", "#chan", "#%invalidchan "+", "-", "b", "B", "^", ":", "Param1", ":Param2"]`
 
 ### Resources
 

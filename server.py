@@ -13,14 +13,13 @@ import fnmatch
 import json
 from typing import Dict, Optional, List, Set, Tuple
 
-import commands
-import irc_responses
+import commands, errors
 
 TIMER_SECONDS = 600
 CAP_LS: List[str] = ["away-notify", "cap-notify"]
 
 
-class ServerState:
+class State:
     """Keeps track of existing channels & connected users."""
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -91,7 +90,7 @@ class ServerState:
         del self.channels[channel_name.lower()]
 
 
-class Listener:
+class ConnectionListener:
     """Starts the server and listens for incoming connections from clients."""
 
     def __init__(self, port: int, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -101,7 +100,7 @@ class Listener:
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
         self.listener_socket.listen(5)
-        self.state = ServerState(motd_content)
+        self.state = State(motd_content)
 
     def run_server_forever(self) -> None:
         """
@@ -113,116 +112,167 @@ class Listener:
             (user_socket, user_address) = self.listener_socket.accept()
             print("Got connection from", user_address)
             client_thread = threading.Thread(
-                target=recv_loop, args=[self.state, user_address[0], user_socket], daemon=True
+                target=CommandReceiver, args=[self.state, user_address[0], user_socket], daemon=True
             )
             client_thread.start()
 
 
-def close_socket_cleanly(sock: socket.socket) -> None:
+class CommandReceiver:
     """
-    Ensures that the connection to a client is closed cleanly without errors and with no data loss.
-
-    Use this instead of the .close() method.
-    """
-    # The code is based on this blog post:
-    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
-    try:
-        sock.shutdown(socket.SHUT_WR)
-        sock.settimeout(10)
-        sock.recv(1)  # Wait for client to close the connection
-    except OSError:
-        # Possible causes:
-        # - Client decided to keep its connection open for more than 10sec.
-        # - Client was already disconnected.
-        # - Probably something else too that I didn't think of...
-        pass
-
-    sock.close()
-
-
-def recv_loop(state: ServerState, user_host: str, user_socket: socket.socket) -> None:
-    """
-    Receives commands/messages from the client,
-    parses them and sends them to appropriate "handle_" function in "commands".
+    Receives commands/messages from the client, parses them, and sends them to the appropriate
+    handler function.
 
     IRC Messages are formatted "bytes(COMMAND parameters\r\n)"
     Most IRC clients use "\r\n" line endings, but "\n" is accepted as well (used by e.g. netcat).
 
     Ex: b"JOIN #foo\r\n"
     Ex: b"PRIVMSG #foo :This is a message\r\n"
-
-    To handle a command FOO, a function named handle_foo() in commands.py is called.
-    For example, "PRIVMSG #foo :this is a message\r\n" results in a call like this:
-
-        commands.handle_privmsg(state, user, ["#foo", "this is a message"])
     """
 
-    user = UserConnection(state, user_host, user_socket)
-    motd_sent = False
-    disconnect_reason = ""
+    def __init__(self, state: State, user_host: str, user_socket: socket.socket) -> None:
+        self.state = state
+        self.user_host = user_host
+        self.user_socket = user_socket
+        self.user = UserConnection(state, user_host, user_socket)
+        self.disconnect_reason: str = ""
 
-    try:
-        while True:
-            request = b""
-            while not request.endswith(b"\n"):
-                user.start_ping_timer()
-                try:
-                    request_chunk = user_socket.recv(4096)
-                except OSError as err:
-                    disconnect_reason = err.strerror
+        self.recv_loop()
+
+    def recv_loop(self) -> None:
+        """
+        Parses incoming messages from the client and sends them to the appropriate
+        "handle_" function.
+
+        To handle a command FOO, a function named handle_foo() in commands.py is called.
+        For example, "PRIVMSG #foo :this is a message\r\n" results in a call like this:
+
+        commands.handle_privmsg(state, user, ["#foo", "this is a message"])
+
+        The function call is done with getattr().
+        getattr(commands, "handle_join") is equivalent to commands.handle_join.
+        More info: https://docs.python.org/3/library/functions.html#getattr
+        """
+        motd_sent: bool = False
+        try:
+            while True:
+                request = self.receive_messages()
+
+                if request is None:
                     return  # go to "finally:"
-                finally:
-                    user.ping_timer.cancel()
 
-                if request_chunk:
-                    request += request_chunk
-                else:
-                    disconnect_reason = "Remote host closed the connection"
-                    return  # go to "finally:"
+                decoded_command = request.decode("latin-1")
+                for line in split_on_new_line(decoded_command)[:-1]:
+                    (command, args) = self.parse_received_command(line)
+                    command_lower = command.lower()
+                    handler_function = "handle_" + command_lower
 
-            decoded_message = request.decode("latin-1")
-            for line in split_on_new_line(decoded_message)[:-1]:
-                command, args = commands.parse_received_args(line)
-                command_lower = command.lower()
-                parsed_command = "handle_" + command_lower
-
-                if user.nick == "*" or user.user_message is None or not motd_sent:
-                    if command_lower == "user":
-                        if args:
-                            user.user_message = args
-                            user.user_name = args[0]
-                        else:
-                            commands.error_not_enough_params(user, command)
-                    elif command_lower == "nick":
-                        commands.handle_nick(state, user, args)
-                    elif command_lower == "pong":
-                        commands.handle_pong(state, user, args)
-                    elif command_lower == "cap":
-                        commands.handle_cap(state, user, args)
-                    else:
+                    if self.user.nick == "*" or self.user.user_message is None or not motd_sent:
                         if command_lower == "quit":
-                            disconnect_reason = "Client quit"
-                            return
+                            self.disconnect_reason = "Client quit"
+                            return  # go to "finally:"
                         else:
-                            commands.error_not_registered(user)
+                            self.handle_user_registration(command_lower, args)
 
-                    if user.nick != "*" and user.user_message is not None and not user.capneg_in_progress:
-                        commands.motd(state.motd_content, user)
-                        motd_sent = True
+                        if (
+                            self.user.nick != "*"
+                            and self.user.user_message is not None
+                            and not self.user.capneg_in_progress
+                        ):
+                            commands.motd(self.state.motd_content, self.user)
+                            motd_sent = True
 
-                else:
-                    try:
-                        # ex. "command.handle_nick" or "command.handle_join"
-                        call_handler_function = getattr(commands, parsed_command)
-                    except AttributeError:
-                        commands.error_unknown_command(user, command)
                     else:
-                        with state.lock:
-                            call_handler_function(state, user, args)
-                            if command_lower == "quit":
-                                return
-    finally:
-        user.send_que.put((None, disconnect_reason))
+                        try:
+                            # ex. "command.handle_nick" or "command.handle_join"
+                            call_handler_function = getattr(commands, handler_function)
+                        except AttributeError:
+                            errors.unknown_command(self.user, command)
+                        else:
+                            with self.state.lock:
+                                call_handler_function(self.state, self.user, args)
+                                if command_lower == "quit":
+                                    return
+
+        finally:
+            self.user.send_que.put((None, self.disconnect_reason))
+
+    def receive_messages(self) -> bytes | None:
+        """
+        Receives one or more lines from the client as bytes and returns them to recv_loop().
+
+        It will receive until the received bytes end with "\n", which indicates that everything
+        the client has currently sent has been received.
+
+        None is returned if the user disconnects.
+
+        Also starts the user's ping timer, which will send a PING message to the client
+        after a certain time of inactivity.
+        The PING message controls that the user still has an open connection to the server.
+        """
+        request = b""
+        while not request.endswith(b"\n"):
+            self.user.start_ping_timer()
+            try:
+                request_chunk = self.user_socket.recv(4096)
+            except OSError as err:
+                self.disconnect_reason = err.strerror
+                return None
+            finally:
+                self.user.ping_timer.cancel()
+
+            if request_chunk:
+                request += request_chunk
+            else:
+                self.disconnect_reason = "Remote host closed the connection"
+                return None
+
+        return request
+
+    def parse_received_command(self, msg: str) -> Tuple[str, List[str]]:
+        """
+        Parses the user command by separating the command (e.g "join", "privmsg", etc.) from the
+        arguments.
+
+        If a parameter contains spaces, it must start with ':' to be interpreted as one parameter.
+        If the parameter does not start with ':', it will be cut off at the first space.
+
+        Ex:
+            - "PRIVMSG #foo :This is a message\r\n" will send "This is a message"
+            - "PRIVMSG #foo This is a message\r\n" will send "This"
+        """
+        split_msg = msg.split(" ")
+
+        for num, arg in enumerate(split_msg):
+            if arg.startswith(":"):
+                parsed_msg = split_msg[:num]
+                parsed_msg.append(" ".join(split_msg[num:])[1:])
+                command = parsed_msg[0]
+                return command, parsed_msg[1:]
+
+        command = split_msg[0]
+        return command, split_msg[1:]
+
+    def handle_user_registration(self, command: str, args: List[str]) -> None:
+        """
+        Parses messages from the client before they have registered (provided the server
+        with their nickname (NICK) and username (USER)).
+
+        This limits what commands the user can send before registering.
+        """
+        if command == "user":
+            if args:
+                self.user.user_message = args
+                self.user.user_name = args[0]
+            else:
+                errors.not_enough_params(self.user, command.upper())
+        elif command == "nick":
+            commands.handle_nick(self.state, self.user, args)
+        elif command == "pong":
+            commands.handle_pong(self.state, self.user, args)
+        elif command == "cap":
+            commands.handle_cap(self.state, self.user, args)
+        else:
+            errors.not_registered(self.user)
 
 
 class UserConnection:
@@ -249,7 +299,7 @@ class UserConnection:
         A Tuple containing (None, disconnect_reason: str) indicates a QUIT command and closes the connection to the client.
     """
 
-    def __init__(self, state: ServerState, host: str, socket: socket.socket):
+    def __init__(self, state: State, host: str, socket: socket.socket):
         self.state = state
         self.socket = socket
         self.host = host
@@ -320,6 +370,7 @@ class UserConnection:
             receiver.send_que.put((quit_message, self.get_user_mask()))
 
     def get_users_sharing_channel(self) -> Set[UserConnection]:
+        """Returns all users of all channels that this user has joined."""
         receivers = set()
         for channel in self.state.channels.values():
             if self in channel.users:
@@ -389,7 +440,7 @@ class Channel:
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
-        self.modes: Set[str] = {"t"}  # See ServerState __init__ for more info on letters.
+        self.modes: Set[str] = {"t"}  # See State __init__ for more info on letters.
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
         self.ban_list: Dict[str, str] = {}
@@ -402,16 +453,12 @@ class Channel:
             self.topic = (topic, user.nick)
 
     def send_topic_to_user(self, user: UserConnection) -> None:
-        topic_num = irc_responses.RPL_TOPIC
-        topic_author_num = irc_responses.RPL_TOPICWHOTIME
-        (no_topic_num, no_topic_info) = irc_responses.RPL_NOTOPIC
-
         if self.topic is None:
-            message = f"{no_topic_num} {user.nick} {self.name} {no_topic_info}"
+            message = f"331 {user.nick} {self.name} :No topic is set."
             user.send_que.put((message, "mantatail"))
         else:
-            topic_message = f"{topic_num} {user.nick} {self.name} :{self.topic[0]}"
-            author_message = f"{topic_author_num} {user.nick} {self.name} :{self.topic[1]}"
+            topic_message = f"332 {user.nick} {self.name} :{self.topic[0]}"
+            author_message = f"333 {user.nick} {self.name} :{self.topic[1]}"
 
             user.send_que.put((topic_message, "mantatail"))
             user.send_que.put((author_message, "mantatail"))
@@ -428,7 +475,36 @@ class Channel:
                 usr.send_que.put((message, sender.get_user_mask()))
 
     def check_if_banned(self, target: str) -> bool:
+        """
+        Checks if the user mask provided in a MODE +b (ban) command matches a
+        user mask that is already in the channel's ban list.
+
+        Wildcards "*" are used to cover any set of characters.
+        Ex. If the ban list contains "*!Bar@Baz", "Foo!Bar@Baz" will be considered a match.
+        """
         return any(fnmatch.fnmatch(target, ban_mask) for ban_mask in self.ban_list.keys())
+
+
+def close_socket_cleanly(sock: socket.socket) -> None:
+    """
+    Ensures that the connection to a client is closed cleanly without errors and with no data loss.
+
+    Use this instead of the .close() method.
+    """
+    # The code is based on this blog post:
+    # https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+    try:
+        sock.shutdown(socket.SHUT_WR)
+        sock.settimeout(10)
+        sock.recv(1)  # Wait for client to close the connection
+    except OSError:
+        # Possible causes:
+        # - Client decided to keep its connection open for more than 10sec.
+        # - Client was already disconnected.
+        # - Probably something else too that I didn't think of...
+        pass
+
+    sock.close()
 
 
 def split_on_new_line(string: str) -> List[str]:
@@ -453,4 +529,4 @@ def get_motd_content_from_json() -> Optional[Dict[str, List[str]]]:
 
 
 if __name__ == "__main__":
-    Listener(6667, get_motd_content_from_json()).run_server_forever()
+    ConnectionListener(6667, get_motd_content_from_json()).run_server_forever()
