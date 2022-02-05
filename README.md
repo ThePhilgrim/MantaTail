@@ -48,12 +48,12 @@ Mantatail relies on Pytest for testing. In order to run the test suite, use `pyt
 ### Fuzzing
 
 The fuzzer spams the server with random commands to reveal eventual errors.
-To run the fuzzer, make sure `server.py` is not running, cd to the mantatail folder and run `python3 fuzzer.py`
+To run the fuzzer, make sure `server.py` is not running, cd to `tests/fuzzer` and run `python3 fuzzer.py`.
 
 If you are developing a new feature, you can substitute the list `words` with a list containing limited amount of relevant data.
 
 For example, if you are working with the feature of banning a user, a reasonable data set could be:
-`words = ["MODE", "mode", "Mode", "#chan", "#%invalidchan "+", "-", "b", "B", "^", ":", "Param1", ":Param2", "Param with spaces"]`
+`words = ["MODE", "mode", "Mode", "#chan", "#%invalidchan "+", "-", "b", "B", "^", ":", "Param1", ":Param2"]`
 
 ### Resources
 

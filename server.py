@@ -179,7 +179,6 @@ class CommandReceiver:
                             and not self.user.capneg_in_progress
                         ):
                             self.user.on_registration()
-                            motd_sent = True
 
                     else:
                         try:
