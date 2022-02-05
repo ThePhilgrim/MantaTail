@@ -26,7 +26,7 @@ ISUPPORT = {"NICKLEN": "16", "PREFIX": "(o)@", "CHANTYPES": "#", "TARGMAX": "PRI
 class State:
     """Keeps track of existing channels & connected users."""
 
-    def __init__(self, motd_content: Optional[Dict[str, List[str]]], host: str, port: int) -> None:
+    def __init__(self, motd_content: Optional[Dict[str, List[str]]], port: int) -> None:
         """
         Attributes:
             - lock: Locks the state of the server to avoid modifications
@@ -43,7 +43,6 @@ class State:
         self.lock = threading.Lock()
         self.channels: Dict[str, Channel] = {}
         self.connected_users: Dict[str, UserConnection] = {}
-        self.host = host
         self.port = port
         self.motd_content = motd_content
         # Supported Channel Modes:
@@ -106,7 +105,7 @@ class ConnectionListener:
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
         self.listener_socket.listen(5)
-        self.state = State(motd_content, self.host, self.port)
+        self.state = State(motd_content, self.port)
 
     def run_server_forever(self) -> None:
         """
