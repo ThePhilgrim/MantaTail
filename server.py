@@ -152,7 +152,7 @@ class CommandReceiver:
         getattr(commands, "handle_join") is equivalent to commands.handle_join.
         More info: https://docs.python.org/3/library/functions.html#getattr
         """
-        motd_sent: bool = False
+
         try:
             while True:
                 request = self.receive_messages()
@@ -166,7 +166,7 @@ class CommandReceiver:
                     command_lower = command.lower()
                     handler_function = "handle_" + command_lower
 
-                    if self.user.nick == "*" or self.user.user_message is None or not motd_sent:
+                    if self.user.nick == "*" or self.user.user_message is None or not self.user.motd_sent:
                         if command_lower == "quit":
                             self.disconnect_reason = "Client quit"
                             return  # go to "finally:"
@@ -178,7 +178,7 @@ class CommandReceiver:
                             and self.user.user_message is not None
                             and not self.user.capneg_in_progress
                         ):
-                            commands.motd(self.state.motd_content, self.user)
+                            self.user.on_registration()
                             motd_sent = True
 
                     else:
@@ -311,6 +311,7 @@ class UserConnection:
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.cap_list: Set[str] = set()
+        self.motd_sent = False
         self.capneg_in_progress = False
         self.pong_received = False
 
@@ -327,6 +328,28 @@ class UserConnection:
             return f"@{self.nick}"
         else:
             return self.nick
+
+    def on_registration(self) -> None:
+        """
+        After a user has registered on the server by providing a nickname (NICK) and a username (USER),
+        several messages are sent to the client with information about the server.
+
+        The messages sent:
+            - 001 Welcome message (RPL_WELCOME)
+            - 002 Name and version of the server (RPL_YOURHOST)
+            - 003 When the server was created (RPL_CREATED)
+            - 004 All supported user/channel modes (RPL_MYINFO)
+            - 005 Features and limitations of the server (RPL_ISUPPORT)
+
+        This function calls all the appropriate functions to make sure the client receives all appropriate messages.
+        """
+        commands.rpl_welcome(self.nick)
+        commands.rpl_yourhost()
+        commands.rpl_created()
+        commands.rpl_myinfo()
+        commands.rpl_isupport()
+        commands.motd(self.state.motd_content, self)
+        self.motd_sent = True
 
     def send_queue_thread(self) -> None:
         """Queue on which the client receives messages from server."""

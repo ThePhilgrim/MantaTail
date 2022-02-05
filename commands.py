@@ -455,6 +455,26 @@ def privmsg_to_user(state: server.State, sender: server.UserConnection, receiver
         sender.send_que.put((away_message, "mantatail"))
 
 
+def rpl_welcome(nick: str) -> None:
+    pass
+
+
+def rpl_yourhost() -> None:
+    pass
+
+
+def rpl_created() -> None:
+    pass
+
+
+def rpl_myinfo() -> None:
+    pass
+
+
+def rpl_isupport() -> None:
+    pass
+
+
 def motd(motd_content: Optional[Dict[str, List[str]]], user: server.UserConnection) -> None:
     """
     Sends the server's Message of the Day to the user.
