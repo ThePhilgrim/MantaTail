@@ -20,6 +20,7 @@ To read how handler functions are called: see server.recv_loop() documentation.
 """
 from __future__ import annotations
 import re
+import socket
 
 import server, errors
 
@@ -461,7 +462,7 @@ def rpl_welcome(user: server.UserConnection) -> None:
 
 
 def rpl_yourhost(user: server.UserConnection, state: server.State) -> None:
-    yourhost_msg = f"002 {user.nick} :Your host is Mantatail[{state.host}/{state.port}], running version {server.MANTATAIL_VERSION}"
+    yourhost_msg = f"002 {user.nick} :Your host is Mantatail[{socket.gethostname()}/{state.port}], running version {server.MANTATAIL_VERSION}"
     user.send_que.put((yourhost_msg, "mantatail"))
 
 
