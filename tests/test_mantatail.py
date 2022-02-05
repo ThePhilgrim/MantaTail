@@ -7,8 +7,8 @@ import traceback
 import threading
 import time
 
-import mantatail.mantatail as mantatail
-from mantatail.mantatail import ConnectionListener
+import server
+from server import ConnectionListener
 
 # Tests that are known to fail can be decorated with:
 # @pytest.mark.xfail(strict=True)
@@ -162,7 +162,7 @@ def test_join_before_registering(run_server):
 
 
 def test_ping_message(monkeypatch, user_alice):
-    monkeypatch.setattr(mantatail, "TIMER_SECONDS", 2)
+    monkeypatch.setattr(server, "TIMER_SECONDS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
     while receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":

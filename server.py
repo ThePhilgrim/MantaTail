@@ -13,13 +13,13 @@ import fnmatch
 import json
 from typing import Dict, Optional, List, Set, Tuple
 
-from . import commands, errors
+import commands, errors
 
 TIMER_SECONDS = 600
 CAP_LS: List[str] = ["away-notify", "cap-notify"]
 
 
-class ServerState:
+class State:
     """Keeps track of existing channels & connected users."""
 
     def __init__(self, motd_content: Optional[Dict[str, List[str]]]) -> None:
@@ -100,7 +100,7 @@ class ConnectionListener:
         self.listener_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener_socket.bind((self.host, port))
         self.listener_socket.listen(5)
-        self.state = ServerState(motd_content)
+        self.state = State(motd_content)
 
     def run_server_forever(self) -> None:
         """
@@ -129,7 +129,7 @@ class CommandReceiver:
     Ex: b"PRIVMSG #foo :This is a message\r\n"
     """
 
-    def __init__(self, state: ServerState, user_host: str, user_socket: socket.socket) -> None:
+    def __init__(self, state: State, user_host: str, user_socket: socket.socket) -> None:
         self.state = state
         self.user_host = user_host
         self.user_socket = user_socket
@@ -296,7 +296,7 @@ class UserConnection:
         A Tuple containing (None, disconnect_reason: str) indicates a QUIT command and closes the connection to the client.
     """
 
-    def __init__(self, state: ServerState, host: str, socket: socket.socket):
+    def __init__(self, state: State, host: str, socket: socket.socket):
         self.state = state
         self.socket = socket
         self.host = host
@@ -437,7 +437,7 @@ class Channel:
     def __init__(self, channel_name: str, user: UserConnection) -> None:
         self.name = channel_name
         self.topic: Optional[Tuple[str, str]] = None  # (Topic, Topic author)
-        self.modes: Set[str] = {"t"}  # See ServerState __init__ for more info on letters.
+        self.modes: Set[str] = {"t"}  # See State __init__ for more info on letters.
         self.operators: Set[UserConnection] = set()
         self.users: Set[UserConnection] = set()
         self.ban_list: Dict[str, str] = {}

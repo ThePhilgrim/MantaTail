@@ -16,17 +16,19 @@ Each command can include:
 
 All public functions start with "handle_".
 
-To read how handler functions are called: see mantatail.recv_loop() documentation.
+To read how handler functions are called: see server.recv_loop() documentation.
 """
 from __future__ import annotations
 import re
-from . import mantatail, errors
+
+import server, errors
+
 
 from typing import Optional, Dict, List
 
 
 ### Handlers
-def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_cap(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command formats:
         Starts capability negotiation: "CAP LS 302" ("302" indicates
@@ -43,7 +45,7 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
     low_cap_command = args[0].lower()
 
     if low_cap_command == "ls":
-        message = f"CAP {user.nick} LS :{' '.join(mantatail.CAP_LS)}"
+        message = f"CAP {user.nick} LS :{' '.join(server.CAP_LS)}"
         user.send_que.put((message, "mantatail"))
         if len(args) > 1:
             try:
@@ -64,7 +66,7 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
             return
 
         capabilities = args[1].split(" ")
-        unsupported_caps = [cap for cap in capabilities if cap not in mantatail.CAP_LS]
+        unsupported_caps = [cap for cap in capabilities if cap not in server.CAP_LS]
 
         if unsupported_caps:
             message = f"CAP {user.nick} NAK :{args[1]}"
@@ -82,7 +84,7 @@ def handle_cap(state: mantatail.ServerState, user: mantatail.UserConnection, arg
         return
 
 
-def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_join(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "JOIN #foo"
 
@@ -105,7 +107,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         errors.no_such_channel(user, channel_name)
     else:
         if lower_channel_name not in state.channels.keys():
-            state.channels[lower_channel_name] = mantatail.Channel(channel_name, user)
+            state.channels[lower_channel_name] = server.Channel(channel_name, user)
 
         channel = state.find_channel(channel_name)
 
@@ -145,7 +147,7 @@ def handle_join(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         # TODO: Forward to another channel (irc num 470) ex. #homebrew -> ##homebrew
 
 
-def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_part(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "PART #foo"
 
@@ -179,7 +181,7 @@ def handle_part(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             state.delete_channel(channel_name)
 
 
-def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_mode(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "MODE #channel/user.nick +/-flag <args>"
 
@@ -211,7 +213,7 @@ def handle_mode(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         process_user_modes()
 
 
-def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_nick(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Sets a user's nickname if they don't already have one.
     Changes the user's nickname if they already have one.
@@ -253,7 +255,7 @@ def handle_nick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             state.connected_users[user.nick.lower()] = user
 
 
-def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_away(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command formats:
         Set away status: "AWAY :Away message"
@@ -286,7 +288,7 @@ def handle_away(state: mantatail.ServerState, user: mantatail.UserConnection, ar
             receiver.send_que.put((away_notify_msg, user.get_user_mask()))
 
 
-def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_topic(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command formats:
         Set new topic: "TOPIC #foo :New Topic"
@@ -322,7 +324,7 @@ def handle_topic(state: mantatail.ServerState, user: mantatail.UserConnection, a
             channel.queue_message_to_chan_users(topic_message, user)
 
 
-def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_kick(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "KICK #foo user_to_kick (:Reason for kicking)"
 
@@ -368,7 +370,7 @@ def handle_kick(state: mantatail.ServerState, user: mantatail.UserConnection, ar
         state.delete_channel(channel.name)
 
 
-def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_quit(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "QUIT"
 
@@ -382,7 +384,7 @@ def handle_quit(state: mantatail.ServerState, user: mantatail.UserConnection, ar
     user.send_que.put((None, disconnect_reason))
 
 
-def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_privmsg(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Command format: "PRIVMSG #channel/user.nick :This is a message"
 
@@ -421,7 +423,7 @@ def handle_privmsg(state: mantatail.ServerState, user: mantatail.UserConnection,
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
 
 
-def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def handle_pong(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Handles client's PONG response to a PING message sent from the server.
 
@@ -439,9 +441,7 @@ def handle_pong(state: mantatail.ServerState, user: mantatail.UserConnection, ar
 
 
 # Private functions
-def privmsg_to_user(
-    state: mantatail.ServerState, sender: mantatail.UserConnection, receiver: str, privmsg: str
-) -> None:
+def privmsg_to_user(state: server.State, sender: server.UserConnection, receiver: str, privmsg: str) -> None:
     receiver_usr = state.find_user(receiver)
     if not receiver_usr:
         errors.no_such_nick_channel(sender, receiver)
@@ -455,7 +455,7 @@ def privmsg_to_user(
         sender.send_que.put((away_message, "mantatail"))
 
 
-def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConnection) -> None:
+def motd(motd_content: Optional[Dict[str, List[str]]], user: server.UserConnection) -> None:
     """
     Sends the server's Message of the Day to the user.
 
@@ -480,7 +480,7 @@ def motd(motd_content: Optional[Dict[str, List[str]]], user: mantatail.UserConne
     user.send_que.put((motd_start_and_end["end_msg"], "mantatail"))
 
 
-def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConnection, args: List[str]) -> None:
+def process_channel_modes(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Given that the user has the required privileges, sets the requested channel mode.
 
@@ -527,9 +527,9 @@ def process_channel_modes(state: mantatail.ServerState, user: mantatail.UserConn
 
 
 def process_mode_b(
-    state: mantatail.ServerState,
-    user: mantatail.UserConnection,
-    channel: mantatail.Channel,
+    state: server.State,
+    user: server.UserConnection,
+    channel: server.Channel,
     mode_command: str,
     ban_target: Optional[str],
 ) -> None:
@@ -566,9 +566,9 @@ def process_mode_b(
 
 
 def process_mode_o(
-    state: mantatail.ServerState,
-    user: mantatail.UserConnection,
-    channel: mantatail.Channel,
+    state: server.State,
+    user: server.UserConnection,
+    channel: server.Channel,
     mode_command: str,
     target_usr_nick: Optional[str],
 ) -> None:
