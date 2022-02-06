@@ -49,7 +49,7 @@ class State:
         # b: Ban/Unban user from channel
         # o: Set/Unset channel operator
         # t: Only operator can set channel topic
-        self.chanmodes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
+        self.chanmodes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": ["t"], "PREFIX": ["o"]}
         # TODO: Support -t and add "t" to self.chanmodes
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
