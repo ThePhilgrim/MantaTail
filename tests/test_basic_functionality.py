@@ -126,6 +126,10 @@ def test_away_status(user_alice, user_bob, helpers):
     assert helpers.receive_line(user_alice) == b":mantatail 301 Alice Bob :This\r\n"
 
 
+def test_who_command(user_alice, user_bob, user_charlie, helpers):
+    pass
+
+
 def test_send_privmsg_to_user(user_alice, user_bob, helpers):
     user_alice.sendall(b"PRIVMSG Bob :This is a private message\r\n")
     assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :This is a private message\r\n"
