@@ -32,12 +32,19 @@ class State:
             - lock: Locks the state of the server to avoid modifications
             to iterables during iteration.
 
-            - chanmodes: These are the channel modes that the server supports.
-            Chanmodes are divided into four types (A, B, C, D). It also contains
-            "prefix", which are chanmodes set on a user (ex. +o, +v).
-            Depending on the channel mode type, they either must take
-            a parameter, or they must not.
-            More info: https://modern.ircdocs.horse/#channel-mode
+            - supported_modes: These are the channel and user modes that the server supports.
+            Modes are divided into four types (A, B, C, D). Depending on the mode type,
+            they either must take a parameter, or they must not.
+
+            - Channel modes are set on channels to modify their functionality.
+            - User modes are set on users to change how they are affected by different
+            commands and features. All user modes are of type D (they never take a parameter).
+
+            supported_modes also contains "prefix", which are channel modes set on a user (ex. +o, +v).
+
+            More info:
+                https://modern.ircdocs.horse/#channel-mode
+                https://modern.ircdocs.horse/#user-modes
         """
 
         self.lock = threading.Lock()
@@ -45,11 +52,13 @@ class State:
         self.connected_users: Dict[str, UserConnection] = {}
         self.port = port
         self.motd_content = motd_content
-        # Supported Channel Modes:
-        # b: Ban/Unban user from channel
-        # o: Set/Unset channel operator
-        # t: Only operator can set channel topic
-        self.chanmodes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": [], "PREFIX": ["o"]}
+        # Supported Modes:
+        # b: Ban/Unban user from channel (channel)
+        # i: Make user invisible, and hide them from e.g WHO, NAMES commands.
+        # o: Set/Unset channel operator (channel)
+        # t: Only operator can set channel topic (channel)
+
+        self.supported_modes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": ["i"], "PREFIX": ["o"]}
         # TODO: Support -t and add "t" to self.chanmodes
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
@@ -310,6 +319,7 @@ class UserConnection:
         self.nick = "*"
         self.user_message: Optional[List[str]] = None
         self.user_name: Optional[str] = None
+        self.modes = {"i"}
         self.away: Optional[str] = None  # None = user not away, str = user away
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)

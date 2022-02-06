@@ -472,8 +472,10 @@ def rpl_created(user: server.UserConnection) -> None:
 
 
 def rpl_myinfo(user: server.UserConnection, state: server.State) -> None:
-    all_chanmodes_joined = "".join([chanmode for key in state.chanmodes.keys() for chanmode in state.chanmodes[key]])
-    myinfo_msg = f"004 {user.nick} Mantatail {server.MANTATAIL_VERSION} {all_chanmodes_joined}"
+    all_supported_modes_joined = "".join(
+        [mode for key in state.supported_modes.keys() for mode in state.supported_modes[key]]
+    )
+    myinfo_msg = f"004 {user.nick} Mantatail {server.MANTATAIL_VERSION} {all_supported_modes_joined}"
     user.send_que.put((myinfo_msg, "mantatail"))
 
 
@@ -536,7 +538,7 @@ def process_channel_modes(state: server.State, user: server.UserConnection, args
             errors.unknown_mode(user, args[1][0])
             return
 
-        supported_modes = [chanmode for chanmodes in state.chanmodes.values() for chanmode in chanmodes]
+        supported_modes = [mode for modes in state.supported_modes.values() for mode in modes]
 
         for mode in args[1][1:]:
             if mode not in supported_modes or not re.fullmatch(r"[a-zA-Z]", mode):
@@ -634,6 +636,7 @@ def process_mode_o(
 
 # !Not implemented
 def process_user_modes() -> None:
+    # TODO: Make it possible to remove/add user mode +i
     pass
 
 
