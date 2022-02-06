@@ -631,7 +631,7 @@ def process_mode_o(
         channel.operators.discard(target_usr)
 
 
-def process_mode_t(user: server.UserConnection, channel: server.Channel, mode_command: str):
+def process_mode_t(user: server.UserConnection, channel: server.Channel, mode_command: str) -> None:
     if user not in channel.operators:
         errors.no_operator_privileges(user, channel)
         return
