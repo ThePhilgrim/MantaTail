@@ -117,7 +117,7 @@ def test_nick_already_taken(run_server, helpers):
     time.sleep(0.1)
 
     nc2.sendall(b"NICK nc\n")
-    nc2.sendall(b"USER nc\n")
+    nc2.sendall(b"USER nc 0 * :netcat\n")
 
     while helpers.receive_line(nc2) != b":mantatail 376 nc :End of /MOTD command\r\n":
         pass

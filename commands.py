@@ -130,6 +130,9 @@ def handle_join(state: server.State, user: server.UserConnection, args: List[str
             join_msg = f"JOIN {channel_name}"
             channel.queue_message_to_chan_users(join_msg, user)
 
+            if "away-notify" in user.cap_list:
+                handle_who(state, user, [channel.name])
+
             if channel.topic:
                 channel.send_topic_to_user(user)
 
@@ -422,6 +425,54 @@ def handle_privmsg(state: server.State, user: server.UserConnection, args: List[
     else:
         privmsg_message = f"PRIVMSG {receiver} :{privmsg}"
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
+
+
+def handle_who(state: server.State, user: server.UserConnection, args: List[str]) -> None:
+    # TODO: Implement error 263 (WHO sent too many times)
+    if not args:
+        errors.not_enough_params(user, "WHO")
+        return
+
+    if args[0].startswith("#"):
+        channel = state.find_channel(args[0])
+
+        if channel:
+            for who_usr in channel.users:
+                if not who_usr.away:
+                    away_status = "H"
+                else:
+                    away_status = "G"
+
+                if who_usr in channel.operators:
+                    prefix = "@"
+                else:
+                    prefix = ""
+
+                # ":0" refers to "hopcount", which is not supported by Mantatail.
+                # "Hopcount is the number of intermediate servers between the client issuing the WHO command
+                # and the client Nickname, it might be unreliable so clients SHOULD ignore it.""
+                who_message = f"352 {user.nick} {channel.name} {who_usr.user_name} {who_usr.host} Mantatail {who_usr.nick} {away_status}{prefix} :0 {who_usr.real_name}"
+
+                if user not in channel.users:
+                    if "i" not in who_usr.modes:
+                        user.send_que.put((who_message, "mantatail"))
+                else:
+                    user.send_que.put((who_message, "mantatail"))
+
+    else:
+        target_usr = state.find_user(args[0])
+
+        if target_usr:
+            if not target_usr.away:
+                away_status = "H"
+            else:
+                away_status = "G"
+
+            who_message = f"352 {user.nick} * {target_usr.user_name} {target_usr.host} Mantatail {target_usr.nick} {away_status} :0 {target_usr.real_name}"
+            user.send_que.put((who_message, "mantatail"))
+
+    end_of_who_message = f"315 {user.nick} {args[0]} :End of /WHO list."
+    user.send_que.put((end_of_who_message, "mantatail"))
 
 
 def handle_pong(state: server.State, user: server.UserConnection, args: List[str]) -> None:

@@ -273,11 +273,13 @@ class CommandReceiver:
         This limits what commands the user can send before registering.
         """
         if command == "user":
-            if args:
+            if len(args) < 4:
+                errors.not_enough_params(self.user, command.upper())
+            else:
                 self.user.user_message = args
                 self.user.user_name = args[0]
-            else:
-                errors.not_enough_params(self.user, command.upper())
+                self.user.real_name = args[3]
+
         elif command == "nick":
             commands.handle_nick(self.state, self.user, args)
         elif command == "pong":
@@ -319,6 +321,7 @@ class UserConnection:
         self.nick = "*"
         self.user_message: Optional[List[str]] = None
         self.user_name: Optional[str] = None
+        self.real_name: Optional[str] = None
         self.modes = {"i"}
         self.away: Optional[str] = None  # None = user not away, str = user away
         self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()

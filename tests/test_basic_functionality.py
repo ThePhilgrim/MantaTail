@@ -132,14 +132,13 @@ def test_who_command(user_alice, user_bob, user_charlie, helpers):
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
 
-    while helpers.receive_line(user_alice) != b":Charlie!CharlieUsr@127.0.0.1 JOIN #foo\r\n":
+    while helpers.receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
         pass
-    while helpers.receive_line(user_bob) != b":Charlie!CharlieUsr@127.0.0.1 JOIN #foo\r\n":
+    while helpers.receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
         pass
 
     user_bob.sendall(b"AWAY :I am away\r\n")
-    assert helpers.receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 AWAY :I am away\r\n"
-    assert helpers.receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 AWAY :I am away\r\n"
+    assert helpers.receive_line(user_bob) == b":mantatail 306 Bob :You have been marked as being away\r\n"
 
     user_charlie.sendall(b"WHO #foo\r\n")
     assert helpers.receive_line(user_charlie) == b":mantatail 315 Charlie #foo :End of /WHO list.\r\n"
@@ -151,11 +150,25 @@ def test_who_command(user_alice, user_bob, user_charlie, helpers):
     WHO_MESSAGES = [
         bytes(":mantatail 352 Charlie #foo AliceUsr 127.0.0.1 Mantatail Alice H@ :0 Alice's real name\r\n", "ascii"),
         bytes(":mantatail 352 Charlie #foo BobUsr 127.0.0.1 Mantatail Bob G :0 Bob's real name\r\n", "ascii"),
+        bytes(
+            ":mantatail 352 Charlie #foo CharlieUsr 127.0.0.1 Mantatail Charlie H :0 Charlie's real name\r\n", "ascii"
+        ),
     ]
     user_charlie.sendall(b"WHO #foo\r\n")
     assert helpers.receive_line(user_charlie) in WHO_MESSAGES
     assert helpers.receive_line(user_charlie) in WHO_MESSAGES
-    assert helpers.receive_line(user_charlie) == b":mantatail 315 Charlie #foo :End of /WHO list."
+    assert helpers.receive_line(user_charlie) in WHO_MESSAGES
+    assert helpers.receive_line(user_charlie) == b":mantatail 315 Charlie #foo :End of /WHO list.\r\n"
+
+    user_charlie.sendall(b"PART #foo\r\n")
+    assert helpers.receive_line(user_charlie) == b":Charlie!CharlieUsr@127.0.0.1 PART #foo\r\n"
+
+    user_charlie.sendall(b"WHO Alice\r\n")
+    assert (
+        helpers.receive_line(user_charlie)
+        == b":mantatail 352 Charlie * AliceUsr 127.0.0.1 Mantatail Alice H :0 Alice's real name\r\n"
+    )
+    assert helpers.receive_line(user_charlie) == b":mantatail 315 Charlie Alice :End of /WHO list.\r\n"
 
 
 def test_send_privmsg_to_user(user_alice, user_bob, helpers):
