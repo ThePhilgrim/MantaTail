@@ -443,12 +443,10 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
                 else:
                     away_status = "G"
 
-                prefix = who_usr.get_prefix(channel)
-
                 # ":0" refers to "hopcount", which is not supported by Mantatail.
                 # "Hopcount is the number of intermediate servers between the client issuing the WHO command
                 # and the client Nickname, it might be unreliable so clients SHOULD ignore it.""
-                who_message = f"352 {user.nick} {channel.name} {who_usr.user_name} {who_usr.host} Mantatail {who_usr.nick} {away_status}{prefix} :0 {who_usr.real_name}"
+                who_message = f"352 {user.nick} {channel.name} {who_usr.user_name} {who_usr.host} Mantatail {who_usr.nick} {away_status}{who_usr.get_prefix(channel)} :0 {who_usr.real_name}"
 
                 if user not in channel.users:
                     if "i" not in who_usr.modes:
