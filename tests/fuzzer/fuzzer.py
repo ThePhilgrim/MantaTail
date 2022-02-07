@@ -58,6 +58,7 @@ words = [
     "PRIVMSG",
     "QUIT",
     "USER",
+    "WHO",
     "",
     ":",
 ]
