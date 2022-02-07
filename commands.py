@@ -123,7 +123,7 @@ def handle_join(state: server.State, user: server.UserConnection, args: List[str
         if user not in channel.users:
             channel_users_str = ""
             for usr in channel.users:
-                channel_users_str += f" {usr.get_nick_with_prefix(channel)}"
+                channel_users_str += f" {usr.get_prefix(channel)}{usr.nick}"
 
             channel.users.add(user)
 
@@ -136,7 +136,7 @@ def handle_join(state: server.State, user: server.UserConnection, args: List[str
             if channel.topic:
                 channel.send_topic_to_user(user)
 
-            message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}{channel_users_str}"
+            message = f"353 {user.nick} = {channel_name} :{user.get_prefix(channel)}{user.nick}{channel_users_str}"
             user.send_que.put((message, "mantatail"))
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
@@ -443,10 +443,7 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
                 else:
                     away_status = "G"
 
-                if who_usr in channel.operators:
-                    prefix = "@"
-                else:
-                    prefix = ""
+                prefix = who_usr.get_prefix(channel)
 
                 # ":0" refers to "hopcount", which is not supported by Mantatail.
                 # "Hopcount is the number of intermediate servers between the client issuing the WHO command

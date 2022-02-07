@@ -336,15 +336,15 @@ class UserConnection:
         """Generates and returns a user mask (Nick!Username@Host)."""
         return f"{self.nick}!{self.user_name}@{self.host}"
 
-    def get_nick_with_prefix(self, channel: Channel) -> str:
+    def get_prefix(self, channel: Channel) -> str:
         """
-        Returns user nick with appropriate prefix for a specific channel.
-        ("@" for channel operator, none for other users).
+        Returns appropriate user prefix for a specific channel.
+        ("@" for channel operator, "" for other users).
         """
         if self in channel.operators:
-            return f"@{self.nick}"
+            return "@"
         else:
-            return self.nick
+            return ""
 
     def on_registration(self) -> None:
         """
