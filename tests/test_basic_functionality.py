@@ -126,7 +126,6 @@ def test_away_status(user_alice, user_bob, helpers):
     assert helpers.receive_line(user_alice) == b":mantatail 301 Alice Bob :This\r\n"
 
 
-# Under development
 def test_who_command(user_alice, user_bob, user_charlie, helpers):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
@@ -148,11 +147,9 @@ def test_who_command(user_alice, user_bob, user_charlie, helpers):
         pass
 
     WHO_MESSAGES = [
-        bytes(":mantatail 352 Charlie #foo AliceUsr 127.0.0.1 Mantatail Alice H@ :0 Alice's real name\r\n", "ascii"),
-        bytes(":mantatail 352 Charlie #foo BobUsr 127.0.0.1 Mantatail Bob G :0 Bob's real name\r\n", "ascii"),
-        bytes(
-            ":mantatail 352 Charlie #foo CharlieUsr 127.0.0.1 Mantatail Charlie H :0 Charlie's real name\r\n", "ascii"
-        ),
+        b":mantatail 352 Charlie #foo AliceUsr 127.0.0.1 Mantatail Alice H@ :0 Alice's real name\r\n",
+        b":mantatail 352 Charlie #foo BobUsr 127.0.0.1 Mantatail Bob G :0 Bob's real name\r\n",
+        b":mantatail 352 Charlie #foo CharlieUsr 127.0.0.1 Mantatail Charlie H :0 Charlie's real name\r\n",
     ]
     user_charlie.sendall(b"WHO #foo\r\n")
     assert helpers.receive_line(user_charlie) in WHO_MESSAGES
