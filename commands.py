@@ -315,7 +315,7 @@ def handle_topic(state: server.State, user: server.UserConnection, args: List[st
     if len(args) == 1:
         channel.send_topic_to_user(user)
     else:
-        if not user in channel.operators:
+        if "t" in channel.modes and user not in channel.operators:
             errors.no_operator_privileges(user, channel)
         else:
             channel.set_topic(user, args[1])
@@ -595,23 +595,22 @@ def process_channel_modes(state: server.State, user: server.UserConnection, args
         parameters = iter(args[2:])
         for flag in flags:
 
-            if flag == "o":
+            if flag == "b":
+                current_param = next(parameters, None)
+
+                process_mode_b(user, channel, mode_command, current_param)
+
+            elif flag == "o":
                 current_param = next(parameters, None)
 
                 process_mode_o(state, user, channel, mode_command, current_param)
 
-            elif flag == "b":
-                current_param = next(parameters, None)
-
-                process_mode_b(state, user, channel, mode_command, current_param)
+            elif flag == "t":
+                process_mode_t(user, channel, mode_command)
 
 
 def process_mode_b(
-    state: server.State,
-    user: server.UserConnection,
-    channel: server.Channel,
-    mode_command: str,
-    ban_target: Optional[str],
+    user: server.UserConnection, channel: server.Channel, mode_command: str, ban_target: Optional[str]
 ) -> None:
     """Bans or unbans a user from a channel."""
     if not ban_target:
@@ -675,9 +674,25 @@ def process_mode_o(
         channel.queue_message_to_chan_users(mode_message, user)
         channel.operators.add(target_usr)
 
-    elif mode_command[0] == "-" and target_usr in channel.operators:
+    elif mode_command == "-" and target_usr in channel.operators:
         channel.queue_message_to_chan_users(mode_message, user)
         channel.operators.discard(target_usr)
+
+
+def process_mode_t(user: server.UserConnection, channel: server.Channel, mode_command: str) -> None:
+    if user not in channel.operators:
+        errors.no_operator_privileges(user, channel)
+        return
+
+    mode_message = f"MODE {channel.name} {mode_command}t"
+
+    if mode_command == "+" and "t" not in channel.modes:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.modes.add("t")
+
+    elif mode_command == "-" and "t" in channel.modes:
+        channel.queue_message_to_chan_users(mode_message, user)
+        channel.modes.discard("t")
 
 
 # !Not implemented

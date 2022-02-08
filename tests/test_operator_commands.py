@@ -60,6 +60,42 @@ def test_channel_topics(user_alice, user_bob, user_charlie, helpers):
     assert helpers.receive_line(user_bob) == b":mantatail 331 Bob #foo :No topic is set.\r\n"
 
 
+def test_chanmode_functionality(user_alice, user_bob, helpers):
+    # +t allows only channel operators to set the topic.
+    user_alice.sendall(b"JOIN #foo\r\n")
+    time.sleep(0.1)
+    user_bob.sendall(b"JOIN #foo\r\n")
+
+    while helpers.receive_line(user_alice) != b":Bob!BobUsr@127.0.0.1 JOIN #foo\r\n":
+        pass
+    while helpers.receive_line(user_bob) != b":mantatail 366 Bob #foo :End of /NAMES list.\r\n":
+        pass
+
+    user_bob.sendall(b"TOPIC #foo :This is a topic\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    time.sleep(0.1)
+
+    user_alice.sendall(b"MODE #foo -t\r\n")
+    assert helpers.receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -t\r\n"
+    assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo -t\r\n"
+
+    user_bob.sendall(b"TOPIC #foo :This is a topic\r\n")
+    assert helpers.receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
+    assert helpers.receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 TOPIC #foo :This is a topic\r\n"
+
+    user_bob.sendall(b"TOPIC #foo :\r\n")
+    assert helpers.receive_line(user_alice) == b":Bob!BobUsr@127.0.0.1 TOPIC #foo :\r\n"
+    assert helpers.receive_line(user_bob) == b":Bob!BobUsr@127.0.0.1 TOPIC #foo :\r\n"
+
+    user_alice.sendall(b"MODE #foo +t\r\n")
+    assert helpers.receive_line(user_alice) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +t\r\n"
+    assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 MODE #foo +t\r\n"
+
+    user_bob.sendall(b"TOPIC #foo :This is a topic\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+
 def test_mode_several_flags(user_alice, user_bob, user_charlie, helpers):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
@@ -285,7 +321,7 @@ def test_operator_no_such_channel(user_alice, helpers):
     assert helpers.receive_line(user_alice) == b":mantatail 403 Alice #foo :No such channel\r\n"
 
 
-def test_operator_no_privileges(user_alice, user_bob, helpers):
+def test_mode_no_operator_privileges(user_alice, user_bob, helpers):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
@@ -296,6 +332,12 @@ def test_operator_no_privileges(user_alice, user_bob, helpers):
         pass
 
     user_bob.sendall(b"MODE #foo +o Alice\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_bob.sendall(b"MODE #foo +t\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_bob.sendall(b"MODE #foo +b Alice\r\n")
     assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
 
 
