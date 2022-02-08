@@ -123,17 +123,20 @@ def handle_join(state: server.State, user: server.UserConnection, args: List[str
         if user not in channel.users:
             channel_users_str = ""
             for usr in channel.users:
-                channel_users_str += f" {usr.get_nick_with_prefix(channel)}"
+                channel_users_str += f" {usr.get_prefix(channel)}{usr.nick}"
 
             channel.users.add(user)
 
             join_msg = f"JOIN {channel_name}"
             channel.queue_message_to_chan_users(join_msg, user)
 
+            if "away-notify" in user.cap_list:
+                handle_who(state, user, [channel.name])
+
             if channel.topic:
                 channel.send_topic_to_user(user)
 
-            message = f"353 {user.nick} = {channel_name} :{user.get_nick_with_prefix(channel)}{channel_users_str}"
+            message = f"353 {user.nick} = {channel_name} :{user.get_prefix(channel)}{user.nick}{channel_users_str}"
             user.send_que.put((message, "mantatail"))
 
             message = f"366 {user.nick} {channel_name} :End of /NAMES list."
@@ -424,6 +427,49 @@ def handle_privmsg(state: server.State, user: server.UserConnection, args: List[
         channel.queue_message_to_chan_users(privmsg_message, user, send_to_self=False)
 
 
+def handle_who(state: server.State, user: server.UserConnection, args: List[str]) -> None:
+    # TODO: Implement error 263 (WHO sent too many times)
+    if not args:
+        errors.not_enough_params(user, "WHO")
+        return
+
+    if args[0].startswith("#"):
+        channel = state.find_channel(args[0])
+
+        if channel:
+            for who_usr in channel.users:
+                if not who_usr.away:
+                    away_status = "H"
+                else:
+                    away_status = "G"
+
+                # ":0" refers to "hopcount", which is not supported by Mantatail.
+                # "Hopcount is the number of intermediate servers between the client issuing the WHO command
+                # and the client Nickname, it might be unreliable so clients SHOULD ignore it.""
+                who_message = f"352 {user.nick} {channel.name} {who_usr.user_name} {who_usr.host} Mantatail {who_usr.nick} {away_status}{who_usr.get_prefix(channel)} :0 {who_usr.real_name}"
+
+                if user not in channel.users:
+                    if "i" not in who_usr.modes:
+                        user.send_que.put((who_message, "mantatail"))
+                else:
+                    user.send_que.put((who_message, "mantatail"))
+
+    else:
+        target_usr = state.find_user(args[0])
+
+        if target_usr:
+            if not target_usr.away:
+                away_status = "H"
+            else:
+                away_status = "G"
+
+            who_message = f"352 {user.nick} * {target_usr.user_name} {target_usr.host} Mantatail {target_usr.nick} {away_status} :0 {target_usr.real_name}"
+            user.send_que.put((who_message, "mantatail"))
+
+    end_of_who_message = f"315 {user.nick} {args[0]} :End of /WHO list."
+    user.send_que.put((end_of_who_message, "mantatail"))
+
+
 def handle_pong(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Handles client's PONG response to a PING message sent from the server.
@@ -472,8 +518,10 @@ def rpl_created(user: server.UserConnection) -> None:
 
 
 def rpl_myinfo(user: server.UserConnection, state: server.State) -> None:
-    all_chanmodes_joined = "".join([chanmode for key in state.chanmodes.keys() for chanmode in state.chanmodes[key]])
-    myinfo_msg = f"004 {user.nick} Mantatail {server.MANTATAIL_VERSION} {all_chanmodes_joined}"
+    all_supported_modes_joined = "".join(
+        [mode for key in state.supported_modes.keys() for mode in state.supported_modes[key]]
+    )
+    myinfo_msg = f"004 {user.nick} Mantatail {server.MANTATAIL_VERSION} {all_supported_modes_joined}"
     user.send_que.put((myinfo_msg, "mantatail"))
 
 
@@ -536,7 +584,7 @@ def process_channel_modes(state: server.State, user: server.UserConnection, args
             errors.unknown_mode(user, args[1][0])
             return
 
-        supported_modes = [chanmode for chanmodes in state.chanmodes.values() for chanmode in chanmodes]
+        supported_modes = [mode for modes in state.supported_modes.values() for mode in modes]
 
         for mode in args[1][1:]:
             if mode not in supported_modes or not re.fullmatch(r"[a-zA-Z]", mode):
@@ -649,6 +697,7 @@ def process_mode_t(user: server.UserConnection, channel: server.Channel, mode_co
 
 # !Not implemented
 def process_user_modes() -> None:
+    # TODO: Make it possible to remove/add user mode +i
     pass
 
 
