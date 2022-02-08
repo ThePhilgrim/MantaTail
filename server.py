@@ -18,7 +18,7 @@ import commands, errors
 
 MANTATAIL_VERSION = "0.0.1"
 SERVER_STARTED = datetime.today().ctime()
-PING_TIMER_SECS = 300
+PING_TIMER_SECS = 180
 CAP_LS: List[str] = ["away-notify", "cap-notify"]
 ISUPPORT = {"NICKLEN": "16", "PREFIX": "(o)@", "CHANTYPES": "#", "TARGMAX": "PRIVMSG:1,JOIN:1,PART:1,KICK:1"}
 
@@ -446,7 +446,7 @@ class UserConnection:
         Expected response: ":Alice!AliceUsr@127.0.0.1 PONG :mantatail"
         """
         self.send_que.put(("PING :mantatail", "mantatail"))
-        threading.Timer(5, self.assert_pong_received).start()
+        threading.Timer(240, self.assert_pong_received).start()
 
     def assert_pong_received(self) -> None:
         """
