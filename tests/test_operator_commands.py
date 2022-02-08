@@ -321,7 +321,7 @@ def test_operator_no_such_channel(user_alice, helpers):
     assert helpers.receive_line(user_alice) == b":mantatail 403 Alice #foo :No such channel\r\n"
 
 
-def test_operator_no_privileges(user_alice, user_bob, helpers):
+def test_mode_no_operator_privileges(user_alice, user_bob, helpers):
     user_alice.sendall(b"JOIN #foo\r\n")
     time.sleep(0.1)
     user_bob.sendall(b"JOIN #foo\r\n")
@@ -332,6 +332,12 @@ def test_operator_no_privileges(user_alice, user_bob, helpers):
         pass
 
     user_bob.sendall(b"MODE #foo +o Alice\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_bob.sendall(b"MODE #foo +t\r\n")
+    assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
+
+    user_bob.sendall(b"MODE #foo +b Alice\r\n")
     assert helpers.receive_line(user_bob) == b":mantatail 482 Bob #foo :You're not channel operator\r\n"
 
 
