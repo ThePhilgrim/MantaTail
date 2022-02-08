@@ -57,7 +57,7 @@ class State:
         # i: Make user invisible, and hide them from e.g WHO, NAMES commands.
         # o: Set/Unset channel operator (channel)
         # t: Only operator can set channel topic (channel)
-        self.supported_modes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": ["i"], "PREFIX": ["o"]}
+        self.supported_modes: Dict[str, List[str]] = {"A": ["b"], "B": [], "C": [], "D": ["i", "t"], "PREFIX": ["o"]}
 
     def find_user(self, nick: str) -> Optional[UserConnection]:
         """
