@@ -130,9 +130,6 @@ def handle_join(state: server.State, user: server.UserConnection, args: List[str
             join_msg = f"JOIN {channel_name}"
             channel.queue_message_to_chan_users(join_msg, user)
 
-            if "away-notify" in user.cap_list:
-                handle_who(state, user, [channel.name])
-
             if channel.topic:
                 channel.send_topic_to_user(user)
 
