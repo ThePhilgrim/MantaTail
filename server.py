@@ -322,7 +322,7 @@ class UserConnection:
         self.real_name: Optional[str] = None
         self.modes = {"i"}
         self.away: Optional[str] = None  # None = user not away, str = user away
-        self.send_que: queue.Queue[Tuple[str, str] | Tuple[None, str]] = queue.Queue()
+        self.send_que: queue.Queue[Tuple[str, str | None] | Tuple[None, str]] = queue.Queue()
         self.que_thread = threading.Thread(target=self.send_queue_thread)
         self.que_thread.start()
         self.cap_list: Set[str] = set()
@@ -416,7 +416,7 @@ class UserConnection:
         """
         try:
             if prefix is None:
-                message_as_bytes = bytes(f":{message}\r\n", encoding="latin-1")
+                message_as_bytes = bytes(f"{message}\r\n", encoding="latin-1")
             else:
                 message_as_bytes = bytes(f":{prefix} {message}\r\n", encoding="latin-1")
 
@@ -440,10 +440,10 @@ class UserConnection:
         This is done to control that the client still has an open connection to the server.
 
         Ex:
-        Sends ":mantatail PING :mantatail"
-        Expected response: ":Alice!AliceUsr@127.0.0.1 PONG :mantatail"
+        Sends "PING :mantatail"
+        Expected response: "PONG :mantatail"
         """
-        self.send_que.put(("PING :mantatail", "mantatail"))
+        self.send_que.put(("PING :mantatail", None))
         threading.Timer(240, self.assert_pong_received).start()
 
     def assert_pong_received(self) -> None:
