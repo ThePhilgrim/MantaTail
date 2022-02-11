@@ -12,7 +12,7 @@ def test_ping_message(monkeypatch, user_alice, helpers):
     monkeypatch.setattr(server, "PING_TIMER_SECS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
-    while helpers.receive_line(user_alice, 3) != b":mantatail PING :mantatail\r\n":
+    while helpers.receive_line(user_alice, 3) != b"PING :mantatail\r\n":
         pass
 
     user_alice.sendall(b"PONG :mantatail\r\n")
@@ -416,7 +416,7 @@ def test_quit_before_registering(run_server, helpers):
     with socket.socket() as nc:
         nc.connect(("localhost", 6667))  # nc localhost 6667
         nc.sendall(b"QUIT\n")
-        assert helpers.receive_line(nc) == b":QUIT :Quit: Client quit\r\n"
+        assert helpers.receive_line(nc) == b"QUIT :Quit: Client quit\r\n"
 
 
 def test_quit_reasons(run_server, helpers):
