@@ -51,9 +51,13 @@ def test_nick_change(user_alice, user_bob, helpers):
         == b":NewNick!AliceUsr@127.0.0.1 PRIVMSG #foo :Alice should have a new user mask\r\n"
     )
 
+    user_alice.sendall(b"NICK :newnick\r\n")
+    assert helpers.receive_line(user_alice) == b":NewNick!AliceUsr@127.0.0.1 NICK :newnick\r\n"
+    assert helpers.receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 NICK :newnick\r\n"
+
     user_alice.sendall(b"NICK :NEWNICK\r\n")
-    assert helpers.receive_line(user_alice) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
-    assert helpers.receive_line(user_bob) == b":NewNick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+    assert helpers.receive_line(user_alice) == b":newnick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
+    assert helpers.receive_line(user_bob) == b":newnick!AliceUsr@127.0.0.1 NICK :NEWNICK\r\n"
 
     user_alice.sendall(b"NICK :NEWNICK\r\n")
 

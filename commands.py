@@ -229,7 +229,9 @@ def handle_nick(state: server.State, user: server.UserConnection, args: List[str
     if not re.fullmatch(nick_regex, new_nick):
         errors.erroneus_nickname(user, new_nick)
         return
-    elif new_nick in state.connected_users.keys():
+
+    existing_user = state.find_user(new_nick)
+    if existing_user is not None and existing_user != user:
         errors.nick_in_use(user, new_nick)
     else:
         if user.nick == "*":
