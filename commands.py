@@ -477,7 +477,7 @@ def handle_ping(state: server.State, user: server.UserConnection, args: List[str
     :mantatail PONG mantatail :blah blah
     """
     if args:
-        user.send_que.put(("PONG mantatail :" + args[0], "mantatail"))
+        user.send_que.put((f"PONG mantatail :{args[0]}", "mantatail"))
     else:
         errors.not_enough_params(user, "PING")
 
