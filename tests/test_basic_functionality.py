@@ -8,7 +8,7 @@ import time
 import server
 
 
-def test_ping_message(monkeypatch, user_alice, helpers):
+def test_server_sends_ping(monkeypatch, user_alice, helpers):
     monkeypatch.setattr(server, "PING_TIMER_SECS", 2)
     user_alice.sendall(b"JOIN #foo\r\n")
 
@@ -16,6 +16,14 @@ def test_ping_message(monkeypatch, user_alice, helpers):
         pass
 
     user_alice.sendall(b"PONG :mantatail\r\n")
+
+
+def test_client_sends_ping(user_alice, helpers):
+    user_alice.sendall(b"PING :blah blah\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail PONG mantatail :blah blah\r\n"
+
+    user_alice.sendall(b"PING\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 461 Alice PING :Not enough parameters\r\n"
 
 
 def test_join_channel(user_alice, user_bob, helpers):
