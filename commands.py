@@ -470,7 +470,12 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
 
 
 def handle_ping(state: server.State, user: server.UserConnection, args: List[str]) -> None:
-    """Handles a PING message sent from a client to the server."""
+    """Handles a PING message sent from a client to the server.
+
+    Ex:
+    PING :blah blah
+    :mantatail PONG mantatail :blah blah
+    """
     if args:
         user.send_que.put(("PONG mantatail :" + args[0], "mantatail"))
     else:
