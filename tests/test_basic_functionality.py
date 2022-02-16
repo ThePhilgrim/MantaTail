@@ -244,6 +244,18 @@ def test_message_starting_with_colon(user_alice, user_bob, helpers):
     assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O\r\n"
 
 
+def test_whois_reply(user_alice, user_bob, helpers):
+    user_alice.sendall(b"WHOIS Alice\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Alice AliceUsr 127.0.0.1 * :Alice's real name\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 312 Alice Alice Mantatail :Running locally\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Alice :End of /WHOIS list.\r\n"
+
+    user_alice.sendall(b"WHOIS Bob\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 311 Bob Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 312 Bob Bob Mantatail :Running locally\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 318 Bob Bob :End of /WHOIS list.\r\n"
+
+
 ### Netcat tests
 # netcat sends \n line endings, but is fine receiving \r\n
 def test_connect_via_netcat(run_server, helpers):

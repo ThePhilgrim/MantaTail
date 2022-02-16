@@ -469,6 +469,24 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
     user.send_que.put((end_of_who_message, "mantatail"))
 
 
+def handle_whois(state: server.State, user: server.UserConnection, args: List[str]) -> None:
+    if not args:
+        errors.not_enough_params(user, "WHOIS")
+        return
+
+    whois_user = None
+
+    if len(args) == 2:
+        whois_user = state.find_user(args[1])
+    else:
+        pass
+        
+
+    if not whois_user:
+        errors.no_such_nick_channel(user, whois_user)
+        ---
+
+
 def handle_pong(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Handles client's PONG response to a PING message sent from the server.
