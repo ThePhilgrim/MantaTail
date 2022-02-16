@@ -470,7 +470,8 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
 
 
 def handle_ping(state: server.State, user: server.UserConnection, args: List[str]) -> None:
-    """Handles a PING message sent from a client to the server.
+    """
+    Handles a PING message sent from a client to the server.
 
     Ex.
         PING :This_is_a_parameter
