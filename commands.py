@@ -485,7 +485,9 @@ def handle_whois(state: server.State, user: server.UserConnection, args: List[st
     elif len(args) >= 2:
         param_2_user = state.find_user(args[1])
 
-        if not param_1_user and args[0] != "mantatail":
+        if (
+            not param_1_user and args[0] != "mantatail.chat"
+        ):  # TODO: Update "mantatail.chat" when/if server gets an official name.
             errors.no_such_server(user, args[0])
         elif not param_2_user:
             errors.no_such_nick_channel(user, args[1])

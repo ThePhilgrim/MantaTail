@@ -201,6 +201,10 @@ def test_whois_command(user_alice, user_bob, user_charlie, helpers):
     assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
     assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Bob :End of /WHOIS list.\r\n"
 
+    user_alice.sendall(b"WHOIS mantatail.chat Bob\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Bob :End of /WHOIS list.\r\n"
+
 
 def test_send_privmsg_to_user(user_alice, user_bob, helpers):
     user_alice.sendall(b"PRIVMSG Bob :This is a private message\r\n")
@@ -272,18 +276,6 @@ def test_message_starting_with_colon(user_alice, user_bob, helpers):
     # Alice sends ":O"
     user_alice.sendall(b"PRIVMSG #foo ::O\r\n")
     assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG #foo ::O\r\n"
-
-
-def test_whois_reply(user_alice, user_bob, helpers):
-    user_alice.sendall(b"WHOIS Alice\r\n")
-    assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Alice AliceUsr 127.0.0.1 * :Alice's real name\r\n"
-    assert helpers.receive_line(user_alice) == b":mantatail 312 Alice Alice Mantatail :Running locally\r\n"
-    assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Alice :End of /WHOIS list.\r\n"
-
-    user_alice.sendall(b"WHOIS Bob\r\n")
-    assert helpers.receive_line(user_alice) == b":mantatail 311 Bob Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
-    assert helpers.receive_line(user_alice) == b":mantatail 312 Bob Bob Mantatail :Running locally\r\n"
-    assert helpers.receive_line(user_alice) == b":mantatail 318 Bob Bob :End of /WHOIS list.\r\n"
 
 
 ### Netcat tests
