@@ -172,6 +172,28 @@ def test_who_command(user_alice, user_bob, user_charlie, helpers):
     assert helpers.receive_line(user_charlie) == b":mantatail 315 Charlie Alice :End of /WHO list.\r\n"
 
 
+def test_whois_command(user_alice, user_bob, user_charlie, helpers):
+    user_alice.sendall(b"WHOIS\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 461 Alice WHOIS :Not enough parameters\r\n"
+
+    user_alice.sendall(b"WHOIS Debora\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 401 Alice Debora :No such nick/channel\r\n"
+
+    user_alice.sendall(b"WHOIS Bob\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Bob :End of /WHOIS list.\r\n"
+
+    user_alice.sendall(b"WHOIS Bob Debora\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 401 Alice Debora :No such nick/channel\r\n"
+
+    user_alice.sendall(b"WHOIS Debora Bob\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 402 Alice Debora :No such server\r\n"
+
+    user_alice.sendall(b"WHOIS Charlie Bob\r\n")
+    assert helpers.receive_line(user_alice) == b":mantatail 311 Alice Bob BobUsr 127.0.0.1 * :Bob's real name\r\n"
+    assert helpers.receive_line(user_alice) == b":mantatail 318 Alice Bob :End of /WHOIS list.\r\n"
+
+
 def test_send_privmsg_to_user(user_alice, user_bob, helpers):
     user_alice.sendall(b"PRIVMSG Bob :This is a private message\r\n")
     assert helpers.receive_line(user_bob) == b":Alice!AliceUsr@127.0.0.1 PRIVMSG Bob :This is a private message\r\n"
