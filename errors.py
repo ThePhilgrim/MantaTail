@@ -86,7 +86,7 @@ def banned_from_chan(user: server.UserConnection, channel: server.Channel) -> No
 
 
 def no_such_server(user: server.UserConnection, server_name: str) -> None:
-    """Sent when a user provides a non-existing server as an argument in a commant."""
+    """Sent when a user provides a non-existing server as an argument in a command."""
     message = f"402 {user.nick} {server_name} :No such server"
     user.send_que.put((message, "mantatail"))
 
