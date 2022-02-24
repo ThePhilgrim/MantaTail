@@ -494,6 +494,20 @@ def handle_whois(state: server.State, user: server.UserConnection, args: List[st
             whois_reply(user, param_2_user)
 
 
+def handle_ping(state: server.State, user: server.UserConnection, args: List[str]) -> None:
+    """
+    Handles a PING message sent from a client to the server.
+
+    Ex.
+        PING :This_is_a_parameter
+        :mantatail PONG mantatail :This_is_a_parameter
+    """
+    if args:
+        user.send_que.put((f"PONG mantatail :{args[0]}", "mantatail"))
+    else:
+        errors.not_enough_params(user, "PING")
+
+
 def handle_pong(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Handles client's PONG response to a PING message sent from the server.
