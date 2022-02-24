@@ -469,6 +469,33 @@ def handle_who(state: server.State, user: server.UserConnection, args: List[str]
     user.send_que.put((end_of_who_message, "mantatail"))
 
 
+def handle_whois(state: server.State, user: server.UserConnection, args: List[str]) -> None:
+    if not args:
+        errors.not_enough_params(user, "WHOIS")
+        return
+
+    param_1_user = state.find_user(args[0])
+
+    if len(args) == 1:
+        if not param_1_user:
+            errors.no_such_nick_channel(user, args[0])
+        else:
+            whois_reply(user, param_1_user)
+
+    elif len(args) >= 2:
+        param_2_user = state.find_user(args[1])
+
+        if (
+            not param_1_user and args[0] != "mantatail.chat"
+        ):  # TODO: Update "mantatail.chat" when/if server gets an official name.
+            errors.no_such_server(user, args[0])
+        elif not param_2_user:
+            errors.no_such_nick_channel(user, args[1])
+
+        else:
+            whois_reply(user, param_2_user)
+
+
 def handle_ping(state: server.State, user: server.UserConnection, args: List[str]) -> None:
     """
     Handles a PING message sent from a client to the server.
@@ -513,6 +540,17 @@ def privmsg_to_user(state: server.State, sender: server.UserConnection, receiver
     if receiver_usr.away:
         away_message = f"301 {sender.nick} {receiver_usr.nick} :{receiver_usr.away}"
         sender.send_que.put((away_message, "mantatail"))
+
+
+def whois_reply(user: server.UserConnection, whois_user: server.UserConnection) -> None:
+    whoisuser_message = (
+        f"311 {user.nick} {whois_user.nick} {whois_user.user_name} {whois_user.host} * :{whois_user.real_name}"
+    )
+
+    endofwhois_message = f"318 {user.nick} {whois_user.nick} :End of /WHOIS list."
+
+    user.send_que.put((whoisuser_message, "mantatail"))
+    user.send_que.put((endofwhois_message, "mantatail"))
 
 
 def rpl_welcome(user: server.UserConnection) -> None:
